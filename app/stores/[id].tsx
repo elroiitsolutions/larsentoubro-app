@@ -43,6 +43,9 @@ export default function StoreInventoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isLoadingMoreRef = React.useRef(false);
+  const currentPageRef = React.useRef(1);
+
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -64,6 +67,8 @@ export default function StoreInventoryScreen() {
     try {
       setError(null);
       setLoading(true);
+      isLoadingMoreRef.current = false;
+      currentPageRef.current = 1;
       const [storeData, toolsRes] = await Promise.all([
         storeService.getStoreById(id),
         toolService.getStoreToolsPaginated(id, {
@@ -99,12 +104,13 @@ export default function StoreInventoryScreen() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Load next 50 tools on scroll (elastic infinite continuous feed)
+  // Load next 50 tools on scroll (elastic infinite continuous feed with race-condition lock & deduplication)
   const handleLoadMore = async () => {
-    if (loadingMore || !hasMore || loading || refreshing) return;
+    if (isLoadingMoreRef.current || !hasMore || loading || refreshing) return;
+    isLoadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const nextPage = page + 1;
+      const nextPage = currentPageRef.current + 1;
       const toolsRes = await toolService.getStoreToolsPaginated(id, {
         page: nextPage,
         limit: 50,
@@ -116,22 +122,31 @@ export default function StoreInventoryScreen() {
       });
       const newItems = toolsRes?.data || [];
       if (newItems.length > 0) {
-        setTools((prev) => [...prev, ...newItems]);
+        currentPageRef.current = nextPage;
         setPage(nextPage);
-        const total = toolsRes?.total || totalServerTools;
-        setHasMore((tools.length + newItems.length) < total);
+        setTools((prev) => {
+          const existingIds = new Set(prev.map((t) => t._id));
+          const uniqueNew = newItems.filter((t) => !existingIds.has(t._id));
+          const updated = [...prev, ...uniqueNew];
+          const total = toolsRes?.total || totalServerTools;
+          setHasMore(updated.length < total);
+          return updated;
+        });
       } else {
         setHasMore(false);
       }
     } catch (err) {
       console.error("Failed to load more tools on scroll:", err);
     } finally {
+      isLoadingMoreRef.current = false;
       setLoadingMore(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
+    isLoadingMoreRef.current = false;
+    currentPageRef.current = 1;
     fetchInitialData();
   };
 
@@ -280,7 +295,7 @@ export default function StoreInventoryScreen() {
         decelerationRate="normal"
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => item._id ? `${item._id}-${index}` : String(index)}
         contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
         refreshControl={

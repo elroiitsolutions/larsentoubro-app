@@ -404,7 +404,7 @@ export default function ToolsCatalogScreen() {
           windowSize={11}
           removeClippedSubviews={true}
           decelerationRate="normal"
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item, index) => item._id ? `${item._id}-${index}` : String(index)}
           contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -612,7 +612,7 @@ export default function ToolsCatalogScreen() {
           ListFooterComponent={
             <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>
-                Showing ${paginatedTools.length} of ${filteredTools.length} tools
+                Showing {paginatedTools.length} of {filteredTools.length} tools
               </Text>
             </View>
           }
