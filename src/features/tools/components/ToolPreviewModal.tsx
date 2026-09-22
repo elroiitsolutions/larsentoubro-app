@@ -55,7 +55,7 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
                 {tool.name || tool.description || tool.toolType || 'Industrial Equipment'}
               </Text>
               <Text className="text-xs font-mono text-slate-400 mt-0.5">
-                ID: {tool.toolId || tool.toolCode || tool._id.substring(tool._id.length - 6).toUpperCase()}{tool.toolCode && tool.toolId ? ` • Code: ${tool.toolCode}` : ""}
+                ID: {tool.toolId || tool.toolCode || tool._id.substring(tool._id.length - 6).toUpperCase()}
               </Text>
             </View>
             <StatusBadge status={tool.status || 'Available'} size="md" />

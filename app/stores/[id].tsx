@@ -327,16 +327,9 @@ export default function StoreInventoryScreen() {
                       >
                         {item.name || item.description || item.toolType || "Industrial Tool"}
                       </Text>
-                      <View className="flex-row items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                        <Text className="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-200">
-                          ID: {item.toolId || item.toolCode || item._id.substring(item._id.length - 6).toUpperCase()}
-                        </Text>
-                        {Boolean(item.toolCode && item.toolId && item.toolCode !== item.toolId) && (
-                          <Text className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400">
-                            • Code: {item.toolCode}
-                          </Text>
-                        )}
-                      </View>
+                      <Text className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                        ID: {item.toolId || item.toolCode || item._id.substring(item._id.length - 6).toUpperCase()}
+                      </Text>
                     </View>
                   </View>
 

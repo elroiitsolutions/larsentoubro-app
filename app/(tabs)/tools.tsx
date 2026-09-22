@@ -452,7 +452,7 @@ export default function ToolsCatalogScreen() {
                           marginTop: 2,
                         }}
                       >
-                        ID: {code}{item.toolCode && item.toolId && item.toolCode !== item.toolId ? ` • Code: ${item.toolCode}` : ""} • SN: {item.serialNumber || "N/A"}
+                        ID: {code} • SN: {item.serialNumber || "N/A"}
                       </Text>
                     </View>
                     <StatusBadge status={item.status || "Available"} />
