@@ -101,7 +101,16 @@ export default function QRScannerScreen() {
         try {
           foundTool = await toolService.getToolById(cleanedId);
         } catch (e) {
-          // Fallback to searching tools
+          // Fallback
+        }
+      }
+
+      // If not found by cleanedId, also try matching the full QR code link directly
+      if (!foundTool && codeOrId && codeOrId.trim() !== cleanedId) {
+        try {
+          foundTool = await toolService.getToolById(codeOrId.trim());
+        } catch (e) {
+          // Fallback
         }
       }
 
@@ -122,7 +131,7 @@ export default function QRScannerScreen() {
       } else {
         Alert.alert(
           "Tool Not Found",
-          `No equipment record matching "${codeOrId}" was found in the database.`,
+          `No equipment record matching "${cleanedId || codeOrId}" was found in the database.`,
           [
             {
               text: "Scan Again",
