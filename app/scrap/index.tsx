@@ -95,7 +95,7 @@ export default function ScrapScreen() {
                       {item.name || item.description || 'Equipment'}
                     </Text>
                     <Text style={{ fontSize: 11, fontFamily: 'monospace', color: theme.textMuted, marginTop: 2 }}>
-                      ID: {item.toolCode || item.toolId} • SN: {item.serialNumber || 'N/A'}
+                      ID: {item.toolId || item.toolCode} • SN: {item.serialNumber || 'N/A'}
                     </Text>
                   </View>
                   <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>

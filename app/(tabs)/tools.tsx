@@ -134,7 +134,7 @@ export default function ToolsCatalogScreen() {
     return tools.filter((t) => {
       // Search
       const name = t.name || t.description || "";
-      const code = t.toolCode || t.toolId || "";
+      const code = t.toolId || t.toolCode || "";
       const serial = t.serialNumber || "";
       const cat = t.category || t.toolType || "";
       const matchesSearch =
@@ -418,7 +418,7 @@ export default function ToolsCatalogScreen() {
           }
           renderItem={({ item }) => {
             const toolName = item.name || item.description || "Industrial Equipment";
-            const code = item.toolCode || item.toolId || item._id.substring(item._id.length - 6).toUpperCase();
+            const code = item.toolId || item.toolCode || item._id.substring(item._id.length - 6).toUpperCase();
             const validationVal = resolveValidationValue(item);
 
             return (
@@ -452,7 +452,7 @@ export default function ToolsCatalogScreen() {
                           marginTop: 2,
                         }}
                       >
-                        ID: {code} • SN: {item.serialNumber || "N/A"}
+                        ID: {code}{item.toolCode && item.toolId && item.toolCode !== item.toolId ? ` • Code: ${item.toolCode}` : ""} • SN: {item.serialNumber || "N/A"}
                       </Text>
                     </View>
                     <StatusBadge status={item.status || "Available"} />

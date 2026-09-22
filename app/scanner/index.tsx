@@ -284,7 +284,7 @@ export default function QRScannerScreen() {
                   {scannedTool.name || scannedTool.description || "Industrial Tool"}
                 </Text>
                 <Text className="text-xs font-mono text-slate-400 mt-0.5">
-                  ID: {scannedTool.toolCode || scannedTool.toolId || scannedTool._id}
+                  ID: {scannedTool.toolId || scannedTool.toolCode || scannedTool._id}{scannedTool.toolCode && scannedTool.toolId ? ` • Code: ${scannedTool.toolCode}` : ""}
                 </Text>
                 {scannedTool.category && (
                   <Text className="text-[11px] text-slate-500 mt-0.5">

@@ -127,10 +127,10 @@ export default function ToolDetailsScreen() {
     );
   }
 
-  const toolDisplayCode =
-    tool.toolCode ||
+  const primaryToolId =
     tool.toolId ||
     tool._id.substring(tool._id.length - 8).toUpperCase();
+  const toolDisplayCode = primaryToolId;
 
   const validationVal = resolveValidationValue(tool);
   const validUntilVal = calculateValidUntilDate(tool.dateOfSupply, validationVal);
@@ -157,7 +157,7 @@ export default function ToolDetailsScreen() {
               {tool.name || tool.description || "Equipment Details"}
             </Text>
             <Text className="text-[11px] font-mono text-slate-400">
-              {toolDisplayCode}
+              ID: {primaryToolId}{tool.toolCode ? ` • Code: ${tool.toolCode}` : ""}
             </Text>
           </View>
         </View>
@@ -205,20 +205,40 @@ export default function ToolDetailsScreen() {
           </View>
 
           {/* Identifier pill */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleCopyId}
-            className="flex-row items-center justify-between bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700"
-          >
-            <Text className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300">
-              ID: {toolDisplayCode}
-            </Text>
-            {copied ? (
-              <Check size={14} color="#10B981" />
-            ) : (
-              <Copy size={14} color="#94A3B8" />
+          <View className="gap-2">
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleCopyId}
+              className="flex-row items-center justify-between bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700"
+            >
+              <View className="flex-row items-center gap-2">
+                <Text className="text-xs font-mono font-bold text-slate-900 dark:text-white">
+                  Tool ID: {primaryToolId}
+                </Text>
+                <View className="bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded">
+                  <Text className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                    System ID
+                  </Text>
+                </View>
+              </View>
+              {copied ? (
+                <Check size={14} color="#10B981" />
+              ) : (
+                <Copy size={14} color="#94A3B8" />
+              )}
+            </TouchableOpacity>
+
+            {Boolean(tool.toolCode) && (
+              <View className="flex-row items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                <Text className="text-xs font-mono font-semibold text-indigo-900 dark:text-indigo-300">
+                  Item Code: {tool.toolCode}
+                </Text>
+                <Text className="text-[10px] font-medium text-slate-400">
+                  Tool Code
+                </Text>
+              </View>
             )}
-          </TouchableOpacity>
+          </View>
 
           {/* Life Extension Action if Inspection Due or Expired */}
           {(tool.status?.toLowerCase().includes("inspection") ||

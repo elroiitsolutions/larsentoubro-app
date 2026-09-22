@@ -116,7 +116,7 @@ export default function TrashScreen() {
                       {item.name || item.description || 'Deleted Tool'}
                     </Text>
                     <Text style={{ fontSize: 11, fontFamily: 'monospace', color: theme.textMuted, marginTop: 2 }}>
-                      ID: {item.toolCode || item.toolId} • SN: {item.serialNumber || 'N/A'}
+                      ID: {item.toolId || item.toolCode} • SN: {item.serialNumber || 'N/A'}
                     </Text>
                   </View>
                   <View style={{ backgroundColor: isDark ? '#3E1010' : '#FEE2E2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
