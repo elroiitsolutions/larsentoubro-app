@@ -47,32 +47,73 @@ export default function QRScannerScreen() {
 
   const scanLock = useRef(false);
 
+  const resumeScanning = () => {
+    setScannedTool(null);
+    setManualInput("");
+    setLoading(false);
+    // 300ms buffer prevents re-trigger loop if barcode is still in camera frame
+    setTimeout(() => {
+      scanLock.current = false;
+      setScanned(false);
+    }, 300);
+  };
+
   const handleToolLookup = async (codeOrId: string) => {
     if (loading || scanLock.current) return;
     scanLock.current = true;
     setLoading(true);
 
     try {
-      // 1. If scanned content is a full URL, extract the last path segment (ID)
-      let cleanedId = codeOrId.trim();
+      let cleanedId = (codeOrId || "").trim();
+
+      // Check if scanned value contains query parameters (e.g., ?toolId=... or ?id=...)
+      if (cleanedId.includes("?")) {
+        try {
+          const queryString = cleanedId.split("?")[1] || "";
+          const searchParams = new URLSearchParams(queryString);
+          const candidate =
+            searchParams.get("toolId") ||
+            searchParams.get("id") ||
+            searchParams.get("toolCode") ||
+            searchParams.get("code");
+          if (candidate) {
+            cleanedId = candidate;
+          }
+        } catch {
+          // fallback
+        }
+      }
+
+      // If scanned content is a full URL or path, extract the last non-empty segment
       if (cleanedId.includes("/")) {
         const parts = cleanedId.split("/").filter(Boolean);
-        cleanedId = parts[parts.length - 1];
+        if (parts.length > 0) {
+          cleanedId = parts[parts.length - 1];
+        }
       }
 
-      // 2. First try fetching directly by ID
+      // Strip any query strings or hashes remaining in segment
+      cleanedId = cleanedId.split("?")[0].split("#")[0].trim();
+
+      // 1. First try fetching directly by ID / Code / Serial
       let foundTool: ToolRecord | null = null;
-      try {
-        foundTool = await toolService.getToolById(cleanedId);
-      } catch (e) {
-        // Fallback to searching tools
+      if (cleanedId) {
+        try {
+          foundTool = await toolService.getToolById(cleanedId);
+        } catch (e) {
+          // Fallback to searching tools
+        }
       }
 
-      // 3. If not found, search tools list by code/serial
-      if (!foundTool) {
-        const results = await toolService.getAllTools({ search: cleanedId });
-        if (results && results.length > 0) {
-          foundTool = results[0];
+      // 2. If not found directly, search tools list by code/serial/name
+      if (!foundTool && cleanedId) {
+        try {
+          const results = await toolService.getAllTools({ search: cleanedId });
+          if (results && results.length > 0) {
+            foundTool = results[0];
+          }
+        } catch (searchErr) {
+          // Safely catch any search endpoint errors so UI doesn't crash
         }
       }
 
@@ -82,13 +123,32 @@ export default function QRScannerScreen() {
         Alert.alert(
           "Tool Not Found",
           `No equipment record matching "${codeOrId}" was found in the database.`,
-          [{ text: "Scan Again", onPress: () => resumeScanning() }]
+          [
+            {
+              text: "Scan Again",
+              onPress: () => resumeScanning(),
+            },
+          ],
+          {
+            cancelable: true,
+            onDismiss: () => resumeScanning(),
+          }
         );
       }
     } catch (err: any) {
       Alert.alert(
         "Lookup Error",
-        err?.response?.data?.message || err?.message || "Failed to query tool database."
+        err?.response?.data?.message || err?.message || "Failed to query tool database.",
+        [
+          {
+            text: "OK",
+            onPress: () => resumeScanning(),
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss: () => resumeScanning(),
+        }
       );
     } finally {
       setLoading(false);
@@ -99,13 +159,6 @@ export default function QRScannerScreen() {
     if (scanned || scanLock.current) return;
     setScanned(true);
     handleToolLookup(result.data);
-  };
-
-  const resumeScanning = () => {
-    setScanned(false);
-    setScannedTool(null);
-    setManualInput("");
-    scanLock.current = false;
   };
 
   if (!permission) {
