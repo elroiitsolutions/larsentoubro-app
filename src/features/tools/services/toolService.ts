@@ -9,6 +9,8 @@ import {
   ToolTransferPayload,
   ScrapPayload,
   FilterOptionsResponse,
+  ToolValidityResponse,
+  ToolValidityData,
 } from "../types";
 
 export const toolService = {
@@ -247,6 +249,32 @@ export const toolService = {
     toolIds: string[]
   ): Promise<{ success: boolean; message?: string; data?: any }> => {
     const response = await api.post("/api/tools/mark-printed", { toolIds });
+    return response.data;
+  },
+
+  /**
+   * Unmarks tools as Printed.
+   */
+  unmarkToolsAsPrinted: async (
+    toolIds: string[]
+  ): Promise<{ success: boolean; message?: string; data?: any }> => {
+    const response = await api.post("/api/tools/unmark-printed", { toolIds });
+    return response.data;
+  },
+
+  /**
+   * Looks up tool validity and sanitized specs for QR scanner / Guest access.
+   */
+  lookupToolValidity: async (
+    code: string,
+    options: { storeId?: string; projectId?: string } = {}
+  ): Promise<ToolValidityResponse> => {
+    const params: Record<string, string> = { code };
+    if (options.storeId) params.storeId = options.storeId;
+    if (options.projectId) params.projectId = options.projectId;
+    const response = await api.get<ToolValidityResponse>("/api/tools/lookup-validity", {
+      params,
+    });
     return response.data;
   },
 };

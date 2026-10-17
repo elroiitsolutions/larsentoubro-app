@@ -37,6 +37,7 @@ import {
   LogOut,
   ChevronRight,
   LucideIcon,
+  QrCode,
 } from "lucide-react-native";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -107,6 +108,22 @@ export const SidebarDrawer: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const isAdmin = user?.role === "Admin";
+  const isGuest = user?.role === "Guest";
+
+  const visibleSections = React.useMemo(() => {
+    if (isGuest) {
+      return [
+        {
+          title: "Scanner",
+          items: [{ label: "QR / Barcode Scanner", route: "/scanner", icon: QrCode }],
+        },
+      ];
+    }
+    return MENU_SECTIONS.filter((sec) => !sec.adminOnly || isAdmin).map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.adminOnly || isAdmin),
+    }));
+  }, [isGuest, isAdmin]);
 
   const animProgress = useSharedValue(0);
 
@@ -303,7 +320,7 @@ export const SidebarDrawer: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {MENU_SECTIONS.filter((sec) => !sec.adminOnly || isAdmin).map((section) => (
+          {visibleSections.map((section) => (
             <View key={section.title} style={{ marginBottom: 16 }}>
               <Text
                 style={{
@@ -319,9 +336,7 @@ export const SidebarDrawer: React.FC = () => {
                 {section.title}
               </Text>
 
-              {section.items
-                .filter((item) => !item.adminOnly || isAdmin)
-                .map((item) => {
+              {section.items.map((item) => {
                   const IconComp = item.icon;
                   const isActive =
                     pathname === item.route ||
@@ -400,8 +415,10 @@ export const SidebarDrawer: React.FC = () => {
         >
           {/* User Info Tile */}
           <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => handleNavigate("/(tabs)/profile")}
+            activeOpacity={isGuest ? 1 : 0.8}
+            onPress={() => {
+              if (!isGuest) handleNavigate("/(tabs)/profile");
+            }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -418,14 +435,14 @@ export const SidebarDrawer: React.FC = () => {
                 width: 36,
                 height: 36,
                 borderRadius: 10,
-                backgroundColor: theme.primary,
+                backgroundColor: isGuest ? "#059669" : theme.primary,
                 alignItems: "center",
                 justifyContent: "center",
                 marginRight: 10,
               }}
             >
               <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 13 }}>
-                {initials}
+                {isGuest ? "G" : initials}
               </Text>
             </View>
             <View style={{ flex: 1 }}>
@@ -437,7 +454,7 @@ export const SidebarDrawer: React.FC = () => {
                 }}
                 numberOfLines={1}
               >
-                {user?.name || "L&T Operator"}
+                {isGuest ? "Guest User" : user?.name || "L&T Operator"}
               </Text>
               <Text
                 style={{
@@ -446,10 +463,10 @@ export const SidebarDrawer: React.FC = () => {
                 }}
                 numberOfLines={1}
               >
-                {user?.role || "Employee"}
+                {isGuest ? "QR Scanner Access" : user?.role || "Employee"}
               </Text>
             </View>
-            <ChevronRight size={16} color={theme.textMuted} />
+            {!isGuest && <ChevronRight size={16} color={theme.textMuted} />}
           </TouchableOpacity>
 
           {/* Sign Out Button */}

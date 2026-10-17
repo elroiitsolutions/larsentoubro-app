@@ -104,10 +104,16 @@ export default function DashboardScreen() {
     }
   };
 
-  const hasActiveFilters =
+  const hasActiveFilters = Boolean(
     (filters.status && filters.status !== "All") ||
     (filters.division && filters.division !== "All") ||
-    (filters.project && filters.project !== "All");
+    (filters.project && filters.project !== "All") ||
+    (filters.store && filters.store !== "All") ||
+    (filters.hub && filters.hub !== "All") ||
+    (filters.category && filters.category !== "All") ||
+    filters.startDate ||
+    filters.endDate
+  );
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} className="flex-1 bg-slate-50 dark:bg-slate-950">
@@ -183,9 +189,34 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             )}
+            {filters.category && filters.category !== "All" && (
+              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
+                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  {filters.category}
+                </Text>
+              </View>
+            )}
+            {filters.startDate && (
+              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
+                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  Since {filters.startDate}
+                </Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity
-            onPress={() => setFilters({ status: "All", division: "All", project: "All" })}
+            onPress={() =>
+              setFilters({
+                status: "All",
+                division: "All",
+                project: "All",
+                category: undefined,
+                store: undefined,
+                hub: undefined,
+                startDate: undefined,
+                endDate: undefined,
+              })
+            }
             className="p-1 rounded-full bg-indigo-100 dark:bg-indigo-900"
           >
             <X size={12} color="#4F46E5" />

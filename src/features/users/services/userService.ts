@@ -12,6 +12,11 @@ export const userService = {
     return res.data?.data || null;
   },
 
+  createUser: async (data: Partial<UserRecord> & { password?: string }) => {
+    const res = await api.post<{ success: boolean; data: UserRecord }>("/api/users", data);
+    return res.data;
+  },
+
   updateUser: async (id: string, data: Partial<UserRecord>) => {
     const res = await api.put(`/api/users/${id}`, data);
     return res.data;

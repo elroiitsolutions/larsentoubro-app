@@ -28,8 +28,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isInitialized: true,
         });
 
-        // Silently refresh profile in background
-        get().refreshProfile();
+        // Silently refresh profile in background for non-guest users
+        if (user.role !== "Guest") {
+          get().refreshProfile();
+        }
       } else {
         set({
           token: null,

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Building2 } from "lucide-react-native";
+import { Mail, Lock, Building2, QrCode } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { loginSchema, LoginFormValues } from "../validation/loginSchema";
 import { useAuthStore } from "../store/authStore";
@@ -66,6 +66,26 @@ export const LoginForm: React.FC = () => {
         resData?.message ||
         err?.message ||
         "Unable to connect to the server. Please check your network.";
+      setServerError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setServerError(null);
+    setLoading(true);
+    try {
+      const data = await authService.guestLogin();
+      if (!data.success || !data.token || !data.user) {
+        throw new Error(data.message || "Failed to log in as Guest");
+      }
+      await login(data.token, data.user);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to log in as Guest";
       setServerError(message);
     } finally {
       setLoading(false);
@@ -176,6 +196,31 @@ export const LoginForm: React.FC = () => {
           loading={loading}
           size="lg"
         />
+
+        {/* Guest Divider */}
+        <View className="relative my-4 flex-row items-center justify-center">
+          <View className="absolute inset-0 flex-row items-center">
+            <View className="w-full border-t border-slate-200 dark:border-slate-800" />
+          </View>
+          <View className="bg-white dark:bg-slate-900 px-3">
+            <Text className="text-[10px] uppercase font-bold text-slate-400">
+              Or access as Guest
+            </Text>
+          </View>
+        </View>
+
+        {/* Continue as Guest Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleGuestLogin}
+          disabled={loading}
+          className="w-full flex-row items-center justify-center py-3 px-4 rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30"
+        >
+          <QrCode size={18} color="#059669" className="mr-2" />
+          <Text className="text-xs font-bold text-emerald-700 dark:text-emerald-400 ml-2">
+            Continue as Guest User
+          </Text>
+        </TouchableOpacity>
 
         <Text className="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-5 leading-normal">
           Authorized personnel only. Contact your administrator if you need access.

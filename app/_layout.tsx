@@ -13,7 +13,7 @@ import { SidebarDrawer } from "@/components/sidebar/SidebarDrawer";
 
 function InnerRootLayout() {
   const { isDark } = useAppTheme();
-  const { isAuthenticated, isInitialized, initializeAuth } = useAuthStore();
+  const { isAuthenticated, isInitialized, user, initializeAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -33,9 +33,18 @@ function InnerRootLayout() {
     if (!isAuthenticated && !inAuthGroup && segments.length > 0) {
       router.replace("/(auth)/login" as any);
     } else if (isAuthenticated && inAuthGroup) {
-      router.replace("/(tabs)" as any);
+      if (user?.role === "Guest") {
+        router.replace("/scanner" as any);
+      } else {
+        router.replace("/(tabs)" as any);
+      }
+    } else if (isAuthenticated && user?.role === "Guest") {
+      const inScanner = segments.some((s) => s === "scanner");
+      if (!inScanner) {
+        router.replace("/scanner" as any);
+      }
     }
-  }, [isAuthenticated, isInitialized, segments]);
+  }, [isAuthenticated, isInitialized, user, segments]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

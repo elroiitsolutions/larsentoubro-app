@@ -162,3 +162,23 @@ export const calculateValidUntilDate = (
     return '-';
   }
 };
+
+export interface ToolValidityData {
+  toolId: string;
+  description: string;
+  project: string;
+  store: string;
+  expiryDate: string;
+  validityStatus: 'VALID' | 'EXPIRED' | 'INVALID_EXPIRY';
+  validityLabel: string;
+  isValid: boolean;
+  status: string;
+}
+
+export interface ToolValidityResponse {
+  success: boolean;
+  status?: string;
+  message?: string;
+  data?: ToolValidityData;
+}
+

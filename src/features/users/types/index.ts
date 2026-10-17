@@ -2,14 +2,17 @@ export interface UserRecord {
   _id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Store Incharge' | 'Operator' | 'Vendor' | string;
-  status: 'Active' | 'Inactive' | 'Pending';
-  department?: string;
+  phonenumber?: string;
   phone?: string;
-  assignedStores?: string[];
-  assignedProjects?: string[];
-  vendorScope?: string;
+  role: 'Admin' | 'User' | 'Vendor' | 'Guest' | string;
+  user_id?: string;
+  allowedPages?: string[];
+  projects?: any[];
+  stores?: any[];
+  status?: 'Active' | 'Inactive' | 'Pending';
+  department?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PendingLoginRequest {

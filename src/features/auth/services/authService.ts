@@ -12,6 +12,14 @@ export const authService = {
   },
 
   /**
+   * Authenticates as a Guest User with QR scanner access.
+   */
+  guestLogin: async (): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>("/api/users/guest-login");
+    return response.data;
+  },
+
+  /**
    * Polls login request approval status for 2FA/Admin approval flow.
    */
   checkLoginRequestStatus: async (requestId: string): Promise<LoginRequestStatusResponse> => {

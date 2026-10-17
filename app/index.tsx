@@ -4,7 +4,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { View, ActivityIndicator } from "react-native";
 
 export default function Index() {
-  const { isAuthenticated, isInitialized } = useAuthStore();
+  const { isAuthenticated, isInitialized, user } = useAuthStore();
 
   if (!isInitialized) {
     return (
@@ -15,6 +15,9 @@ export default function Index() {
   }
 
   if (isAuthenticated) {
+    if (user?.role === "Guest") {
+      return <Redirect href="/scanner" />;
+    }
     return <Redirect href="/(tabs)" />;
   }
 

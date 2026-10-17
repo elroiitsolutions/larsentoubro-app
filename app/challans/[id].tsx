@@ -25,10 +25,17 @@ import {
   MapPin,
   FileText,
   Menu,
+  Share2,
+  Printer,
+  Hash,
 } from "lucide-react-native";
 import { challanService } from "@/features/challans/services/challanService";
 import { ChallanRecord } from "@/features/challans/types";
 import { CreateReturnChallanModal } from "@/features/challans/components/CreateReturnChallanModal";
+import {
+  generateAndShareChallanPdf,
+  printChallanDirectly,
+} from "@/features/challans/utils/challanPdfGenerator";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { Card } from "@/components/ui/Card";
@@ -48,6 +55,7 @@ export default function ChallanDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfActionLoading, setPdfActionLoading] = useState(false);
 
   // Return Challan Modal State
   const [returnModalVisible, setReturnModalVisible] = useState(false);
@@ -79,6 +87,36 @@ export default function ChallanDetailsScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchChallan();
+  };
+
+  const handleSharePdf = async () => {
+    if (!challan) return;
+    try {
+      setPdfActionLoading(true);
+      await generateAndShareChallanPdf(challan, { share: true });
+      if (challan.challanNumber) {
+        challanService.logPdfDownload(challan.challanNumber, "Shared from mobile app");
+      }
+    } catch (err: any) {
+      Alert.alert("PDF Export Error", err?.message || "Failed to generate Challan PDF.");
+    } finally {
+      setPdfActionLoading(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!challan) return;
+    try {
+      setPdfActionLoading(true);
+      await printChallanDirectly(challan);
+      if (challan.challanNumber) {
+        challanService.logPdfDownload(challan.challanNumber, "Printed from mobile app");
+      }
+    } catch (err: any) {
+      Alert.alert("Print Error", err?.message || "Failed to print Challan.");
+    } finally {
+      setPdfActionLoading(false);
+    }
   };
 
   if (loading) {
@@ -180,6 +218,16 @@ export default function ChallanDetailsScreen() {
                 <Text className="text-xs font-mono text-slate-500">
                   {challan.challanNumber || challan._id}
                 </Text>
+
+                {challan.indentNo && challan.indentNo !== "-" && challan.indentNo.trim() !== "" && (
+                  <View className="flex-row items-center gap-1.5 mt-1.5 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-md self-start border border-indigo-200 dark:border-indigo-800">
+                    <Hash size={12} color="#4F46E5" />
+                    <Text className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300">INDENT NO:</Text>
+                    <Text className="text-[11px] font-mono font-bold text-indigo-900 dark:text-indigo-200">
+                      {challan.indentNo}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -191,17 +239,78 @@ export default function ChallanDetailsScreen() {
             </View>
           </View>
 
-          {/* Quick Action: Generate Return Challan */}
-          {canCreateReturn && (
-            <View className="pt-3 border-t border-slate-100 dark:border-slate-800">
+          {/* Action Row: Export PDF, Print, Generate Return */}
+          <View className="flex-row gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <View className="flex-1">
               <Button
-                title="Generate Return Challan (RC)"
+                title="Share PDF"
+                variant="outline"
                 size="sm"
-                onPress={() => setReturnModalVisible(true)}
-                icon={<RotateCcw size={14} color="#FFFFFF" />}
+                loading={pdfActionLoading}
+                icon={<Share2 size={13} color="#4F46E5" />}
+                onPress={handleSharePdf}
               />
             </View>
-          )}
+            <View className="flex-1">
+              <Button
+                title="Print"
+                variant="outline"
+                size="sm"
+                loading={pdfActionLoading}
+                icon={<Printer size={13} color="#4F46E5" />}
+                onPress={handlePrint}
+              />
+            </View>
+            {canCreateReturn && (
+              <View className="flex-1">
+                <Button
+                  title="Return (RC)"
+                  size="sm"
+                  onPress={() => setReturnModalVisible(true)}
+                  icon={<RotateCcw size={13} color="#FFFFFF" />}
+                />
+              </View>
+            )}
+          </View>
+        </Card>
+
+        {/* Dispatch & Transit Details Card */}
+        <Card className="p-4 mb-4">
+          <Text className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+            Dispatch & Transit Details
+          </Text>
+
+          <View className="gap-2.5">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xs text-slate-500">Site Code</Text>
+              <Text className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                {challan.siteCode || "-"}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2">
+              <Text className="text-xs text-slate-500">Location / Chainage</Text>
+              <Text className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                {challan.locationChainage || "-"}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2">
+              <Text className="text-xs text-slate-500">Vehicle Number</Text>
+              <Text className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200">
+                {challan.vehicleNo || "-"}
+              </Text>
+            </View>
+
+            {challan.gatePassNo && challan.gatePassNo !== "-" && (
+              <View className="flex-row items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2">
+                <Text className="text-xs text-slate-500">Gate Pass No</Text>
+                <Text className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200">
+                  {challan.gatePassNo}
+                </Text>
+              </View>
+            )}
+          </View>
         </Card>
 
         {/* Vendor / Destination Party Card */}

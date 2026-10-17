@@ -23,6 +23,9 @@ export default function NewChallanScreen() {
   const [contactPerson, setContactPerson] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [siteLocation, setSiteLocation] = useState("");
+  const [indentNo, setIndentNo] = useState("");
+  const [siteCode, setSiteCode] = useState("");
+  const [vehicleNo, setVehicleNo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +39,11 @@ export default function NewChallanScreen() {
     try {
       const payload = {
         challanType,
+        indentNo: indentNo.trim() || undefined,
+        siteCode: siteCode.trim() || undefined,
+        vehicleNo: vehicleNo.trim().toUpperCase() || undefined,
+        subcontractorName: vendorName.trim(),
+        locationChainage: siteLocation.trim() || undefined,
         vendor: {
           name: vendorName.trim(),
           vendorCode: vendorCode.trim() || undefined,
@@ -177,6 +185,35 @@ export default function NewChallanScreen() {
             />
           </View>
         </View>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Input
+              label="Indent Number"
+              placeholder="e.g. IND-2026-001"
+              value={indentNo}
+              onChangeText={setIndentNo}
+              autoCapitalize="characters"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Input
+              label="Site Code"
+              placeholder="e.g. SC-102"
+              value={siteCode}
+              onChangeText={setSiteCode}
+              autoCapitalize="characters"
+            />
+          </View>
+        </View>
+
+        <Input
+          label="Vehicle Registration Number"
+          placeholder="e.g. MH-04-AB-1234"
+          value={vehicleNo}
+          onChangeText={setVehicleNo}
+          autoCapitalize="characters"
+        />
 
         <Input
           label="Dispatch Remarks / Instructions"

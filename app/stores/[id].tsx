@@ -3,7 +3,28 @@ import { View, Text, FlatList, RefreshControl, TouchableOpacity, Alert, Activity
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Store, MapPin, User, Phone, Wrench, ChevronRight, Plus, Eye, Filter, Clock , Menu } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Store,
+  MapPin,
+  User,
+  Phone,
+  Wrench,
+  ChevronRight,
+  Plus,
+  Eye,
+  Filter,
+  Clock,
+  Menu,
+  CheckSquare,
+  Square,
+  ArrowRightLeft,
+  Recycle,
+  Edit3,
+  Truck,
+  QrCode as QrIcon,
+  X,
+} from "lucide-react-native";
 import { storeService } from "@/features/stores/services/storeService";
 import { toolService } from "@/features/tools/services/toolService";
 import { StoreRecord } from "@/features/stores/types";
@@ -18,6 +39,10 @@ import { SearchBar } from "@/components/common/SearchBar";
 import { CenteredPagination } from "@/components/common/CenteredPagination";
 import { ToolAdvancedFilterModal, ToolFilterState } from "@/features/tools/components/ToolAdvancedFilterModal";
 import { ToolPreviewModal } from "@/features/tools/components/ToolPreviewModal";
+import { ToolTransferModal } from "@/features/tools/components/ToolTransferModal";
+import { ScrapModal } from "@/features/tools/components/ScrapModal";
+import { BulkEditModal } from "@/features/tools/components/BulkEditModal";
+import { BulkQrModal } from "@/features/tools/components/BulkQrModal";
 import { Loader } from "@/components/ui/Loader";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -58,6 +83,49 @@ export default function StoreInventoryScreen() {
 
   // Preview State
   const [previewTool, setPreviewTool] = useState<ToolRecord | null>(null);
+
+  // Batch Operations & Selection State
+  const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [scrapModalOpen, setScrapModalOpen] = useState(false);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkQrModalOpen, setBulkQrModalOpen] = useState(false);
+
+  const selectedTools = useMemo(
+    () => tools.filter((t) => selectedToolIds.has(t._id || t.toolId || "")),
+    [tools, selectedToolIds]
+  );
+
+  const toggleSelectTool = (toolId: string) => {
+    setSelectedToolIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(toolId)) {
+        next.delete(toolId);
+        if (next.size === 0) {
+          setIsSelectionMode(false);
+        }
+      } else {
+        next.add(toolId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedToolIds.size >= tools.length) {
+      setSelectedToolIds(new Set());
+      setIsSelectionMode(false);
+    } else {
+      setSelectedToolIds(new Set(tools.map((t) => t._id)));
+      setIsSelectionMode(true);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedToolIds(new Set());
+    setIsSelectionMode(false);
+  };
 
   const canManageTools = user?.role === "Admin" || user?.role === "Manager";
 
@@ -210,22 +278,75 @@ export default function StoreInventoryScreen() {
           </View>
         </View>
 
-        {canManageTools && (
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() =>
-              router.push({
-                pathname: "/tools/form",
-                params: { storeId: id },
-              } as any)
-            }
-            className="flex-row items-center gap-1.5 bg-indigo-600 px-3 py-2 rounded-xl"
-          >
-            <Plus size={16} color="#FFFFFF" />
-            <Text className="text-xs font-bold text-white">Add Tool</Text>
-          </TouchableOpacity>
-        )}
+        <View className="flex-row items-center gap-2">
+          {canManageTools && (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                if (isSelectionMode) {
+                  handleClearSelection();
+                } else {
+                  setIsSelectionMode(true);
+                }
+              }}
+              className={`flex-row items-center gap-1.5 px-3 py-2 rounded-xl border ${
+                isSelectionMode
+                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700"
+                  : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              }`}
+            >
+              <CheckSquare
+                size={14}
+                color={isSelectionMode ? "#D97706" : "#475569"}
+              />
+              <Text
+                className={`text-xs font-bold ${
+                  isSelectionMode ? "text-amber-800 dark:text-amber-300" : "text-slate-700 dark:text-slate-200"
+                }`}
+              >
+                {isSelectionMode ? "Done" : "Select"}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {canManageTools && (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() =>
+                router.push({
+                  pathname: "/tools/form",
+                  params: { storeId: id },
+                } as any)
+              }
+              className="flex-row items-center gap-1.5 bg-indigo-600 px-3 py-2 rounded-xl"
+            >
+              <Plus size={16} color="#FFFFFF" />
+              <Text className="text-xs font-bold text-white">Add Tool</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
+
+      {/* Batch Selection Banner */}
+      {isSelectionMode && (
+        <View className="bg-indigo-50 dark:bg-indigo-950/60 px-4 py-2 border-b border-indigo-100 dark:border-indigo-900 flex-row items-center justify-between">
+          <Text className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+            {selectedToolIds.size} of {tools.length} Tools Selected
+          </Text>
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity onPress={handleSelectAll}>
+              <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                {selectedToolIds.size >= tools.length ? "Deselect All" : "Select All"}
+              </Text>
+            </TouchableOpacity>
+            {selectedToolIds.size > 0 && (
+              <TouchableOpacity onPress={handleClearSelection}>
+                <Text className="text-xs font-semibold text-slate-500">Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Search & Filter Header */}
       <View className="p-4 pb-2 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
@@ -308,15 +429,41 @@ export default function StoreInventoryScreen() {
         }
         renderItem={({ item }) => {
           const validationVal = resolveValidationValue(item);
+          const isSelected = selectedToolIds.has(item._id);
 
           return (
-            <Card className="p-4 mb-3">
+            <Card className={`p-4 mb-3 border ${isSelected ? "border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20" : "border-slate-100 dark:border-slate-800"}`}>
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={() => setPreviewTool(item)}
+                onPress={() => {
+                  if (isSelectionMode) {
+                    toggleSelectTool(item._id);
+                  } else {
+                    setPreviewTool(item);
+                  }
+                }}
+                onLongPress={() => {
+                  if (!isSelectionMode) {
+                    setIsSelectionMode(true);
+                  }
+                  toggleSelectTool(item._id);
+                }}
               >
                 <View className="flex-row items-start justify-between mb-2">
                   <View className="flex-row items-center flex-1 mr-2">
+                    {isSelectionMode && (
+                      <TouchableOpacity
+                        onPress={() => toggleSelectTool(item._id)}
+                        className="mr-3"
+                      >
+                        {isSelected ? (
+                          <CheckSquare size={20} color="#4F46E5" />
+                        ) : (
+                          <Square size={20} color="#94A3B8" />
+                        )}
+                      </TouchableOpacity>
+                    )}
+
                     <View className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 items-center justify-center mr-3">
                       <Wrench size={18} color="#4F46E5" />
                     </View>
@@ -378,7 +525,7 @@ export default function StoreInventoryScreen() {
           ) : !hasMore && tools.length > 0 ? (
             <View style={{ paddingVertical: 24, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>
-                ✓ All ${(totalServerTools || tools.length).toLocaleString()} tools loaded
+                All ${(totalServerTools || tools.length).toLocaleString()} tools loaded
               </Text>
             </View>
           ) : (
@@ -409,6 +556,88 @@ export default function StoreInventoryScreen() {
         }
       />
 
+      {/* Floating Batch Operations Bar */}
+      {selectedToolIds.size > 0 && (
+        <SafeAreaView edges={["bottom"]} className="absolute bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 p-3 shadow-2xl">
+          <View className="flex-row items-center justify-between mb-2 px-1">
+            <View className="flex-row items-center gap-2">
+              <View className="bg-indigo-600 px-2.5 py-0.5 rounded-full">
+                <Text className="text-xs font-bold text-white">{selectedToolIds.size} Selected</Text>
+              </View>
+              <TouchableOpacity onPress={handleSelectAll}>
+                <Text className="text-xs text-indigo-400 font-semibold">
+                  {selectedToolIds.size >= tools.length ? "Deselect All" : "Select All"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={handleClearSelection} className="p-1">
+              <X size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-row gap-1.5">
+            <View className="flex-1">
+              <TouchableOpacity
+                onPress={() => setTransferModalOpen(true)}
+                className="flex-row items-center justify-center gap-1 py-2.5 px-1 rounded-xl bg-indigo-600 active:bg-indigo-700"
+              >
+                <ArrowRightLeft size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-bold text-white">Transfer</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-1">
+              <TouchableOpacity
+                onPress={() => setScrapModalOpen(true)}
+                className="flex-row items-center justify-center gap-1 py-2.5 px-1 rounded-xl bg-rose-600 active:bg-rose-700"
+              >
+                <Recycle size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-bold text-white">Scrap</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-1">
+              <TouchableOpacity
+                onPress={() => setBulkEditModalOpen(true)}
+                className="flex-row items-center justify-center gap-1 py-2.5 px-1 rounded-xl bg-slate-800 border border-slate-700"
+              >
+                <Edit3 size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-bold text-white">Edit</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-1">
+              <TouchableOpacity
+                onPress={() => setBulkQrModalOpen(true)}
+                className="flex-row items-center justify-center gap-1 py-2.5 px-1 rounded-xl bg-blue-600 active:bg-blue-700"
+              >
+                <QrIcon size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-bold text-white">Print QR</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-1">
+              <TouchableOpacity
+                onPress={() => {
+                  router.push({
+                    pathname: "/challans/new",
+                    params: {
+                      storeId: id,
+                      selectedCount: selectedToolIds.size,
+                    },
+                  } as any);
+                }}
+                className="flex-row items-center justify-center gap-1 py-2.5 px-1 rounded-xl bg-emerald-600 active:bg-emerald-700"
+              >
+                <Truck size={12} color="#FFFFFF" />
+                <Text className="text-[11px] font-bold text-white">Gen DC</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      )}
+
       {/* Advanced Filter Modal */}
       <ToolAdvancedFilterModal
         visible={filterModalVisible}
@@ -427,6 +656,52 @@ export default function StoreInventoryScreen() {
           if (previewTool) {
             router.push(`/tools/${previewTool._id}` as any);
           }
+        }}
+      />
+
+      {/* Batch Modals */}
+      <ToolTransferModal
+        visible={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        sourceStoreId={id!}
+        sourceStoreName={store?.name}
+        toolIds={Array.from(selectedToolIds)}
+        onSuccess={() => {
+          setSelectedToolIds(new Set());
+          setIsSelectionMode(false);
+          fetchInitialData();
+        }}
+      />
+
+      <ScrapModal
+        visible={scrapModalOpen}
+        onClose={() => setScrapModalOpen(false)}
+        toolIds={Array.from(selectedToolIds)}
+        onSuccess={() => {
+          setSelectedToolIds(new Set());
+          setIsSelectionMode(false);
+          fetchInitialData();
+        }}
+      />
+
+      <BulkEditModal
+        visible={bulkEditModalOpen}
+        onClose={() => setBulkEditModalOpen(false)}
+        storeId={id}
+        toolIds={Array.from(selectedToolIds)}
+        onSuccess={() => {
+          setSelectedToolIds(new Set());
+          setIsSelectionMode(false);
+          fetchInitialData();
+        }}
+      />
+
+      <BulkQrModal
+        visible={bulkQrModalOpen}
+        onClose={() => setBulkQrModalOpen(false)}
+        tools={selectedTools}
+        onStatusChange={() => {
+          fetchInitialData();
         }}
       />
     </SafeAreaView>
