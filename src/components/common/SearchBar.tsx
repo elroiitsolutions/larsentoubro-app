@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TextInput, TouchableOpacity } from "react-native";
+import { View, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Search, X } from "lucide-react-native";
 
 interface SearchBarProps {
@@ -7,6 +7,7 @@ interface SearchBarProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   onClear?: () => void;
+  loading?: boolean;
   className?: string;
   style?: any;
 }
@@ -16,6 +17,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onChangeText,
   placeholder = "Search...",
   onClear,
+  loading = false,
   className = "",
   style,
 }) => {
@@ -32,7 +34,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         placeholderTextColor="#94A3B8"
         className="flex-1 text-sm text-slate-900 dark:text-white font-medium h-full"
       />
-      {value.length > 0 && (
+      {loading ? (
+        <ActivityIndicator size="small" color="#4F46E5" style={{ marginLeft: 6 }} />
+      ) : value.length > 0 ? (
         <TouchableOpacity
           onPress={() => {
             onChangeText("");
@@ -42,7 +46,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         >
           <X size={14} color="#64748B" />
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 };
+

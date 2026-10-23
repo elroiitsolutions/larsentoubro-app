@@ -1,5 +1,5 @@
 import { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
-import * as SecureStore from "expo-secure-store";
+import { secureStorage } from "@/services/storage";
 import { STORAGE_KEYS } from "@/constants/storageKeys";
 
 /**
@@ -9,7 +9,7 @@ export async function requestInterceptor(
   config: InternalAxiosRequestConfig
 ): Promise<InternalAxiosRequestConfig> {
   try {
-    const token = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+    const token = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -41,8 +41,8 @@ export async function responseErrorInterceptor(error: AxiosError): Promise<never
 
   if (status === 401) {
     try {
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA);
+      await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+      await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_DATA);
     } catch (e) {
       // Ignore cleanup error
     }

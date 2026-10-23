@@ -163,6 +163,7 @@ export default function ToolFormScreen() {
       title={isEditing ? "Edit Equipment" : "Register Equipment"}
       scrollable={true}
       showBack
+      requiredPage="/tools"
     >
       {loading ? (
         <View style={{ padding: 40, alignItems: "center" }}>

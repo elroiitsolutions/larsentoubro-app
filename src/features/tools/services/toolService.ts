@@ -11,6 +11,8 @@ import {
   FilterOptionsResponse,
   ToolValidityResponse,
   ToolValidityData,
+  InspectToolsPayload,
+  InspectToolsResponse,
 } from "../types";
 
 export const toolService = {
@@ -193,6 +195,17 @@ export const toolService = {
   },
 
   /**
+   * Directly marks tools as Scrapped (from Store Tools inventory).
+   */
+  bulkScrapTools: async (
+    toolIds: string[],
+    reason: string = ""
+  ): Promise<{ success: boolean; message?: string; count?: number; data?: any }> => {
+    const response = await api.post("/api/tools/bulk-scrap", { toolIds, reason });
+    return response.data;
+  },
+
+  /**
    * Fetches soft-deleted tools from Trash (Admin view).
    */
   getDeletedTools: async (
@@ -259,6 +272,16 @@ export const toolService = {
     toolIds: string[]
   ): Promise<{ success: boolean; message?: string; data?: any }> => {
     const response = await api.post("/api/tools/unmark-printed", { toolIds });
+    return response.data;
+  },
+
+  /**
+   * Performs quality inspection on tools (Pass or Fail with Repair/Scrap action).
+   */
+  inspectTools: async (
+    payload: InspectToolsPayload
+  ): Promise<InspectToolsResponse> => {
+    const response = await api.post<InspectToolsResponse>("/api/tools/inspect", payload);
     return response.data;
   },
 

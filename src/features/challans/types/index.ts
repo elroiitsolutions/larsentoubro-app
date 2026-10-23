@@ -1,4 +1,5 @@
 export interface ChallanItemRecord {
+  _id?: string;
   tool?: string;
   toolId: string;
   description?: string;

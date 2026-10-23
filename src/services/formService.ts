@@ -10,6 +10,8 @@ export interface FormFieldDefinition {
   options?: Array<{ id?: string; label: string; value: string | number } | string>;
   defaultValue?: any;
   description?: string;
+  order?: number;
+  validations?: Array<{ type: string; message?: string; value?: any }>;
 }
 
 export interface FormDefinition {

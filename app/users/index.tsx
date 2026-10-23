@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Users,
@@ -11,9 +20,14 @@ import {
   Edit2,
   Lock,
   Layers,
+  ClipboardCheck,
+  FolderGit2,
+  Store,
+  UserCheck,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { userService } from '@/features/users/services/userService';
 import { UserRecord } from '@/features/users/types';
 import { SearchBar } from '@/components/common/SearchBar';
@@ -23,54 +37,88 @@ import { Loader } from '@/components/ui/Loader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { UserFormModal } from '@/features/users/components/UserFormModal';
+import { SubuserFormModal } from '@/features/users/components/SubuserFormModal';
+
+type UserTab = 'users' | 'subusers';
 
 export default function UsersScreen() {
   const router = useRouter();
   const { theme, isDark } = useAppTheme();
+  const { user: currentUser } = useAuthStore();
 
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<UserTab>('users');
+  const [userList, setUserList] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // User Form & Access Modal State
-  const [modalVisible, setModalVisible] = useState(false);
+  // Primary User Modal State
+  const [userModalVisible, setUserModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
 
-  const fetchUsers = useCallback(async () => {
+  // Subuser Modal State
+  const [subuserModalVisible, setSubuserModalVisible] = useState(false);
+  const [selectedSubuser, setSelectedSubuser] = useState<UserRecord | null>(null);
+
+  const canManageSubusers = Boolean(
+    currentUser?.role === 'Admin' || (currentUser as any)?.canCreateUser
+  );
+
+  const fetchData = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
-      const data = await userService.getUsers();
-      setUsers(data);
+      if (activeTab === 'users') {
+        const data = await userService.getUsers();
+        setUserList(data || []);
+      } else {
+        const data = await userService.getSubusers();
+        setUserList(data || []);
+      }
     } catch (err: any) {
-      setError(err?.message || 'Failed to load user list.');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load user list.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleCreateUser = () => {
-    setSelectedUser(null);
-    setModalVisible(true);
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
   };
 
-  const handleEditUser = (user: UserRecord) => {
-    setSelectedUser(user);
-    setModalVisible(true);
+  const handleOpenAdd = () => {
+    if (activeTab === 'users') {
+      setSelectedUser(null);
+      setUserModalVisible(true);
+    } else {
+      setSelectedSubuser(null);
+      setSubuserModalVisible(true);
+    }
   };
 
-  const filteredUsers = users.filter((u) => {
+  const handleEditItem = (item: UserRecord) => {
+    if (activeTab === 'users') {
+      setSelectedUser(item);
+      setUserModalVisible(true);
+    } else {
+      setSelectedSubuser(item);
+      setSubuserModalVisible(true);
+    }
+  };
+
+  const filteredList = userList.filter((u) => {
     const q = searchQuery.toLowerCase();
     return (
       !searchQuery ||
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
       (u.user_id && u.user_id.toLowerCase().includes(q)) ||
       (u.role && u.role.toLowerCase().includes(q))
     );
@@ -80,16 +128,83 @@ export default function UsersScreen() {
     <ScreenWrapper
       title="Users & Access Directory"
       showBack
+      requiredPage="/users"
       headerRight={
-        <TouchableOpacity
-          onPress={handleCreateUser}
-          className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 active:bg-indigo-700 shadow-sm"
-        >
-          <UserPlus size={14} color="#FFFFFF" />
-          <Text className="text-xs font-bold text-white">Add User</Text>
-        </TouchableOpacity>
+        (currentUser?.role === 'Admin' || (activeTab === 'subusers' && canManageSubusers)) ? (
+          <TouchableOpacity
+            onPress={handleOpenAdd}
+            className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 active:bg-indigo-700 shadow-sm"
+          >
+            <UserPlus size={14} color="#FFFFFF" />
+            <Text className="text-xs font-bold text-white">
+              {activeTab === 'users' ? 'Add User' : 'Add Subuser'}
+            </Text>
+          </TouchableOpacity>
+        ) : undefined
       }
     >
+      {/* Tabs Switcher (Visible if user has subuser management privilege) */}
+      {canManageSubusers && (
+        <View
+          style={[
+            styles.tabBar,
+            {
+              backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('users')}
+            style={[
+              styles.tabItem,
+              activeTab === 'users' && [
+                styles.tabItemActive,
+                { backgroundColor: theme.surface },
+              ],
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: activeTab === 'users' ? theme.primary : theme.textSecondary,
+                  fontWeight: activeTab === 'users' ? '700' : '500',
+                },
+              ]}
+            >
+              Organization Users
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('subusers')}
+            style={[
+              styles.tabItem,
+              activeTab === 'subusers' && [
+                styles.tabItemActive,
+                { backgroundColor: theme.surface },
+              ],
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: activeTab === 'subusers' ? theme.primary : theme.textSecondary,
+                  fontWeight: activeTab === 'subusers' ? '700' : '500',
+                },
+              ]}
+            >
+              Subuser Team Accounts
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Search Bar */}
       <View
         style={{
           paddingHorizontal: 16,
@@ -101,168 +216,140 @@ export default function UsersScreen() {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search by name, email, employee ID, role..."
+          placeholder={`Search ${activeTab === 'users' ? 'users' : 'subusers'} by name, ID, email...`}
         />
       </View>
 
+      {/* List */}
       {loading ? (
-        <Loader fullScreen message="Loading user directory..." />
+        <Loader fullScreen message="Loading directory records..." />
       ) : error ? (
-        <ErrorState title="Error" message={error} onRetry={fetchUsers} />
+        <ErrorState title="Error" message={error} onRetry={fetchData} />
       ) : (
         <FlatList
-          data={filteredUsers}
+          data={filteredList}
           keyExtractor={(item) => item._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchUsers();
-              }}
+              onRefresh={onRefresh}
               colors={[theme.primary]}
               tintColor={theme.primary}
             />
           }
           renderItem={({ item }) => {
-            const allowedCount = Array.isArray(item.allowedPages) ? item.allowedPages.length : 0;
+            const isSubuser = Boolean(item.parentUser || activeTab === 'subusers');
+            const parentName =
+              typeof item.parentUser === 'object'
+                ? item.parentUser?.name || item.parentUser?.email
+                : item.parentUser;
+
             return (
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handleEditUser(item)}
+                activeOpacity={0.75}
+                onPress={() => handleEditItem(item)}
+                style={{ marginBottom: 12 }}
               >
-                <Card style={{ marginBottom: 12, overflow: 'hidden' }}>
-                  <View style={{ padding: 14 }}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        marginBottom: 6,
-                      }}
-                    >
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text
-                            style={{
-                              fontSize: 15,
-                              fontWeight: 'bold',
-                              color: theme.text,
-                            }}
-                          >
-                            {item.name}
-                          </Text>
-                          {item.user_id && (
-                            <View
-                              style={{
-                                backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                                paddingHorizontal: 6,
-                                paddingVertical: 1,
-                                borderRadius: 4,
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: '800',
-                                  fontFamily: 'monospace',
-                                  color: theme.textSecondary,
-                                }}
-                              >
-                                {item.user_id}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
-                          {item.email}
-                        </Text>
-                      </View>
-                      <StatusBadge status={item.status || 'Active'} size="sm" />
-                    </View>
-
-                    {/* Metadata & Permissions Pills */}
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        flexWrap: 'wrap',
-                        gap: 6,
-                        marginVertical: 4,
-                      }}
-                    >
-                      <View
+                <Card style={{ padding: 14 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text
                         style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          backgroundColor:
-                            item.role === 'Admin'
-                              ? '#EEF2FF'
-                              : isDark
-                              ? '#1E293B'
-                              : '#F1F5F9',
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 6,
+                          fontSize: 15,
+                          fontWeight: 'bold',
+                          color: theme.text,
                         }}
                       >
-                        <Shield
-                          size={11}
-                          color={item.role === 'Admin' ? '#4F46E5' : theme.textSecondary}
-                        />
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: '700',
-                            color: item.role === 'Admin' ? '#4F46E5' : theme.text,
-                          }}
-                        >
-                          Role: {item.role}
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: theme.textSecondary,
+                          marginTop: 2,
+                        }}
+                      >
+                        ID: {item.user_id || item._id.substring(item._id.length - 6).toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <StatusBadge status={item.role || 'User'} size="sm" />
+                      <Edit2 size={14} color="#94A3B8" />
+                    </View>
+                  </View>
+
+                  {/* Badges Row */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 4 }}>
+                    {item.hasInspectionAccess && (
+                      <View style={[styles.microBadge, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                        <ClipboardCheck size={10} color="#059669" />
+                        <Text style={[styles.microBadgeText, { color: '#047857' }]}>Inspection Access</Text>
+                      </View>
+                    )}
+
+                    {item.canCreateUser && (
+                      <View style={[styles.microBadge, { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' }]}>
+                        <UserCheck size={10} color="#4F46E5" />
+                        <Text style={[styles.microBadgeText, { color: '#4338CA' }]}>Can Create Subusers</Text>
+                      </View>
+                    )}
+
+                    {isSubuser && parentName && (
+                      <View style={[styles.microBadge, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+                        <Text style={[styles.microBadgeText, { color: '#64748B' }]}>
+                          Parent: {parentName}
                         </Text>
                       </View>
+                    )}
+                  </View>
 
-                      {allowedCount > 0 && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                            backgroundColor: isDark ? '#1E293B' : '#ECFDF5',
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 6,
-                          }}
-                        >
-                          <Layers size={11} color="#059669" />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontWeight: '600',
-                              color: '#059669',
-                            }}
-                          >
-                            {allowedCount} Pages Access
+                  {/* Scopes & Contact Row */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: 8,
+                      borderTopWidth: 1,
+                      borderColor: theme.border,
+                      marginTop: 4,
+                      gap: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Mail size={12} color={theme.textSecondary} />
+                      <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                        {item.email}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {Array.isArray(item.projects) && item.projects.length > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                          <FolderGit2 size={11} color="#4F46E5" />
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#4F46E5' }}>
+                            {item.projects.length} Proj
                           </Text>
                         </View>
                       )}
 
-                      {(item.phonenumber || item.phone) && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                            backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 6,
-                          }}
-                        >
-                          <Phone size={10} color={theme.textSecondary} />
-                          <Text style={{ fontSize: 10, color: theme.textSecondary }}>
-                            {item.phonenumber || item.phone}
+                      {Array.isArray(item.stores) && item.stores.length > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                          <Store size={11} color="#D97706" />
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>
+                            {item.stores.length} Stores
                           </Text>
                         </View>
                       )}
@@ -274,20 +361,76 @@ export default function UsersScreen() {
           }}
           ListEmptyComponent={
             <EmptyState
-              title="No Users Found"
-              description="No registered users matched your search criteria."
+              title={`No ${activeTab === 'users' ? 'Users' : 'Subusers'} Found`}
+              description={`No ${activeTab === 'users' ? 'organization users' : 'delegated subuser team accounts'} matched your criteria.`}
             />
           }
         />
       )}
 
-      {/* User Create / Edit & RBAC Modal */}
+      {/* Primary User Modal */}
       <UserFormModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        visible={userModalVisible}
+        onClose={() => setUserModalVisible(false)}
         user={selectedUser}
-        onSuccess={fetchUsers}
+        onSuccess={fetchData}
+      />
+
+      {/* Subuser Modal */}
+      <SubuserFormModal
+        visible={subuserModalVisible}
+        onClose={() => setSubuserModalVisible(false)}
+        subuser={selectedSubuser}
+        onSuccess={fetchData}
       />
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    flexDirection: 'row',
+    padding: 4,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  tabItemActive: {
+    ...Platform.select({
+      web: {
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+      },
+    }),
+  },
+  tabText: {
+    fontSize: 12,
+  },
+  microBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  microBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});

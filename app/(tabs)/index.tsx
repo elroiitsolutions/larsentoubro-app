@@ -5,20 +5,22 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import {
-  SlidersHorizontal,
   Building2,
-  X,
   Truck,
-  ChevronRight,
   QrCode,
   Menu,
   Sun,
   Moon,
+  FolderGit2,
+  BarChart3,
+  Calendar,
+  Zap,
 } from "lucide-react-native";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -26,44 +28,33 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { dashboardService } from "@/features/dashboard/services/dashboardService";
 import {
   ExecutiveDashboardData,
-  DashboardFilterParams,
   AlertItem,
 } from "@/features/dashboard/types";
 import { SummaryCards } from "@/features/dashboard/components/SummaryCards";
 import { AlertsSection } from "@/features/dashboard/components/AlertsSection";
 import { ActivityFeed } from "@/features/dashboard/components/ActivityFeed";
-import { DashboardFilterModal } from "@/features/dashboard/components/DashboardFilterModal";
 import { ToolLifeExtensionModal } from "@/features/dashboard/components/ToolLifeExtensionModal";
-import { LocationHierarchyView } from "@/components/common/LocationHierarchyView";
 import { Loader } from "@/components/ui/Loader";
 import { ErrorState } from "@/components/ui/ErrorState";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { isDark, toggleTheme } = useAppTheme();
+  const { theme, isDark, toggleTheme } = useAppTheme();
   const { openSidebar } = useSidebarStore();
   const [data, setData] = useState<ExecutiveDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters State
-  const [filters, setFilters] = useState<DashboardFilterParams>({
-    status: "All",
-    division: "All",
-    project: "All",
-  });
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-
   // Life Extension Modal State
   const [extensionModalVisible, setExtensionModalVisible] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string>("T-001");
 
-  const loadDashboard = useCallback(async (currentFilters: DashboardFilterParams) => {
+  const loadDashboard = useCallback(async () => {
     try {
       setError(null);
-      const res = await dashboardService.getDashboardStats(currentFilters);
+      const res = await dashboardService.getDashboardStats();
       setData(res);
     } catch (err: any) {
       setError(
@@ -78,19 +69,12 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => {
-    loadDashboard(filters);
-  }, [filters, loadDashboard]);
+    loadDashboard();
+  }, [loadDashboard]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadDashboard(filters);
-  };
-
-  const handleCardPress = (status: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      status: prev.status === status ? "All" : status,
-    }));
+    loadDashboard();
   };
 
   const handleAlertPress = (alert: AlertItem) => {
@@ -104,127 +88,119 @@ export default function DashboardScreen() {
     }
   };
 
-  const hasActiveFilters = Boolean(
-    (filters.status && filters.status !== "All") ||
-    (filters.division && filters.division !== "All") ||
-    (filters.project && filters.project !== "All") ||
-    (filters.store && filters.store !== "All") ||
-    (filters.hub && filters.hub !== "All") ||
-    (filters.category && filters.category !== "All") ||
-    filters.startDate ||
-    filters.endDate
-  );
+  const formattedDate = new Date().toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} className="flex-1 bg-slate-50 dark:bg-slate-950">
-      <StatusBar style="auto" />
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={{ flex: 1, backgroundColor: theme.bg }}
+    >
+      <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* App Navigation Bar */}
-      <View className="flex-row items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-        <View className="flex-row items-center gap-2.5">
+      {/* Top App Navigation Bar */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+          borderBottomWidth: 1,
+          borderColor: theme.border,
+          ...Platform.select({
+            web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" },
+            default: { elevation: 1 },
+          }),
+        }}
+      >
+        {/* Left: Sidebar trigger & Enterprise Branding */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={openSidebar}
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 items-center justify-center border border-slate-200 dark:border-slate-700"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: isDark ? "#334155" : "#E2E8F0",
+            }}
             accessibilityLabel="Open navigation drawer"
           >
-            <Menu size={18} color={isDark ? "#F8FAFC" : "#0F172A"} />
+            <Menu size={18} color={theme.text} />
           </TouchableOpacity>
 
-          <View className="w-9 h-9 rounded-xl bg-indigo-600 items-center justify-center">
-            <Building2 size={20} color="#FFFFFF" />
-          </View>
-          <View>
-            <Text className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-              L&T Enterprise
-            </Text>
-            <Text className="text-[11px] text-slate-500 dark:text-slate-400">
-              {user?.name || "Welcome"} • {user?.role || "Member"}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: "#4F46E5",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Building2 size={18} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: "800",
+                  color: theme.text,
+                  letterSpacing: -0.3,
+                  lineHeight: 18,
+                }}
+              >
+                L&T Enterprise
+              </Text>
+              <Text
+                style={{
+                  fontSize: 10.5,
+                  color: theme.textSecondary,
+                  fontWeight: "500",
+                  maxWidth: 160,
+                }}
+                numberOfLines={1}
+              >
+                {user?.name || "Asset Manager"} • {user?.role || "Admin"}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Filter Trigger */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setFilterModalVisible(true)}
-          className={`w-9 h-9 rounded-xl items-center justify-center border ${
-            hasActiveFilters
-              ? "bg-indigo-50 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-700"
-              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-          }`}
-        >
-          <SlidersHorizontal
-            size={18}
-            color={hasActiveFilters ? "#4F46E5" : "#64748B"}
-          />
-        </TouchableOpacity>
+        {/* Right Actions: Theme Toggle */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleTheme}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: isDark ? "#334155" : "#E2E8F0",
+            }}
+            accessibilityLabel="Toggle Theme"
+          >
+            {isDark ? <Sun size={16} color="#F59E0B" /> : <Moon size={16} color="#4F46E5" />}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Active Filter Chips */}
-      {hasActiveFilters && (
-        <View className="px-4 py-2 bg-indigo-50/80 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900 flex-row items-center justify-between">
-          <View className="flex-row flex-wrap items-center gap-1.5 flex-1 mr-2">
-            <Text className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
-              Filtered by:
-            </Text>
-            {filters.status && filters.status !== "All" && (
-              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
-                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  {filters.status}
-                </Text>
-              </View>
-            )}
-            {filters.division && filters.division !== "All" && (
-              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
-                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  Div: {filters.division}
-                </Text>
-              </View>
-            )}
-            {filters.project && filters.project !== "All" && (
-              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
-                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  Project Active
-                </Text>
-              </View>
-            )}
-            {filters.category && filters.category !== "All" && (
-              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
-                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  {filters.category}
-                </Text>
-              </View>
-            )}
-            {filters.startDate && (
-              <View className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
-                <Text className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  Since {filters.startDate}
-                </Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity
-            onPress={() =>
-              setFilters({
-                status: "All",
-                division: "All",
-                project: "All",
-                category: undefined,
-                store: undefined,
-                hub: undefined,
-                startDate: undefined,
-                endDate: undefined,
-              })
-            }
-            className="p-1 rounded-full bg-indigo-100 dark:bg-indigo-900"
-          >
-            <X size={12} color="#4F46E5" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Main Content */}
+      {/* Main Content Body */}
       {loading ? (
         <Loader fullScreen message="Loading executive dashboard..." />
       ) : error ? (
@@ -233,14 +209,14 @@ export default function DashboardScreen() {
           message={error}
           onRetry={() => {
             setLoading(true);
-            loadDashboard(filters);
+            loadDashboard();
           }}
         />
       ) : data ? (
         <ScrollView
-          className="flex-1 px-4 pt-4"
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 50 }}
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="pb-10"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -251,106 +227,337 @@ export default function DashboardScreen() {
             />
           }
         >
-          {/* Summary Metric Cards */}
-          <SummaryCards
-            data={data.summaryCards}
-            activeStatus={filters.status}
-            onCardPress={handleCardPress}
-          />
-
-          {/* Quick Operations Row */}
-          <View className="flex-row gap-3 mb-4">
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => router.push("/challans" as any)}
-              className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex-row items-center justify-between shadow-xs"
-            >
-              <View className="flex-row items-center flex-1 mr-1.5">
-                <View className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 items-center justify-center mr-2">
-                  <Truck size={18} color="#2563EB" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-slate-900 dark:text-white" numberOfLines={1}>
-                    Challans Log
-                  </Text>
-                  <Text className="text-[10px] text-slate-400">
-                    DC & RC
-                  </Text>
-                </View>
+          {/* Executive Overview Hero Banner (Compact & Sleek) */}
+           {/* <View
+            style={{
+              backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 14,
+              borderWidth: 1,
+              borderColor: isDark ? "#334155" : "#E2E8F0",
+              ...Platform.select({
+                web: { boxShadow: "0 2px 6px -1px rgba(15, 23, 42, 0.05)" },
+                default: { elevation: 1 },
+              }),
+            }}
+          >
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Calendar size={12} color={theme.textSecondary} />
+                <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary }}>
+                  {formattedDate}
+                </Text>
               </View>
-              <ChevronRight size={12} color="#94A3B8" />
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => router.push("/scanner" as any)}
-              className="flex-1 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex-row items-center justify-between shadow-xs"
-            >
-              <View className="flex-row items-center flex-1 mr-1.5">
-                <View className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 items-center justify-center mr-2">
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: isDark ? "rgba(5, 150, 105, 0.2)" : "#ECFDF5",
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: isDark ? "#065F46" : "#A7F3D0",
+                }}
+              >
+                <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#10B981" }} />
+                <Text style={{ fontSize: 9.5, fontWeight: "700", color: "#059669" }}>
+                  Live Telemetry
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "900",
+                  color: theme.text,
+                  letterSpacing: -0.4,
+                }}
+              >
+                Operations Dashboard
+              </Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: theme.primary }}>
+                {data.summaryCards.totalTools || 0} Assets
+              </Text>
+            </View>
+          </View> */}
+
+          {/* 6 Equipment Metrics Count Cards (Non-clickable static overview) */}
+          <SummaryCards data={data.summaryCards} />
+
+          {/* 4-Action Quick Operations Dock (Zero Truncation on Mobile) */}
+          <View style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 8, paddingHorizontal: 2 }}>
+              <View
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  backgroundColor: isDark ? "#1E293B" : "#EEF2FF",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Zap size={13} color={theme.primary} />
+              </View>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: theme.text,
+                  letterSpacing: -0.2,
+                }}
+              >
+                Field Operations Hub
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 7 }}>
+              {/* QR Scanner */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push("/scanner" as any)}
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 2,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  ...Platform.select({
+                    web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
+                    default: { elevation: 1 },
+                  }),
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? "rgba(79, 70, 229, 0.2)" : "#EEF2FF",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 5,
+                  }}
+                >
                   <QrCode size={18} color="#4F46E5" />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-slate-900 dark:text-white" numberOfLines={1}>
-                    QR Scanner
-                  </Text>
-                  <Text className="text-[10px] text-slate-400">
-                    Site Audit
-                  </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: theme.text,
+                    textAlign: "center",
+                  }}
+                  numberOfLines={1}
+                >
+                  QR Scan
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  Audits
+                </Text>
+              </TouchableOpacity>
+
+              {/* Challans */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push("/challans" as any)}
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 2,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  ...Platform.select({
+                    web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
+                    default: { elevation: 1 },
+                  }),
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? "rgba(2, 132, 199, 0.2)" : "#E0F2FE",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 5,
+                  }}
+                >
+                  <Truck size={18} color="#0284C7" />
                 </View>
-              </View>
-              <ChevronRight size={12} color="#94A3B8" />
-            </TouchableOpacity>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: theme.text,
+                    textAlign: "center",
+                  }}
+                  numberOfLines={1}
+                >
+                  Challans
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  DC / RC
+                </Text>
+              </TouchableOpacity>
+
+              {/* Projects */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push("/projects" as any)}
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 2,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  ...Platform.select({
+                    web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
+                    default: { elevation: 1 },
+                  }),
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? "rgba(5, 150, 105, 0.2)" : "#ECFDF5",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 5,
+                  }}
+                >
+                  <FolderGit2 size={18} color="#059669" />
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: theme.text,
+                    textAlign: "center",
+                  }}
+                  numberOfLines={1}
+                >
+                  Projects
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  Sites
+                </Text>
+              </TouchableOpacity>
+
+              {/* Reports */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push("/settings/reports" as any)}
+                style={{
+                  flex: 1,
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 2,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  ...Platform.select({
+                    web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
+                    default: { elevation: 1 },
+                  }),
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? "rgba(124, 58, 237, 0.2)" : "#FAF5FF",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 5,
+                  }}
+                >
+                  <BarChart3 size={18} color="#7C3AED" />
+                </View>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: theme.text,
+                    textAlign: "center",
+                  }}
+                  numberOfLines={1}
+                >
+                  Reports
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  PDF/CSV
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Action Required Alerts */}
           <AlertsSection alerts={data.alerts} onAlertPress={handleAlertPress} />
 
-          {/* Location & Facilities Hierarchy Tree */}
-          <LocationHierarchyView
-            hierarchyData={data.hierarchyTree || []}
-            selectedDivision={filters.division}
-            selectedProject={filters.project}
-            onSelectNode={(level, nameOrId) => {
-              if (level === "division") {
-                setFilters((prev) => ({
-                  ...prev,
-                  division: prev.division === nameOrId ? "All" : nameOrId,
-                }));
-              } else if (level === "project") {
-                setFilters((prev) => ({
-                  ...prev,
-                  project: prev.project === nameOrId ? "All" : nameOrId,
-                }));
-              }
-            }}
-            onProjectPress={(projId) => router.push(`/projects/${projId}` as any)}
-            onStorePress={(storeId) => router.push(`/stores/${storeId}` as any)}
-          />
-
-          {/* Recent Activity Audit Feed */}
+          {/* Real-Time Activity Audit Feed */}
           <ActivityFeed activities={data.recentActivity} />
         </ScrollView>
       ) : null}
-
-      {/* Filters Modal */}
-      {data && (
-        <DashboardFilterModal
-          visible={filterModalVisible}
-          onClose={() => setFilterModalVisible(false)}
-          filters={filters}
-          hierarchy={data.hierarchyTree || []}
-          onApply={(newFilters) => setFilters(newFilters)}
-          onReset={() => setFilters({ status: "All", division: "All", project: "All" })}
-        />
-      )}
 
       {/* Tool Life Extension Modal */}
       <ToolLifeExtensionModal
         visible={extensionModalVisible}
         onClose={() => setExtensionModalVisible(false)}
         toolId={selectedToolId}
-        onSuccess={() => loadDashboard(filters)}
+        onSuccess={() => loadDashboard()}
       />
     </SafeAreaView>
   );

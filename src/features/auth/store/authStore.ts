@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import * as SecureStore from "expo-secure-store";
+import { secureStorage } from "@/services/storage";
 import { AuthState } from "../types";
 import { UserProfile } from "@/types/common.types";
 import { STORAGE_KEYS } from "@/constants/storageKeys";
@@ -15,8 +15,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initializeAuth: async () => {
     try {
       set({ isLoading: true });
-      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
-      const storedUserData = await SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA);
+      const storedToken = await secureStorage.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+      const storedUserData = await secureStorage.getItemAsync(STORAGE_KEYS.USER_DATA);
 
       if (storedToken && storedUserData) {
         const user: UserProfile = JSON.parse(storedUserData);
@@ -54,8 +54,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (token: string, user: UserProfile) => {
     try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
-      await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+      await secureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
       set({
         token,
@@ -70,8 +70,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try {
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA);
+      await secureStorage.deleteItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+      await secureStorage.deleteItemAsync(STORAGE_KEYS.USER_DATA);
     } catch (error) {
       // Ignore
     } finally {
@@ -94,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           allowedPages: res.data.allowedPages || ["/dashboard", "/projects", "/stores"],
         };
 
-        await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
+        await secureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
         set({ user: updatedUser });
       }
     } catch (error) {

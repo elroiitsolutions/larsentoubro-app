@@ -9,9 +9,12 @@ import {
   ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Menu, Sun, Moon } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Menu, Sun, Moon, ArrowLeft } from "lucide-react-native";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useAppTheme } from "@/context/ThemeContext";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import { NoAccessState } from "@/components/common/NoAccessState";
 
 interface ScreenWrapperProps {
   title: string;
@@ -28,6 +31,8 @@ interface ScreenWrapperProps {
   showBack?: boolean;
   showBackButton?: boolean;
   onBack?: () => void;
+  requiredPage?: string;
+  adminOnly?: boolean;
 }
 
 export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
@@ -42,10 +47,28 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
   contentContainerStyle,
   refreshControl,
   showThemeToggle = false,
+  showBack = false,
+  showBackButton = false,
+  onBack,
+  requiredPage,
+  adminOnly = false,
 }) => {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSidebar } = useSidebarStore();
   const { isDark, theme, toggleTheme } = useAppTheme();
+  const { user } = useAuthStore();
+
+  const shouldShowBack = Boolean(showBack || showBackButton);
+
+  const isRestricted = Boolean(
+    (adminOnly && user && user.role !== "Admin") ||
+    (requiredPage &&
+      user &&
+      user.role !== "Admin" &&
+      user.role !== "Vendor" &&
+      (!user.allowedPages || !user.allowedPages.includes(requiredPage)))
+  );
 
   const topInset =
     Platform.OS === "android"
@@ -74,9 +97,28 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
               minHeight: 56,
             }}
           >
-            {/* Left Action: Only show the sidebar toggle icon (no back icon) */}
+            {/* Left Action: Back button or sidebar drawer toggle */}
             <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 }}>
-              {showSidebarButton && (
+              {shouldShowBack ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                  onPress={() => (onBack ? onBack() : router.back())}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 10,
+                  }}
+                  accessibilityLabel="Go back"
+                >
+                  <ArrowLeft size={20} color={theme.text} />
+                </TouchableOpacity>
+              ) : showSidebarButton ? (
                 <TouchableOpacity
                   activeOpacity={0.7}
                   delayPressIn={0}
@@ -95,7 +137,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
                 >
                   <Menu size={20} color={theme.text} />
                 </TouchableOpacity>
-              )}
+              ) : null}
 
               {/* Title & Subtitle */}
               <View style={{ flex: 1 }}>
@@ -156,8 +198,10 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
         </View>
       )}
 
-      {/* Main Content Area: Standard React Native ScrollView ensures all touches work instantly */}
-      {scrollable ? (
+      {/* Main Content Area */}
+      {isRestricted ? (
+        <NoAccessState requiredPermission={requiredPage} />
+      ) : scrollable ? (
         <ScrollView
           style={{ flex: 1, backgroundColor: theme.bg }}
           contentContainerStyle={[

@@ -113,11 +113,25 @@ export default function ProjectsScreen() {
     });
   }, [projects, searchQuery, statusFilter]);
 
+  const stats = useMemo(() => {
+    const total = projects.length;
+    const active = projects.filter((p) => p.status?.toLowerCase() === "active").length;
+    const inProgress = projects.filter((p) => p.status?.toLowerCase() === "in progress").length;
+    const completed = projects.filter((p) => p.status?.toLowerCase() === "completed").length;
+    return { total, active, inProgress, completed };
+  }, [projects]);
+
+  const getStatusCount = (status: string) => {
+    if (status === "All") return projects.length;
+    return projects.filter((p) => p.status?.toLowerCase() === status.toLowerCase()).length;
+  };
+
   return (
     <ScreenWrapper
-      title="Projects Directory"
-      subtitle={`${projects.length} Active Enterprise Projects`}
+      title="Projects"
+      subtitle={`${projects.length} Active Projects`}
       showBackButton={false}
+      requiredPage="/projects"
       headerRight={
         canManageProjects ? (
           <TouchableOpacity
@@ -126,14 +140,14 @@ export default function ProjectsScreen() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 4,
+              gap: 5,
               backgroundColor: theme.primary,
               paddingHorizontal: 12,
               paddingVertical: 7,
               borderRadius: 10,
             }}
           >
-            <Plus size={15} color="#FFFFFF" />
+            <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
             <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 12 }}>
               Add Project
             </Text>
@@ -141,9 +155,11 @@ export default function ProjectsScreen() {
         ) : undefined
       }
     >
-      {/* Search Bar & Filter Chips */}
-      <View
+      {/* Quick KPI Overview Strip */}
+      {/* <View
         style={{
+          flexDirection: "row",
+          gap: 8,
           paddingHorizontal: 16,
           paddingVertical: 10,
           backgroundColor: theme.surface,
@@ -151,26 +167,130 @@ export default function ProjectsScreen() {
           borderColor: theme.border,
         }}
       >
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("All")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "All" ? (theme.isDark ? "#312E81" : "#EEF2FF") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "All" ? theme.primary : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: statusFilter === "All" ? theme.primary : theme.text }}>
+            {stats.total}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Total
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("Active")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "Active" ? (theme.isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "Active" ? "#059669" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#059669" }}>
+            {stats.active}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Active
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("In Progress")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "In Progress" ? (theme.isDark ? "rgba(37, 99, 235, 0.25)" : "#EFF6FF") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "In Progress" ? "#2563EB" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#2563EB" }}>
+            {stats.inProgress}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Progress
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("Completed")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "Completed" ? (theme.isDark ? "rgba(124, 58, 237, 0.25)" : "#FAF5FF") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "Completed" ? "#7C3AED" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#7C3AED" }}>
+            {stats.completed}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Done
+          </Text>
+        </TouchableOpacity>
+      </View> */}
+
+      {/* Search Bar & Filter Chips */}
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 10,
+          paddingBottom: 6,
+          // backgroundColor: theme.surface,
+          // borderBottomWidth: 1,
+          // borderColor: theme.border,
+        }}
+      >
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search by project name, code, lead, or site..."
-          style={{ marginBottom: 10 }}
+          style={{ marginBottom: 0 }}
         />
 
-        <FlatList
+        {/* <FlatList
           horizontal
           data={statusOptions}
           keyExtractor={(item) => item}
           showsHorizontalScrollIndicator={false}
           renderItem={({ item }) => {
             const isSelected = statusFilter === item;
+            const count = getStatusCount(item);
             return (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setStatusFilter(item)}
                 style={{
-                  paddingHorizontal: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingHorizontal: 11,
                   paddingVertical: 6,
                   borderRadius: 10,
                   marginRight: 6,
@@ -182,16 +302,34 @@ export default function ProjectsScreen() {
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: "600",
+                    fontWeight: "700",
                     color: isSelected ? "#FFFFFF" : theme.textSecondary,
                   }}
                 >
                   {item}
                 </Text>
+                <View
+                  style={{
+                    backgroundColor: isSelected ? "rgba(255, 255, 255, 0.25)" : theme.isDark ? "#334155" : "#E2E8F0",
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: "800",
+                      color: isSelected ? "#FFFFFF" : theme.textSecondary,
+                    }}
+                  >
+                    {count}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           }}
-        />
+        /> */}
       </View>
 
       {/* Projects List Content */}
@@ -210,7 +348,7 @@ export default function ProjectsScreen() {
         <FlatList
           data={filteredProjects}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

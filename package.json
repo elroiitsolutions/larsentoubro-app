@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start",
+    "start:clean": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start -c",
+    "clean": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start -c",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start --android",
     "ios": "node --max-old-space-size=8192 ./node_modules/expo/bin/cli start --ios",

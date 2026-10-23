@@ -1,120 +1,184 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
+  RefreshControl,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  FolderKanban,
+  CheckCircle2,
+  SlidersHorizontal,
+} from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
-import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { projectService } from "@/features/projects/services/projectService";
-import { DynamicFieldsSection } from "@/components/common/DynamicFieldsSection";
-import { FormFieldDefinition } from "@/services/formService";
+import { formService, FormDefinition, FormFieldDefinition } from "@/services/formService";
+import { DynamicFormRenderer } from "@/components/common/DynamicFormRenderer";
 
-const STATUS_OPTIONS = ["Active", "In Progress", "On Hold", "Completed", "Pending"];
+const FALLBACK_FIELDS: FormFieldDefinition[] = [
+  {
+    name: "projectName",
+    label: "Project Name",
+    type: "text",
+    required: true,
+    placeholder: "e.g. Metro Rail Phase 2 - Elevated Corridor",
+  },
+  {
+    name: "projectCode",
+    label: "Project Code",
+    type: "text",
+    placeholder: "e.g. PRJ-MR-02",
+  },
+];
 
 export default function ProjectFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const isEditing = !!id;
-  const [loading, setLoading] = useState(isEditing);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [dynamicFields, setDynamicFields] = useState<FormFieldDefinition[]>([]);
-  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  const [formDef, setFormDef] = useState<FormDefinition | null>(null);
+  const [fields, setFields] = useState<FormFieldDefinition[]>(FALLBACK_FIELDS);
+  const [values, setValues] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [name, setName] = useState("");
-  const [projectCode, setProjectCode] = useState("");
-  const [department, setDepartment] = useState("");
-  const [lead, setLead] = useState("");
-  const [location, setLocation] = useState("");
-  const [status, setStatus] = useState("Active");
-  const [budget, setBudget] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [description, setDescription] = useState("");
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-  useEffect(() => {
-    if (!id) return;
-    async function loadProject() {
+      // 1. Fetch Dynamic Form Schema configured in Form Management
+      let loadedFields: FormFieldDefinition[] = FALLBACK_FIELDS;
       try {
-        setLoading(true);
-        const p = await projectService.getProjectById(id!);
-        if (p) {
-          setName(p.name || "");
-          setProjectCode(p.projectCode || "");
-          setDepartment(p.department || "");
-          setLead(p.lead || p.incharge || "");
-          setLocation(p.location || "");
-          setStatus(p.status || "Active");
-          setBudget(p.budget ? String(p.budget) : "");
-          setDeadline(p.deadline || "");
-          setDescription(p.description || "");
-
-          const pAny = p as any;
-          const dynInit: Record<string, any> = {};
-          if (pAny.customFields && typeof pAny.customFields === "object") {
-            Object.assign(dynInit, pAny.customFields);
-          }
-          const coreKeys = [
-            "name", "projectName", "projectCode", "department", "lead", "incharge",
-            "location", "status", "budget", "deadline", "description", "_id", "id",
-            "createdAt", "updatedAt", "__v", "customFields"
-          ];
-          Object.keys(pAny).forEach((key) => {
-            if (!coreKeys.includes(key)) {
-              dynInit[key] = pAny[key];
-            }
+        const schema = await formService.getFormBySlug("create-project");
+        if (schema && Array.isArray(schema.fields) && schema.fields.length > 0) {
+          setFormDef(schema);
+          loadedFields = schema.fields;
+          setFields(schema.fields);
+        } else {
+          setFormDef({
+            slug: "create-project",
+            name: "Create Project",
+            description: "Dynamic schema and validation rules for creating new enterprise projects.",
+            fields: FALLBACK_FIELDS,
           });
-          setDynamicValues(dynInit);
+          setFields(FALLBACK_FIELDS);
         }
-      } catch (err) {
-        Alert.alert("Notice", "Could not fetch existing project data.");
-      } finally {
-        setLoading(false);
+      } catch (e) {
+        setFields(FALLBACK_FIELDS);
       }
+
+      // 2. If editing existing project, fetch project details
+      if (id) {
+        try {
+          const p = await projectService.getProjectById(id);
+          if (p) {
+            const initialVals: Record<string, any> = { ...p };
+            // Ensure bidirectional compatibility between `name` and `projectName`
+            const pAny = p as any;
+            if (p.name && !initialVals.projectName) {
+              initialVals.projectName = p.name;
+            }
+            if (pAny.projectName && !initialVals.name) {
+              initialVals.name = pAny.projectName;
+            }
+            setValues(initialVals);
+          }
+        } catch (err) {
+          Alert.alert("Notice", "Could not fetch existing project data.");
+        }
+      } else {
+        // Initialize default values defined in schema
+        const initDefaults: Record<string, any> = {};
+        loadedFields.forEach((f) => {
+          if (f.defaultValue !== undefined) {
+            initDefaults[f.name] = f.defaultValue;
+          }
+        });
+        setValues(initDefaults);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    loadProject();
   }, [id]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const handleChange = (fieldName: string, value: any) => {
+    setValues((prev) => {
+      const next = { ...prev, [fieldName]: value };
+      // Sync name & projectName
+      if (fieldName === "projectName") {
+        next.name = value;
+      } else if (fieldName === "name") {
+        next.projectName = value;
+      }
+      return next;
+    });
+
+    // Clear error for this field if present
+    if (errors[fieldName]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!name.trim()) {
-      Alert.alert("Validation Error", "Project name is required.");
-      return;
+    // 1. Validate fields according to the dynamic schema
+    const newErrors: Record<string, string> = {};
+    for (const field of fields) {
+      const isRequired = Boolean(
+        field.required ||
+          (Array.isArray(field.validations) &&
+            field.validations.some((v: any) => v.type === "required"))
+      );
+      const val = values[field.name];
+      if (
+        isRequired &&
+        (val === undefined || val === null || String(val).trim() === "")
+      ) {
+        newErrors[field.name] = `${field.label || field.name} is required`;
+      }
     }
 
-    // Validate required custom dynamic fields
-    for (const df of dynamicFields) {
-      if (
-        df.required &&
-        (dynamicValues[df.name] === undefined ||
-          String(dynamicValues[df.name]).trim() === "")
-      ) {
-        Alert.alert("Validation Error", `${df.label || df.name} is required.`);
-        return;
-      }
+    // Always ensure project name is present
+    const resolvedName = (values.name || values.projectName || "").trim();
+    if (!resolvedName) {
+      newErrors["projectName"] = "Project Name is required";
+      newErrors["name"] = "Project Name is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      Alert.alert("Validation Error", "Please fill in all required fields.");
+      return;
     }
 
     setSaving(true);
     try {
       const payload: any = {
-        name: name.trim(),
-        projectName: name.trim(),
-        projectCode: projectCode.trim() || undefined,
-        department: department.trim() || undefined,
-        lead: lead.trim() || undefined,
-        location: location.trim() || undefined,
-        status,
-        budget: budget.trim() ? Number(budget.trim()) : undefined,
-        description: description.trim() || undefined,
-        deadline: deadline.trim() || undefined,
-        ...dynamicValues,
-        customFields: dynamicValues,
+        ...values,
+        name: resolvedName,
+        projectName: resolvedName,
       };
 
       if (isEditing && id) {
@@ -136,176 +200,197 @@ export default function ProjectFormScreen() {
     }
   };
 
+  const projectCode =
+    values.projectCode || (id ? id.substring(id.length - 6).toUpperCase() : "PRJ");
+  const projectName = values.name || values.projectName || "New Project";
+
   return (
     <ScreenWrapper
-      title={isEditing ? "Edit Project" : "Create New Project"}
-      subtitle={isEditing ? `Updating project code ${projectCode || id}` : "Enterprise Construction & Infrastructure"}
+      title={isEditing ? "Edit Project" : "Add Project"}
+      subtitle={
+        isEditing
+          ? `Project #${projectCode} • ${projectName}`
+          : formDef?.description || "Dynamic Form Management Schema"
+      }
       showBackButton={true}
+      requiredPage="/projects"
       scrollable={true}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[theme.primary]}
+          tintColor={theme.primary}
+        />
+      }
     >
       {loading ? (
-        <View style={{ paddingVertical: 50, alignItems: "center" }}>
+        <View style={{ paddingVertical: 60, alignItems: "center" }}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 10 }}>
-            Loading project information...
+          <Text
+            style={{
+              color: theme.textSecondary,
+              fontSize: 13,
+              fontWeight: "500",
+              marginTop: 12,
+            }}
+          >
+            Loading form schema from Form Management...
           </Text>
         </View>
       ) : (
-        <View
-          style={{
-            backgroundColor: theme.card,
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: theme.cardBorder,
-            padding: 18,
-            marginBottom: 30,
-          }}
-        >
-          <Input
-            label="Project Name *"
-            placeholder="e.g. Metro Rail Phase 2 - Elevated Corridor"
-            value={name}
-            onChangeText={setName}
-          />
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Project Code"
-                placeholder="e.g. PRJ-MR-02"
-                value={projectCode}
-                onChangeText={setProjectCode}
-                autoCapitalize="characters"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Department"
-                placeholder="e.g. Heavy Civil"
-                value={department}
-                onChangeText={setDepartment}
-              />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Project Incharge / Lead"
-                placeholder="e.g. Rajesh Sharma"
-                value={lead}
-                onChangeText={setLead}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Site Location"
-                placeholder="e.g. Sector 62, Noida"
-                value={location}
-                onChangeText={setLocation}
-              />
-            </View>
-          </View>
-
-          {/* Status Selection */}
-          <View style={{ marginBottom: 16 }}>
-            <Text
+        <View style={{ paddingBottom: 40 }}>
+          {/* Active Record Card (when editing) */}
+          {isEditing && (
+            <View
               style={{
-                fontSize: 11,
-                fontWeight: "700",
-                textTransform: "uppercase",
-                letterSpacing: 0.8,
-                color: theme.textSecondary,
-                marginBottom: 8,
+                backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: isDark ? "#334155" : "#E2E8F0",
+                padding: 14,
+                marginBottom: 14,
+                position: "relative",
+                overflow: "hidden",
+                ...Platform.select({
+                  web: {
+                    boxShadow: isDark
+                      ? "0 4px 12px rgba(0,0,0,0.2)"
+                      : "0 2px 8px rgba(15,23,42,0.05)",
+                  },
+                  default: { elevation: 2 },
+                }),
               }}
             >
-              Project Lifecycle Status
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {STATUS_OPTIONS.map((s) => {
-                const isSelected = status === s;
-                return (
-                  <TouchableOpacity
-                    key={s}
-                    activeOpacity={0.7}
-                    onPress={() => setStatus(s)}
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3.5,
+                  backgroundColor: theme.primary,
+                }}
+              />
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 2,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <View
                     style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 10,
-                      backgroundColor: isSelected ? theme.primary : theme.isDark ? "#1E293B" : "#F1F5F9",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 3,
+                    }}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                        paddingHorizontal: 7,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: isDark ? "#334155" : "#E2E8F0",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "700",
+                          fontFamily:
+                            Platform.OS === "ios" ? "Menlo" : "monospace",
+                          color: isDark ? "#94A3B8" : "#475569",
+                        }}
+                      >
+                        #{projectCode}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "500",
+                        color: theme.textMuted,
+                      }}
+                    >
+                      Active Record
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: theme.text,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {projectName}
+                  </Text>
+                </View>
+
+                {values.status && (
+                  <View
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? "#0F172A" : "#EEF2FF",
                       borderWidth: 1,
-                      borderColor: isSelected ? theme.primary : theme.border,
+                      borderColor: isDark ? "#334155" : "#C7D2FE",
                     }}
                   >
                     <Text
                       style={{
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: "700",
-                        color: isSelected ? "#FFFFFF" : theme.text,
+                        color: theme.primary,
                       }}
                     >
-                      {s}
+                      {values.status}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                  </View>
+                )}
+              </View>
             </View>
+          )}
+
+          {/* Form Schema Info Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+              paddingHorizontal: 4,
+            }}
+          >
+            
+            
           </View>
 
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Estimated Budget (INR)"
-                placeholder="e.g. 50000000"
-                value={budget}
-                onChangeText={setBudget}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Target Deadline"
-                placeholder="YYYY-MM-DD"
-                value={deadline}
-                onChangeText={setDeadline}
-              />
-            </View>
-          </View>
-
-          <Input
-            label="Project Description & Scope"
-            placeholder="Detailed scope, milestone summary, and execution specs..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
+          {/* DYNAMIC FORM FIELDS (Rendered directly from Form Management schema) */}
+          <DynamicFormRenderer
+            fields={fields}
+            values={values}
+            onChange={handleChange}
+            errors={errors}
+            cardStyle={true}
           />
 
-          {/* Custom Dynamic Fields Configured from Settings */}
-          <DynamicFieldsSection
-            slug="create-project"
-            values={dynamicValues}
-            onChange={(key, val) =>
-              setDynamicValues((prev) => ({ ...prev, [key]: val }))
-            }
-            onFieldsLoaded={setDynamicFields}
-            excludeFieldNames={[
-              "name",
-              "projectName",
-              "projectCode",
-              "department",
-              "lead",
-              "location",
-              "status",
-              "budget",
-              "deadline",
-              "description",
-            ]}
-          />
-
-          {/* Buttons */}
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+          {/* Action Buttons */}
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 12,
+              marginTop: 6,
+              paddingTop: 10,
+            }}
+          >
             <View style={{ flex: 1 }}>
               <Button
                 title="Cancel"
@@ -313,7 +398,7 @@ export default function ProjectFormScreen() {
                 onPress={() => router.back()}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1.4 }}>
               <Button
                 title={isEditing ? "Update Project" : "Create Project"}
                 onPress={handleSubmit}

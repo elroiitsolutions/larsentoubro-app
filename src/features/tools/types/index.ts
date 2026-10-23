@@ -36,10 +36,58 @@ export interface ToolRecord {
   isScrapped?: boolean;
   scrappedAt?: string;
   scrapReason?: string;
-  scrapDealer?: any;
+  isDisposed?: boolean;
+  scrapValue?: number;
+  store?: any;
+  lastInspectionDate?: string;
+  nextInspectionDueDate?: string;
+  inspectionStatus?: string;
+  inspectionResult?: string;
+  inspectionAction?: string;
+  inspectedBy?: {
+    _id?: string;
+    name?: string;
+    email?: string;
+  };
+  inspectedAt?: string;
+  inspectionHistory?: InspectionHistoryItem[];
   customFields?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface InspectionHistoryItem {
+  _id?: string;
+  result: 'Pass' | 'Fail';
+  action?: 'Pass' | 'Repair' | 'Scrap';
+  validation?: string;
+  expiryDate?: string;
+  inspectedBy?: {
+    _id?: string;
+    name?: string;
+    email?: string;
+  };
+  inspectedAt?: string;
+  notes?: string;
+}
+
+export interface InspectToolsPayload {
+  toolIds: string[];
+  result: 'Pass' | 'Fail';
+  action?: 'Pass' | 'Repair' | 'Scrap';
+  validation?: string;
+  remarks?: string;
+}
+
+export interface InspectToolsResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    count: number;
+    result: string;
+    action: string;
+    validation?: string;
+  };
 }
 
 export interface ToolListResponse {
@@ -67,14 +115,27 @@ export interface ToolMutationResponse {
 export interface ToolFilterParams {
   search?: string;
   status?: string;
+  printStatus?: string;
   category?: string;
   validation?: string;
   validityPeriod?: string;
   purchaserName?: string;
+  purchaserContact?: string;
+  supplierCode?: string;
+  toolCode?: string;
+  toolId?: string;
+  capacity?: string;
+  safeWorkingLoad?: string;
+  metalType?: string;
+  toolVariant?: string;
+  dateOfSupply?: string;
+  jobCode?: string;
+  remarks?: string;
   makeYear?: string;
   storeId?: string;
   page?: number;
   limit?: number;
+  [key: string]: any;
 }
 
 export interface BulkEditPayload {

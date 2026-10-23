@@ -38,6 +38,7 @@ import api from "@/services/api";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { ENV } from "@/config/environment";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
 
 export default function ProfileScreen() {
@@ -273,7 +274,7 @@ export default function ProfileScreen() {
               <View>
                 <Text className="text-xs text-slate-500">API Host URL</Text>
                 <Text className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200" numberOfLines={1}>
-                  {process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.2:4000"}
+                  {ENV.API_BASE_URL}
                 </Text>
               </View>
             </View>

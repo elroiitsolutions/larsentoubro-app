@@ -1,18 +1,19 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Platform } from "react-native";
 import {
   FolderGit2,
   MapPin,
   User,
   Calendar,
-  DollarSign,
+  IndianRupee,
   ChevronRight,
   Edit2,
   Trash2,
+  Building2,
+  Layers,
 } from "lucide-react-native";
 import { ProjectRecord } from "../types";
-import { Card } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { useAppTheme } from "@/context/ThemeContext";
 
 interface ProjectCardProps {
   project: ProjectRecord;
@@ -29,90 +30,221 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   onDelete,
   canManage = false,
 }) => {
+  const { theme, isDark } = useAppTheme();
+
+  const getStatusMeta = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "active":
+        return {
+          color: "#059669",
+          bg: isDark ? "rgba(5, 150, 105, 0.2)" : "#ECFDF5",
+          border: isDark ? "#065F46" : "#A7F3D0",
+          label: "Active",
+        };
+      case "in progress":
+        return {
+          color: "#2563EB",
+          bg: isDark ? "rgba(37, 99, 235, 0.2)" : "#EFF6FF",
+          border: isDark ? "#1E40AF" : "#BFDBFE",
+          label: "In Progress",
+        };
+      case "on hold":
+        return {
+          color: "#D97706",
+          bg: isDark ? "rgba(217, 119, 6, 0.2)" : "#FFFBEB",
+          border: isDark ? "#92400E" : "#FDE68A",
+          label: "On Hold",
+        };
+      case "completed":
+        return {
+          color: "#7C3AED",
+          bg: isDark ? "rgba(124, 58, 237, 0.2)" : "#FAF5FF",
+          border: isDark ? "#5B21B6" : "#E9D5FF",
+          label: "Completed",
+        };
+      default:
+        return {
+          color: "#6f6acbff",
+          bg: isDark ? "rgba(79, 70, 229, 0.2)" : "#EEF2FF",
+          border: isDark ? "#3730A3" : "#C7D2FE",
+          label: status || "Active",
+        };
+    }
+  };
+
+  const statusMeta = getStatusMeta(project.status);
+  const projectCode = project.projectCode || project._id.substring(project._id.length - 6).toUpperCase();
+
   return (
-    <Card className="p-4 mb-3">
-      <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
-        {/* Top Row: Icon, Title, Status */}
-        <View className="flex-row items-start justify-between mb-2">
-          <View className="flex-row items-center flex-1 mr-2">
-            <View className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 items-center justify-center mr-3">
+    <View
+      style={{
+        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+        borderRadius: 16,
+        marginBottom: 14,
+        borderWidth: 1,
+        borderColor: isDark ? "#334155" : "#E2E8F0",
+        position: "relative",
+        overflow: "hidden",
+        ...Platform.select({
+          web: { boxShadow: "0 2px 8px -2px rgba(15, 23, 42, 0.06)" },
+          default: { elevation: 2 },
+        }),
+      }}
+    >
+      {/* Top Luminous Status Accent Bar */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          backgroundColor: statusMeta.color,
+        }}
+      />
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        style={{ padding: 15, paddingTop: 16 }}
+      >
+        {/* Header Row: Icon, Title, ID, and Status Badge */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: isDark ? "rgba(79, 70, 229, 0.18)" : "#EEF2FF",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+                borderWidth: 1,
+                borderColor: isDark ? "#3730A3" : "#C7D2FE",
+              }}
+            >
               <FolderGit2 size={20} color="#4F46E5" />
             </View>
-            <View className="flex-1">
+
+            <View style={{ flex: 1 }}>
               <Text
-                className="text-base font-bold text-slate-900 dark:text-white"
+                style={{
+                  fontSize: 15,
+                  fontWeight: "800",
+                  color: theme.text,
+                  letterSpacing: -0.3,
+                  lineHeight: 19,
+                }}
                 numberOfLines={1}
               >
                 {project.name}
               </Text>
-              <Text className="text-[11px] font-mono text-slate-400">
-                ID: {project._id.substring(project._id.length - 6).toUpperCase()}
-                {project.projectCode ? ` • ${project.projectCode}` : ""}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
+                <View
+                  style={{
+                    backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "monospace",
+                      fontWeight: "700",
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    #{projectCode}
+                  </Text>
+                </View>
+                {project.department && (
+                  <Text
+                    style={{
+                      fontSize: 10.5,
+                      color: theme.textSecondary,
+                      fontWeight: "500",
+                    }}
+                    numberOfLines={1}
+                  >
+                    • {project.department}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
-          <StatusBadge status={project.status || "Active"} size="sm" />
-        </View>
-
-        {/* Details Grid */}
-        <View className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 mb-3 gap-1.5 border border-slate-100 dark:border-slate-800">
-          {(project.lead || project.incharge) && (
-            <View className="flex-row items-center">
-              <User size={12} color="#64748B" className="mr-1.5" />
-              <Text className="text-xs text-slate-500 mr-1.5">Lead:</Text>
-              <Text className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {project.lead || project.incharge}
-              </Text>
-            </View>
-          )}
-
-          {(project.location || project.department) && (
-            <View className="flex-row items-center">
-              <MapPin size={12} color="#64748B" className="mr-1.5" />
-              <Text className="text-xs text-slate-500 mr-1.5">Location:</Text>
-              <Text className="text-xs text-slate-700 dark:text-slate-300">
-                {project.location || project.department}
-              </Text>
-            </View>
-          )}
-
-          <View className="flex-row items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60 mt-1">
-            {project.budget ? (
-              <View className="flex-row items-center">
-                <DollarSign size={12} color="#10B981" />
-                <Text className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  {typeof project.budget === "number"
-                    ? `₹${project.budget.toLocaleString()}`
-                    : project.budget}
-                </Text>
-              </View>
-            ) : (
-              <View />
-            )}
-
-            {project.deadline || project.endDate ? (
-              <View className="flex-row items-center">
-                <Calendar size={12} color="#94A3B8" className="mr-1" />
-                <Text className="text-[11px] text-slate-400">
-                  {project.deadline || project.endDate}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Bottom Actions Row */}
-        <View className="flex-row items-center justify-between pt-1">
-          <View className="flex-row items-center">
-            <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mr-1">
-              View Stores & Inventory
+          {/* Status Badge */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              backgroundColor: statusMeta.bg,
+              paddingHorizontal: 8,
+              paddingVertical: 3.5,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: statusMeta.border,
+            }}
+          >
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: statusMeta.color,
+              }}
+            />
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: "800",
+                color: statusMeta.color,
+                letterSpacing: 0.2,
+                textTransform: "uppercase",
+              }}
+            >
+              {statusMeta.label}
             </Text>
-            <ChevronRight size={14} color="#4F46E5" />
+          </View>
+        </View>
+
+       
+
+        {/* Footer: Explore Action Link & Manage Buttons */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color: theme.primary,
+                letterSpacing: -0.1,
+              }}
+            >
+              Stores & Facilities
+            </Text>
+            <ChevronRight size={14} color={theme.primary} strokeWidth={2.5} />
           </View>
 
           {canManage && (
-            <View className="flex-row items-center gap-1">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               {onEdit && (
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -120,9 +252,19 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     e.stopPropagation();
                     onEdit();
                   }}
-                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: isDark ? "#334155" : "#E2E8F0",
+                  }}
+                  accessibilityLabel="Edit Project"
                 >
-                  <Edit2 size={14} color="#475569" />
+                  <Edit2 size={13} color={theme.textSecondary} />
                 </TouchableOpacity>
               )}
 
@@ -133,15 +275,25 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     e.stopPropagation();
                     onDelete();
                   }}
-                  className="p-2 rounded-lg bg-red-50 dark:bg-red-950/50"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    backgroundColor: isDark ? "rgba(220, 38, 38, 0.15)" : "#FEE2E2",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: isDark ? "#7F1D1D" : "#FECACA",
+                  }}
+                  accessibilityLabel="Delete Project"
                 >
-                  <Trash2 size={14} color="#EF4444" />
+                  <Trash2 size={13} color="#DC2626" />
                 </TouchableOpacity>
               )}
             </View>
           )}
         </View>
       </TouchableOpacity>
-    </Card>
+    </View>
   );
 };

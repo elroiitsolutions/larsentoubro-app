@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -22,6 +23,7 @@ import {
   Shield,
   Edit2,
   Trash2,
+  MapPin,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -64,6 +66,7 @@ export default function ToolsCatalogScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [filters, setFilters] = useState<ToolFilterState>({
     status: "All",
+    printStatus: "All",
     category: "All",
     validation: "All",
     makeYear: "All",
@@ -129,25 +132,47 @@ export default function ToolsCatalogScreen() {
     }
   };
 
-  // Filter tools based on search & advanced filter state (including Validation)
+  // Filter tools based on search & advanced filter state (including Validation, Print Status, and Specifications)
   const filteredTools = useMemo(() => {
+    const rawSearch = searchQuery.trim().toLowerCase();
+    const searchTokens = rawSearch.includes(',') || rawSearch.includes(';')
+      ? rawSearch.split(/[,;\n\t]+/).map((t) => t.trim()).filter(Boolean)
+      : rawSearch ? [rawSearch] : [];
+
     return tools.filter((t) => {
-      // Search
-      const name = t.name || t.description || "";
-      const code = t.toolId || t.toolCode || "";
-      const serial = t.serialNumber || "";
-      const cat = t.category || t.toolType || "";
-      const matchesSearch =
-        !searchQuery ||
-        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        serial.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cat.toLowerCase().includes(searchQuery.toLowerCase());
+      // Search: supports multi-token or single search
+      const name = (t.name || t.description || "").toLowerCase();
+      const code = (t.toolId || t.toolCode || "").toLowerCase();
+      const serial = (t.serialNumber || "").toLowerCase();
+      const cat = (t.category || t.toolType || "").toLowerCase();
+      const job = (t.jobCode || "").toLowerCase();
+      const purchaser = (t.purchaserName || "").toLowerCase();
+      const supplier = (t.supplierCode || "").toLowerCase();
+
+      let matchesSearch = true;
+      if (searchTokens.length > 0) {
+        matchesSearch = searchTokens.some((tok) =>
+          name.includes(tok) ||
+          code.includes(tok) ||
+          serial.includes(tok) ||
+          cat.includes(tok) ||
+          job.includes(tok) ||
+          purchaser.includes(tok) ||
+          supplier.includes(tok)
+        );
+      }
 
       // Status
       const matchesStatus =
         filters.status === "All" ||
         (t.status && t.status.toLowerCase() === filters.status.toLowerCase());
+
+      // Print Status
+      const matchesPrint =
+        !filters.printStatus ||
+        filters.printStatus === "All" ||
+        (filters.printStatus === "Printed" && t.isPrinted === true) ||
+        (filters.printStatus === "Not Printed" && !t.isPrinted);
 
       // Category
       const matchesCategory =
@@ -159,7 +184,6 @@ export default function ToolsCatalogScreen() {
       if (filters.validation !== "All") {
         const val = resolveValidationValue(t).toLowerCase();
         const targetVal = filters.validation.toLowerCase();
-        // Extract numeric years if possible
         const targetNum = targetVal.match(/(\d+)/)?.[1];
         const valNum = val.match(/(\d+)/)?.[1];
         if (targetNum && valNum) {
@@ -174,7 +198,29 @@ export default function ToolsCatalogScreen() {
         filters.makeYear === "All" ||
         (t.makeYear && String(t.makeYear) === filters.makeYear);
 
-      return matchesSearch && matchesStatus && matchesCategory && matchesValidation && matchesYear;
+      // Deep Specifications
+      const matchesSpecs = (
+        (!filters.toolCode || (t.toolCode && t.toolCode.toLowerCase().includes(filters.toolCode.toLowerCase()))) &&
+        (!filters.toolId || (t.toolId && t.toolId.toLowerCase().includes(filters.toolId.toLowerCase()))) &&
+        (!filters.capacity || (t.capacity && t.capacity.toLowerCase().includes(filters.capacity.toLowerCase()))) &&
+        (!filters.safeWorkingLoad || (t.safeWorkingLoad && t.safeWorkingLoad.toLowerCase().includes(filters.safeWorkingLoad.toLowerCase()))) &&
+        (!filters.metalType || (t.metalType && t.metalType.toLowerCase().includes(filters.metalType.toLowerCase()))) &&
+        (!filters.toolVariant || (t.toolVariant && t.toolVariant.toLowerCase().includes(filters.toolVariant.toLowerCase()))) &&
+        (!filters.purchaserName || (t.purchaserName && t.purchaserName.toLowerCase().includes(filters.purchaserName.toLowerCase()))) &&
+        (!filters.supplierCode || (t.supplierCode && t.supplierCode.toLowerCase().includes(filters.supplierCode.toLowerCase()))) &&
+        (!filters.jobCode || (t.jobCode && t.jobCode.toLowerCase().includes(filters.jobCode.toLowerCase()))) &&
+        (!filters.remarks || (t.remarks && t.remarks.toLowerCase().includes(filters.remarks.toLowerCase())))
+      );
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPrint &&
+        matchesCategory &&
+        matchesValidation &&
+        matchesYear &&
+        matchesSpecs
+      );
     });
   }, [tools, searchQuery, filters]);
 
@@ -192,18 +238,46 @@ export default function ToolsCatalogScreen() {
     return filteredTools.slice(startIndex, startIndex + pageSize);
   }, [filteredTools, currentPage]);
 
+  const stats = useMemo(() => {
+    const total = tools.length;
+    const available = tools.filter((t) => t.status?.toLowerCase() === "available").length;
+    const moving = tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
+    const repair = tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
+    return { total, available, moving, repair };
+  }, [tools]);
+
+  const quickStatusOptions = ["All", "Available", "In Transit", "Under Repair", "Missing", "Scrap"];
+
+  const getStatusCount = (status: string) => {
+    if (status === "All") return tools.length;
+    if (status === "In Transit") return tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
+    if (status === "Under Repair") return tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
+    return tools.filter((t) => t.status?.toLowerCase() === status.toLowerCase()).length;
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.status !== "All") count++;
+    if (filters.printStatus && filters.printStatus !== "All") count++;
     if (filters.category !== "All") count++;
     if (filters.validation !== "All") count++;
     if (filters.makeYear !== "All") count++;
+    const deepKeys: (keyof ToolFilterState)[] = [
+      'toolCode', 'toolId', 'capacity', 'safeWorkingLoad',
+      'metalType', 'toolVariant', 'purchaserName', 'supplierCode',
+      'jobCode', 'remarks'
+    ];
+    for (const k of deepKeys) {
+      if (filters[k] && String(filters[k]).trim() !== "") count++;
+    }
     return count;
   }, [filters]);
 
   return (
     <ScreenWrapper
       title="Equipment Catalog"
+      subtitle={`${tools.length} Industrial Assets Tracked`}
+      requiredPage="/tools"
       rightAction={
         canManageTools ? (
           <TouchableOpacity
@@ -212,11 +286,11 @@ export default function ToolsCatalogScreen() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 4,
+              gap: 5,
               backgroundColor: theme.primary,
               paddingHorizontal: 12,
               paddingVertical: 7,
-              borderRadius: 12,
+              borderRadius: 10,
             }}
           >
             <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
@@ -227,70 +301,228 @@ export default function ToolsCatalogScreen() {
         ) : undefined
       }
     >
-      {/* Search & Filter Bar */}
+      {/* Equipment KPI Overview Strip */}
       <View
         style={{
           flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
+          gap: 8,
           paddingHorizontal: 16,
-          paddingVertical: 12,
+          paddingVertical: 10,
+          backgroundColor: theme.surface,
+          borderBottomWidth: 1,
+          borderColor: theme.border,
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "All" }))}
+          style={{
+            flex: 1,
+            backgroundColor: filters.status === "All" ? (isDark ? "#312E81" : "#EEF2FF") : (isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: filters.status === "All" ? theme.primary : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: filters.status === "All" ? theme.primary : theme.text }}>
+            {stats.total}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Total
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "Available" }))}
+          style={{
+            flex: 1,
+            backgroundColor: filters.status === "Available" ? (isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: filters.status === "Available" ? "#059669" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#059669" }}>
+            {stats.available}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Ready
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "In Transit" }))}
+          style={{
+            flex: 1,
+            backgroundColor: filters.status === "In Transit" ? (isDark ? "rgba(2, 132, 199, 0.25)" : "#F0F9FF") : (isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: filters.status === "In Transit" ? "#0284C7" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#0284C7" }}>
+            {stats.moving}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Transit
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "Under Repair" }))}
+          style={{
+            flex: 1,
+            backgroundColor: filters.status === "Under Repair" ? (isDark ? "rgba(217, 119, 6, 0.25)" : "#FFFBEB") : (isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: filters.status === "Under Repair" ? "#D97706" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#D97706" }}>
+            {stats.repair}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Repair
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search & Filter Bar */}
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 10,
           backgroundColor: isDark ? "#111827" : "#FFFFFF",
           borderBottomWidth: 1,
           borderColor: theme.border,
         }}
       >
-        <View style={{ flex: 1 }}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by code, name, category, serial..."
-          />
-        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search by code, name, category, serial..."
+            />
+          </View>
 
-        {/* Filter Trigger Button */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setFilterModalVisible(true)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            height: 42,
-            borderRadius: 12,
-            backgroundColor: activeFilterCount > 0 ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
-            borderWidth: 1,
-            borderColor: activeFilterCount > 0 ? theme.primary : theme.border,
-            gap: 6,
-          }}
-        >
-          <Filter
-            size={16}
-            color={activeFilterCount > 0 ? "#FFFFFF" : theme.textSecondary}
-          />
-          {activeFilterCount > 0 && (
-            <View
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: 9,
-                width: 18,
-                height: 18,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text
+          {/* Filter Trigger Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setFilterModalVisible(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 12,
+              height: 42,
+              borderRadius: 12,
+              backgroundColor: activeFilterCount > 0 ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
+              borderWidth: 1,
+              borderColor: activeFilterCount > 0 ? theme.primary : theme.border,
+              gap: 6,
+            }}
+          >
+            <Filter
+              size={16}
+              color={activeFilterCount > 0 ? "#FFFFFF" : theme.textSecondary}
+            />
+            {activeFilterCount > 0 && (
+              <View
                 style={{
-                  fontSize: 10,
-                  fontWeight: "bold",
-                  color: theme.primary,
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 9,
+                  width: 18,
+                  height: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {activeFilterCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    color: theme.primary,
+                  }}
+                >
+                  {activeFilterCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Horizontal Status Chips */}
+        <FlatList
+          horizontal
+          data={quickStatusOptions}
+          keyExtractor={(item) => item}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const isSelected = filters.status === item;
+            const count = getStatusCount(item);
+            return (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setFilters((prev) => ({ ...prev, status: item }))}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingHorizontal: 11,
+                  paddingVertical: 5.5,
+                  borderRadius: 10,
+                  marginRight: 6,
+                  backgroundColor: isSelected ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
+                  borderWidth: 1,
+                  borderColor: isSelected ? theme.primary : theme.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: isSelected ? "#FFFFFF" : theme.textSecondary,
+                  }}
+                >
+                  {item}
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: isSelected ? "rgba(255, 255, 255, 0.25)" : isDark ? "#334155" : "#E2E8F0",
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: "800",
+                      color: isSelected ? "#FFFFFF" : theme.textSecondary,
+                    }}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
 
       {/* Active Filter Chips Preview */}
@@ -356,10 +588,54 @@ export default function ToolsCatalogScreen() {
             </View>
           )}
 
+          {filters.printStatus && filters.printStatus !== "All" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: filters.printStatus === "Printed"
+                  ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#ECFDF5")
+                  : (isDark ? "#334155" : "#F1F5F9"),
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 8,
+                gap: 4,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: filters.printStatus === "Printed"
+                    ? (isDark ? "#34D399" : "#059669")
+                    : theme.textSecondary,
+                }}
+              >
+                QR: {filters.printStatus}
+              </Text>
+            </View>
+          )}
+
+          {filters.makeYear !== "All" && (
+            <View
+              style={{
+                backgroundColor: isDark ? "#1E293B" : "#E2E8F0",
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: "600", color: theme.text }}>
+                Year: {filters.makeYear}
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             onPress={() =>
               setFilters({
                 status: "All",
+                printStatus: "All",
                 category: "All",
                 validation: "All",
                 makeYear: "All",
@@ -421,65 +697,207 @@ export default function ToolsCatalogScreen() {
             const code = item.toolId || item.toolCode || item._id.substring(item._id.length - 6).toUpperCase();
             const validationVal = resolveValidationValue(item);
 
+            const getStatusColor = (status?: string) => {
+              const s = (status || "").toLowerCase();
+              if (s.includes("available") || s.includes("ready")) return "#10B981";
+              if (s.includes("transit") || s.includes("moving") || s.includes("issued") || s.includes("assigned")) return "#3B82F6";
+              if (s.includes("repair") || s.includes("maintenance")) return "#F59E0B";
+              if (s.includes("missing") || s.includes("lost")) return "#EF4444";
+              if (s.includes("scrap") || s.includes("dispose")) return "#64748B";
+              return "#0284C7";
+            };
+            const statusColor = getStatusColor(item.status);
+            const locationName = item.storeName || (item.store && item.store.name) || (item.project && item.project.name) || (item.currentSite && item.currentSite.name) || null;
+            const categoryText = item.category || item.toolType || "General";
+
             return (
-              <Card style={{ marginBottom: 12, overflow: "hidden" }}>
+              <View
+                style={{
+                  marginBottom: 14,
+                  borderRadius: 16,
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  overflow: "hidden",
+                  ...Platform.select({
+                    ios: {
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: isDark ? 0.3 : 0.06,
+                      shadowRadius: 8,
+                    },
+                    android: {
+                      elevation: 2,
+                    },
+                    default: {
+                      boxShadow: isDark
+                        ? "0 4px 12px rgba(0,0,0,0.25)"
+                        : "0 2px 8px rgba(0,0,0,0.05)",
+                    },
+                  }),
+                }}
+              >
+                {/* 3.5px luminous status accent strip */}
+                <View style={{ height: 3.5, backgroundColor: statusColor, width: "100%" }} />
+
                 <TouchableOpacity
-                  activeOpacity={0.75}
+                  activeOpacity={0.8}
                   delayPressIn={0}
                   onPress={() => setPreviewTool(item)}
-                  style={{ padding: 14 }}
+                  style={{ padding: 15 }}
                 >
+                  {/* Top Header: Monospace Code & Status */}
                   <View
                     style={{
                       flexDirection: "row",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       justifyContent: "space-between",
                       marginBottom: 8,
                     }}
                   >
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text
-                        style={{ fontSize: 15, fontWeight: "bold", color: theme.text }}
-                        numberOfLines={1}
-                      >
-                        {toolName}
-                      </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: isDark ? "#334155" : "#E2E8F0",
+                      }}
+                    >
                       <Text
                         style={{
                           fontSize: 11,
-                          fontFamily: "monospace",
-                          color: theme.textMuted,
-                          marginTop: 2,
+                          fontWeight: "700",
+                          fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+                          color: isDark ? "#94A3B8" : "#475569",
+                          letterSpacing: 0.5,
                         }}
                       >
-                        ID: {code} • SN: {item.serialNumber || "N/A"}
+                        #{code}
                       </Text>
                     </View>
-                    <StatusBadge status={item.status || "Available"} />
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <StatusBadge status={item.status || "Available"} />
+                      <View
+                        style={{
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: 6,
+                          backgroundColor: item.isPrinted
+                            ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#ECFDF5")
+                            : (isDark ? "#334155" : "#F1F5F9"),
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: "700",
+                            color: item.isPrinted
+                              ? (isDark ? "#34D399" : "#059669")
+                              : (isDark ? "#94A3B8" : "#64748B"),
+                          }}
+                        >
+                          {item.isPrinted ? "✓ Printed" : "Not Printed"}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
 
-                  {/* Attributes & Validation pill */}
+                  {/* Title & Serial */}
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "700",
+                      color: theme.text,
+                      lineHeight: 22,
+                      marginBottom: 3,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {toolName}
+                  </Text>
+                  
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: theme.textMuted,
+                      marginBottom: 10,
+                    }}
+                    numberOfLines={1}
+                  >
+                    SN: {item.serialNumber || "N/A"}{item.makeYear ? ` • Year: ${item.makeYear}` : ""}
+                  </Text>
+
+                  {/* Meta Pills / Info Box */}
                   <View
                     style={{
                       flexDirection: "row",
                       flexWrap: "wrap",
                       gap: 6,
-                      marginVertical: 6,
+                      marginBottom: 12,
                     }}
                   >
                     {/* Category pill */}
                     <View
                       style={{
-                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
                         paddingHorizontal: 8,
-                        paddingVertical: 3,
+                        paddingVertical: 4,
                         borderRadius: 6,
+                        gap: 4,
                       }}
                     >
-                      <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                        {item.category || item.toolType || "General"}
+                      <Layers size={11} color={theme.textSecondary} />
+                      <Text style={{ fontSize: 11, fontWeight: "500", color: theme.textSecondary }}>
+                        {categoryText}
                       </Text>
                     </View>
+
+                    {/* Location pill if available */}
+                    {locationName && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          gap: 4,
+                          maxWidth: 160,
+                        }}
+                      >
+                        <MapPin size={11} color={theme.textSecondary} />
+                        <Text
+                          style={{ fontSize: 11, fontWeight: "500", color: theme.textSecondary }}
+                          numberOfLines={1}
+                        >
+                          {locationName}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Capacity pill */}
+                    {(item.capacity || item.safeWorkingLoad) && (
+                      <View
+                        style={{
+                          backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: "500", color: theme.textSecondary }}>
+                          Cap: {item.capacity || item.safeWorkingLoad}
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Validation Pill */}
                     {validationVal !== "-" && (
@@ -489,9 +907,9 @@ export default function ToolsCatalogScreen() {
                           alignItems: "center",
                           backgroundColor: isDark ? "#2C2010" : "#FEF3C7",
                           paddingHorizontal: 8,
-                          paddingVertical: 3,
+                          paddingVertical: 4,
                           borderRadius: 6,
-                          gap: 3,
+                          gap: 4,
                         }}
                       >
                         <Clock size={11} color="#D97706" />
@@ -502,22 +920,7 @@ export default function ToolsCatalogScreen() {
                             color: isDark ? "#FCD34D" : "#92400E",
                           }}
                         >
-                          Validation: {validationVal}
-                        </Text>
-                      </View>
-                    )}
-
-                    {item.capacity && (
-                      <View
-                        style={{
-                          backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 6,
-                        }}
-                      >
-                        <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                          Cap: {item.capacity}
+                          Valid: {validationVal}
                         </Text>
                       </View>
                     )}
@@ -529,18 +932,31 @@ export default function ToolsCatalogScreen() {
                       flexDirection: "row",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      paddingTop: 10,
+                      paddingTop: 11,
                       borderTopWidth: 1,
-                      borderColor: theme.border,
-                      marginTop: 4,
+                      borderColor: isDark ? "#334155" : "#F1F5F9",
                     }}
                   >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Eye size={13} color={theme.textMuted} />
-                      <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                        Quick Preview
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setPreviewTool(item)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                        backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: isDark ? "#334155" : "#E2E8F0",
+                      }}
+                    >
+                      <Eye size={12} color={theme.textSecondary} />
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary }}>
+                        Quick View
                       </Text>
-                    </View>
+                    </TouchableOpacity>
 
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       {canManageTools && (
@@ -555,10 +971,12 @@ export default function ToolsCatalogScreen() {
                               } as any);
                             }}
                             style={{
-                              width: 30,
-                              height: 30,
+                              width: 32,
+                              height: 32,
                               borderRadius: 8,
-                              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                              backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                              borderWidth: 1,
+                              borderColor: isDark ? "#334155" : "#E2E8F0",
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -573,15 +991,15 @@ export default function ToolsCatalogScreen() {
                               setDeletingTool(item);
                             }}
                             style={{
-                              width: 30,
-                              height: 30,
+                              width: 32,
+                              height: 32,
                               borderRadius: 8,
-                              backgroundColor: theme.dangerLight,
+                              backgroundColor: isDark ? "#31181E" : "#FEE2E2",
                               alignItems: "center",
                               justifyContent: "center",
                             }}
                           >
-                            <Trash2 size={13} color={theme.danger} />
+                            <Trash2 size={13} color="#EF4444" />
                           </TouchableOpacity>
                         </>
                       )}
@@ -589,24 +1007,31 @@ export default function ToolsCatalogScreen() {
                       <TouchableOpacity
                         activeOpacity={0.75}
                         onPress={() => router.push(`/tools/${item._id}` as any)}
-                        style={{ flexDirection: "row", alignItems: "center" }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          backgroundColor: `${theme.primary}15`,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          gap: 3,
+                        }}
                       >
                         <Text
                           style={{
                             fontSize: 12,
-                            fontWeight: "bold",
+                            fontWeight: "700",
                             color: theme.primary,
-                            marginRight: 2,
                           }}
                         >
                           Details
                         </Text>
-                        <ChevronRight size={14} color={theme.primary} />
+                        <ChevronRight size={13} color={theme.primary} />
                       </TouchableOpacity>
                     </View>
                   </View>
                 </TouchableOpacity>
-              </Card>
+              </View>
             );
           }}
           ListFooterComponent={
@@ -633,6 +1058,7 @@ export default function ToolsCatalogScreen() {
                 setSearchQuery("");
                 setFilters({
                   status: "All",
+                  printStatus: "All",
                   category: "All",
                   validation: "All",
                   makeYear: "All",

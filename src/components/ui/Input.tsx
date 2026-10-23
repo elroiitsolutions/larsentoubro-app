@@ -44,7 +44,9 @@ export const Input: React.FC<InputProps> = ({
       )}
 
       <View
-        className={`flex-row items-center bg-white dark:bg-slate-900 border rounded-xl px-3.5 h-12 ${
+        className={`flex-row bg-white dark:bg-slate-900 border rounded-xl px-3.5 ${
+          props.multiline ? "min-h-[88px] py-2.5 items-start" : "h-12 items-center"
+        } ${
           error
             ? "border-red-500 bg-red-50/20"
             : isFocused
@@ -52,11 +54,19 @@ export const Input: React.FC<InputProps> = ({
             : "border-slate-200 dark:border-slate-800"
         }`}
       >
-        {leftIcon && <View className="mr-2.5">{leftIcon}</View>}
+        {leftIcon && <View className={`mr-2.5 ${props.multiline ? "mt-1" : ""}`}>{leftIcon}</View>}
 
         <TextInput
           className={`flex-1 text-sm text-slate-900 dark:text-white font-medium ${className}`}
-          style={[{ flex: 1, height: "100%", paddingVertical: 0 }, style]}
+          style={[
+            {
+              flex: 1,
+              height: props.multiline ? undefined : "100%",
+              textAlignVertical: props.multiline ? "top" : "center",
+              paddingVertical: 0,
+            },
+            style,
+          ]}
           placeholderTextColor="#94A3B8"
           secureTextEntry={isPassword && !showPassword}
           onFocus={(e) => {

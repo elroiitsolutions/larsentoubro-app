@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Archive, AlertCircle, Building2, Check, ArrowRight } from 'lucide-react-native';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -11,10 +13,11 @@ import { ToolRecord } from '../types';
 
 const REASON_OPTIONS = [
   'Beyond Economical Repair',
-  'Damaged Beyond Use',
-  'Safe Life Expired',
+  'Mechanical / Structural Failure',
+  'Safe Life / Certificate Expired',
   'Obsolete / Phased Out',
-  'Failed Load Proof Test',
+  'Failed Load Proof Inspection',
+  'Corroded / Extreme Weather Damage',
   'Other',
 ];
 
@@ -23,6 +26,7 @@ interface ScrapModalProps {
   onClose: () => void;
   tool?: ToolRecord | null;
   toolIds?: string[];
+  selectedTools?: ToolRecord[];
   onSuccess: () => void;
 }
 
@@ -31,13 +35,16 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
   onClose,
   tool,
   toolIds,
+  selectedTools = [],
   onSuccess,
 }) => {
+  const router = useRouter();
   const { theme, isDark } = useAppTheme();
 
   const [scrapDealers, setScrapDealers] = useState<ProfileRecord[]>([]);
   const [selectedDealerId, setSelectedDealerId] = useState('');
   const [reason, setReason] = useState(REASON_OPTIONS[0]);
+  const [customReason, setCustomReason] = useState('');
   const [scrapValue, setScrapValue] = useState('');
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,10 +58,7 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
   const loadDealers = async () => {
     try {
       const dealers = await profileService.getProfiles('ScrapDealer');
-      setScrapDealers(dealers);
-      if (dealers.length > 0) {
-        setSelectedDealerId(dealers[0]._id);
-      }
+      setScrapDealers(dealers || []);
     } catch {
       // Ignored fallback
     }
@@ -63,31 +67,79 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
   const handleConfirmScrap = async () => {
     const ids = toolIds && toolIds.length > 0 ? toolIds : tool ? [tool._id] : [];
     if (ids.length === 0) {
-      Alert.alert('Error', 'No tools selected for scrapping.');
+      Alert.alert('Validation Error', 'No equipment selected for scrapping.');
+      return;
+    }
+
+    // Validation 1: All tools must be printed before moving to scrap
+    const unprinted = selectedTools.filter((t) => !t.isPrinted);
+    if (unprinted.length > 0) {
+      Alert.alert(
+        'QR Label Required',
+        `All selected equipment must be marked as Printed before moving to Scrap.`
+      );
+      return;
+    }
+
+    // Validation 2: Cannot scrap tools that are currently under Repair
+    const repairTools = selectedTools.filter(
+      (t) => (t.status || '').toLowerCase() === 'repair'
+    );
+    if (repairTools.length > 0) {
+      Alert.alert(
+        'Action Blocked',
+        'Selected equipment includes tools under Repair. To move a tool under repair to scrap, complete the Inspection workflow.'
+      );
       return;
     }
 
     try {
       setSubmitting(true);
+      const effectiveReason = reason === 'Other' && customReason.trim() ? customReason.trim() : reason;
+      const combinedReason = remarks.trim() ? `${effectiveReason} - ${remarks.trim()}` : effectiveReason;
+
       const selectedDealer = scrapDealers.find((d) => d._id === selectedDealerId);
 
-      await toolService.scrapTools({
-        toolIds: ids,
-        scrapDealerId: selectedDealerId || undefined,
-        scrapDealerName: selectedDealer?.name || undefined,
-        scrapReason: reason,
-        scrapValue: scrapValue ? parseFloat(scrapValue) : undefined,
-        remarks,
-        scrapDate: new Date().toISOString().split('T')[0],
-      });
+      if (selectedDealerId) {
+        await toolService.scrapTools({
+          toolIds: ids,
+          scrapDealerId: selectedDealerId,
+          scrapDealerName: selectedDealer?.name || undefined,
+          scrapReason: combinedReason,
+          scrapValue: scrapValue ? parseFloat(scrapValue) : undefined,
+          remarks: remarks.trim() || undefined,
+          scrapDate: new Date().toISOString().split('T')[0],
+        });
+      } else {
+        await toolService.bulkScrapTools(ids, combinedReason);
+      }
 
-      Alert.alert('Success', 'Equipment moved to Scrap Register successfully.');
-      onSuccess();
-      onClose();
+      Alert.alert(
+        'Moved to Scrap Register',
+        `${ids.length} equipment unit(s) moved to Scrap successfully.`,
+        [
+          {
+            text: 'View Scrap Register',
+            onPress: () => {
+              onSuccess();
+              onClose();
+              router.push('/scrap' as any);
+            },
+          },
+          {
+            text: 'Done',
+            style: 'default',
+            onPress: () => {
+              onSuccess();
+              onClose();
+            },
+          },
+        ]
+      );
     } catch (err: any) {
       Alert.alert(
         'Scrap Failed',
-        err?.response?.data?.message || err?.message || 'Could not scrap tool.'
+        err?.response?.data?.message || err?.message || 'Could not move equipment to scrap.'
       );
     } finally {
       setSubmitting(false);
@@ -100,22 +152,42 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
     <Modal
       visible={visible}
       onClose={onClose}
-      title={`Scrap Equipment (${targetCount} Unit${targetCount === 1 ? '' : 's'})`}
+      title={`Move to Scrap (${targetCount} Unit${targetCount === 1 ? '' : 's'})`}
     >
-      <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ maxHeight: 480 }} showsVerticalScrollIndicator={false}>
+        {/* Info Banner */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 8,
+            backgroundColor: isDark ? '#1C1917' : '#FEF3C7',
+            padding: 10,
+            borderRadius: 10,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: isDark ? '#78350F' : '#FDE68A',
+          }}
+        >
+          <AlertCircle size={15} color="#D97706" style={{ marginTop: 1 }} />
+          <Text style={{ fontSize: 11, color: isDark ? '#FDE68A' : '#92400E', flex: 1, lineHeight: 15 }}>
+            Selected equipment will be decommissioned and transferred to the Scrap Register. Store associations are preserved.
+          </Text>
+        </View>
+
         {tool && (
           <View
             style={{
               backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-              padding: 12,
-              borderRadius: 12,
-              marginBottom: 14,
+              padding: 10,
+              borderRadius: 10,
+              marginBottom: 12,
             }}
           >
-            <Text style={{ fontSize: 13, fontWeight: 'bold', color: theme.text }}>
-              {tool.name || tool.description}
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.text }}>
+              {tool.name || tool.description || 'Equipment Item'}
             </Text>
-            <Text style={{ fontSize: 11, fontFamily: 'monospace', color: theme.textMuted }}>
+            <Text style={{ fontSize: 10, fontFamily: 'monospace', color: theme.textSecondary, marginTop: 2 }}>
               Code: {tool.toolCode || tool.toolId} • SN: {tool.serialNumber || 'N/A'}
             </Text>
           </View>
@@ -133,7 +205,7 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
               marginBottom: 8,
             }}
           >
-            Scrap Reason
+            Scrap Justification / Reason
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {REASON_OPTIONS.map((r) => {
@@ -147,15 +219,15 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 8,
-                    backgroundColor: isSelected ? theme.danger : isDark ? '#1E293B' : '#F1F5F9',
+                    backgroundColor: isSelected ? '#E11D48' : isDark ? '#1E293B' : '#F1F5F9',
                     borderWidth: 1,
-                    borderColor: isSelected ? theme.danger : theme.border,
+                    borderColor: isSelected ? '#E11D48' : theme.border,
                   }}
                 >
                   <Text
                     style={{
                       fontSize: 11,
-                      fontWeight: '600',
+                      fontWeight: isSelected ? '700' : '500',
                       color: isSelected ? '#FFFFFF' : theme.text,
                     }}
                   >
@@ -167,7 +239,16 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
           </View>
         </View>
 
-        {/* Scrap Dealer Selector */}
+        {reason === 'Other' && (
+          <Input
+            label="Specific Scrap Reason"
+            placeholder="Describe the condition or failure cause..."
+            value={customReason}
+            onChangeText={setCustomReason}
+          />
+        )}
+
+        {/* Optional Scrap Dealer Assignment */}
         {scrapDealers.length > 0 && (
           <View style={{ marginBottom: 14 }}>
             <Text
@@ -177,12 +258,39 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
                 textTransform: 'uppercase',
                 letterSpacing: 0.8,
                 color: theme.textSecondary,
-                marginBottom: 8,
+                marginBottom: 4,
               }}
             >
-              Assigned Scrap Dealer
+              Assign Scrap Dealer (Optional)
             </Text>
+            <Text style={{ fontSize: 10, color: theme.textMuted, marginBottom: 8 }}>
+              You can assign now or issue a Scrap Delivery Challan (SDC) later from the Scrap Register.
+            </Text>
+
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedDealerId('')}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: !selectedDealerId ? theme.primary : isDark ? '#1E293B' : '#F1F5F9',
+                  borderWidth: 1,
+                  borderColor: !selectedDealerId ? theme.primary : theme.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: !selectedDealerId ? '700' : '500',
+                    color: !selectedDealerId ? '#FFFFFF' : theme.text,
+                  }}
+                >
+                  None (Scrap Register Only)
+                </Text>
+              </TouchableOpacity>
+
               {scrapDealers.map((d) => {
                 const isSelected = selectedDealerId === d._id;
                 return (
@@ -202,7 +310,7 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
                     <Text
                       style={{
                         fontSize: 11,
-                        fontWeight: '600',
+                        fontWeight: isSelected ? '700' : '500',
                         color: isSelected ? '#FFFFFF' : theme.text,
                       }}
                     >
@@ -215,17 +323,19 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
           </View>
         )}
 
-        <Input
-          label="Recovered Scrap Value (INR)"
-          placeholder="e.g. 5000"
-          value={scrapValue}
-          onChangeText={setScrapValue}
-          keyboardType="numeric"
-        />
+        {selectedDealerId ? (
+          <Input
+            label="Estimated Recovered Scrap Value (INR)"
+            placeholder="e.g. 5000"
+            value={scrapValue}
+            onChangeText={setScrapValue}
+            keyboardType="numeric"
+          />
+        ) : null}
 
         <Input
-          label="Scrap Notes & Authorization Remarks"
-          placeholder="Disposal certificate ref, surveyor approval..."
+          label="Authorization Remarks & Survey Notes"
+          placeholder="e.g. Approved by Lead Engineer, disposal note ref #89..."
           value={remarks}
           onChangeText={setRemarks}
           multiline
@@ -238,12 +348,13 @@ export const ScrapModal: React.FC<ScrapModalProps> = ({
         <View style={{ flex: 1 }}>
           <Button title="Cancel" variant="outline" onPress={onClose} />
         </View>
-        <View style={{ flex: 1.2 }}>
+        <View style={{ flex: 1.4 }}>
           <Button
             title="Confirm Scrap"
             variant="destructive"
             loading={submitting}
             onPress={handleConfirmScrap}
+            icon={<Archive size={14} color="#FFFFFF" />}
           />
         </View>
       </View>

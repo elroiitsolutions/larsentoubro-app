@@ -27,6 +27,26 @@ export const userService = {
     return res.data;
   },
 
+  getSubusers: async (): Promise<UserRecord[]> => {
+    const res = await api.get<{ success: boolean; data: UserRecord[] }>("/api/users/subusers");
+    return res.data?.data || [];
+  },
+
+  createSubuser: async (data: Record<string, unknown>) => {
+    const res = await api.post<{ success: boolean; data: UserRecord }>("/api/users/subusers", data);
+    return res.data;
+  },
+
+  updateSubuser: async (id: string, data: Record<string, unknown>) => {
+    const res = await api.put<{ success: boolean; data: UserRecord }>(`/api/users/subusers/${id}`, data);
+    return res.data;
+  },
+
+  deleteSubuser: async (id: string) => {
+    const res = await api.delete(`/api/users/subusers/${id}`);
+    return res.data;
+  },
+
   getPendingApprovals: async (): Promise<PendingLoginRequest[]> => {
     const res = await api.get<{ success: boolean; data: PendingLoginRequest[] }>(
       "/api/users/login-requests/pending"

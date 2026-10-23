@@ -85,6 +85,7 @@ export default function FormsManagementScreen() {
       title="Forms Management"
       subtitle="Enterprise Dynamic Schema Configuration"
       showBackButton={true}
+      adminOnly={true}
       scrollable={true}
       refreshControl={
         <RefreshControl

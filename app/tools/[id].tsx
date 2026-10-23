@@ -30,6 +30,7 @@ import {
   Clock,
   CalendarCheck,
   Menu,
+  ClipboardCheck,
 } from "lucide-react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { toolService } from "@/features/tools/services/toolService";
@@ -39,6 +40,7 @@ import {
   calculateValidUntilDate,
 } from "@/features/tools/types";
 import { ToolLifeExtensionModal } from "@/features/dashboard/components/ToolLifeExtensionModal";
+import { ToolInspectionModal } from "@/features/tools/components/ToolInspectionModal";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { Card } from "@/components/ui/Card";
@@ -61,8 +63,15 @@ export default function ToolDetailsScreen() {
 
   // Life Extension Modal State
   const [extendModalVisible, setExtendModalVisible] = useState(false);
+  const [inspectModalVisible, setInspectModalVisible] = useState(false);
 
   const canManage = user?.role === "Admin" || user?.role === "Manager";
+  const canInspect = user?.role === "Admin" || (user as any)?.hasInspectionAccess;
+  const isInspectable =
+    tool &&
+    !tool.isScrapped &&
+    !tool.isDisposed &&
+    !["moving", "in transit", "transit", "repair"].includes((tool.status || "").toLowerCase());
 
   const fetchTool = useCallback(async () => {
     if (!id) return;
@@ -229,6 +238,18 @@ export default function ToolDetailsScreen() {
                 size="sm"
                 onPress={() => setExtendModalVisible(true)}
                 icon={<Clock size={14} color="#FFFFFF" />}
+              />
+            </View>
+          )}
+
+          {canInspect && isInspectable && (
+            <View className="w-full mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                title="Inspect Equipment (Quality Check)"
+                size="sm"
+                variant="outline"
+                onPress={() => setInspectModalVisible(true)}
+                icon={<ClipboardCheck size={14} color="#059669" />}
               />
             </View>
           )}
@@ -400,6 +421,97 @@ export default function ToolDetailsScreen() {
             </Text>
           </Card>
         )}
+
+        {/* Inspection History Section */}
+        {tool.inspectionHistory && tool.inspectionHistory.length > 0 && (
+          <Card className="p-4 mb-4">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center gap-2">
+                <ClipboardCheck size={16} color="#059669" />
+                <Text className="text-sm font-bold text-slate-900 dark:text-white">
+                  Inspection History
+                </Text>
+              </View>
+              <View className="bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
+                <Text className="text-[10px] font-bold text-emerald-800 dark:text-emerald-200">
+                  {tool.inspectionHistory.length} Record{tool.inspectionHistory.length === 1 ? "" : "s"}
+                </Text>
+              </View>
+            </View>
+
+            <View className="gap-2.5">
+              {tool.inspectionHistory.map((item, index) => {
+                const isPass = item.result === "Pass";
+                const dateStr = item.inspectedAt
+                  ? new Date(item.inspectedAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "-";
+                const inspector =
+                  (typeof item.inspectedBy === "object"
+                    ? item.inspectedBy?.name || item.inspectedBy?.email
+                    : item.inspectedBy) || "Inspector";
+
+                return (
+                  <View
+                    key={index}
+                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700"
+                  >
+                    <View className="flex-row items-center justify-between mb-1">
+                      <View className="flex-row items-center gap-2">
+                        <View
+                          className={`px-2 py-0.5 rounded ${
+                            isPass
+                              ? "bg-emerald-100 dark:bg-emerald-900/50"
+                              : "bg-rose-100 dark:bg-rose-900/50"
+                          }`}
+                        >
+                          <Text
+                            className={`text-[11px] font-bold ${
+                              isPass
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-rose-700 dark:text-rose-300"
+                            }`}
+                          >
+                            {item.result}
+                          </Text>
+                        </View>
+                        {item.action && (
+                          <Text className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            Action: {item.action}
+                          </Text>
+                        )}
+                      </View>
+                      <Text className="text-[11px] text-slate-500">{dateStr}</Text>
+                    </View>
+
+                    {item.validation && (
+                      <Text className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                        Validity Renewed: <Text className="font-semibold">{item.validation}</Text>
+                      </Text>
+                    )}
+
+                    <View className="flex-row items-center justify-between mt-1 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                      <Text className="text-[11px] text-slate-500">
+                        By: <Text className="font-medium text-slate-700 dark:text-slate-300">{inspector}</Text>
+                      </Text>
+                      {item.notes ? (
+                        <Text
+                          className="text-[11px] text-slate-500 max-w-[150px]"
+                          numberOfLines={1}
+                        >
+                          {item.notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
+        )}
       </ScrollView>
 
       {/* Tool Life Extension Modal */}
@@ -407,6 +519,14 @@ export default function ToolDetailsScreen() {
         visible={extendModalVisible}
         onClose={() => setExtendModalVisible(false)}
         toolId={tool._id}
+        onSuccess={fetchTool}
+      />
+
+      {/* Tool Quality Inspection Modal */}
+      <ToolInspectionModal
+        visible={inspectModalVisible}
+        onClose={() => setInspectModalVisible(false)}
+        selectedTools={tool ? [tool] : []}
         onSuccess={fetchTool}
       />
     </SafeAreaView>

@@ -51,11 +51,13 @@ interface MenuItem {
   route: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  requiredPage?: string;
 }
 
 interface MenuSection {
   title: string;
   adminOnly?: boolean;
+  requiredPage?: string;
   items: MenuItem[];
 }
 
@@ -63,38 +65,41 @@ const MENU_SECTIONS: MenuSection[] = [
   {
     title: "Overview",
     items: [
-      { label: "Dashboard", route: "/(tabs)", icon: LayoutDashboard },
-      { label: "Reports & Audit", route: "/settings/reports", icon: BarChart3 },
+      { label: "Dashboard", route: "/(tabs)", icon: LayoutDashboard, requiredPage: "/dashboard" },
+      { label: "Reports & Audit", route: "/reports", icon: BarChart3, requiredPage: "/reports" },
     ],
   },
   {
     title: "Operations & Assets",
     items: [
-      { label: "Projects", route: "/(tabs)/projects", icon: FolderGit2 },
-      { label: "Challan Register", route: "/challans", icon: Truck },
-      { label: "Scrap Register", route: "/scrap", icon: Recycle },
+      { label: "Projects", route: "/(tabs)/projects", icon: FolderGit2, requiredPage: "/projects" },
+      { label: "Stores & HUBs", route: "/(tabs)/stores", icon: Building2, requiredPage: "/stores" },
+      { label: "Tools Inventory", route: "/(tabs)/tools", icon: Wrench, requiredPage: "/tools" },
+      { label: "Challan Register", route: "/challans", icon: Truck, requiredPage: "/challans" },
+      { label: "Scrap Register", route: "/scrap", icon: Recycle, requiredPage: "/scrap" },
     ],
   },
   {
     title: "Stakeholders & Vendors",
     items: [
-      { label: "Profiles Directory", route: "/profiles", icon: Users },
+      { label: "Profiles Directory", route: "/profiles", icon: Users, requiredPage: "/profiles" },
     ],
   },
   {
     title: "Administration",
     adminOnly: true,
     items: [
-      { label: "Access Approvals", route: "/admin/approvals", icon: UserCheck },
-      { label: "Users & Scopes", route: "/users", icon: Users },
-      { label: "Trash Archive", route: "/trash", icon: Trash2 },
+      { label: "Access Approvals", route: "/admin/approvals", icon: UserCheck, adminOnly: true },
+      { label: "Users & Scopes", route: "/users", icon: Users, requiredPage: "/users" },
+      { label: "Trash Archive", route: "/trash", icon: Trash2, adminOnly: true },
     ],
   },
   {
     title: "System & Config",
+    adminOnly: true,
     items: [
-      { label: "Forms Management", route: "/settings/forms", icon: FileText },
-      { label: "Layout Customizer", route: "/settings/layouts/tool-quick-view", icon: Sliders },
+      { label: "Forms Management", route: "/settings/forms", icon: FileText, adminOnly: true },
+      { label: "Layout Customizer", route: "/settings/layouts/tool-quick-view", icon: Sliders, adminOnly: true },
     ],
   },
 ];
@@ -109,6 +114,24 @@ export const SidebarDrawer: React.FC = () => {
 
   const isAdmin = user?.role === "Admin";
   const isGuest = user?.role === "Guest";
+  const isVendor = user?.role === "Vendor";
+  const userAllowedPages = Array.isArray(user?.allowedPages) ? user.allowedPages : [];
+  const canManageSubusers = Boolean(isAdmin || (user as any)?.canCreateUser);
+
+  const isItemVisible = (item: MenuItem) => {
+    if (isGuest) return false;
+    if (isAdmin) return true;
+    if (item.adminOnly) {
+      if (item.route === "/users" && canManageSubusers) return true;
+      return false;
+    }
+    if (isVendor) {
+      return item.route.includes("stores") || item.route.includes("challans");
+    }
+    // For standard users, verify against allowedPages
+    if (!item.requiredPage) return true;
+    return userAllowedPages.includes(item.requiredPage);
+  };
 
   const visibleSections = React.useMemo(() => {
     if (isGuest) {
@@ -119,11 +142,13 @@ export const SidebarDrawer: React.FC = () => {
         },
       ];
     }
-    return MENU_SECTIONS.filter((sec) => !sec.adminOnly || isAdmin).map((section) => ({
-      ...section,
-      items: section.items.filter((item) => !item.adminOnly || isAdmin),
-    }));
-  }, [isGuest, isAdmin]);
+    return MENU_SECTIONS
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(isItemVisible),
+      }))
+      .filter((sec) => sec.items.length > 0);
+  }, [isGuest, isAdmin, isVendor, userAllowedPages, canManageSubusers]);
 
   const animProgress = useSharedValue(0);
 

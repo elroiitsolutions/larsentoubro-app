@@ -193,6 +193,7 @@ export default function ProfileFormScreen() {
     <ScreenWrapper
       title={isEditing ? "Edit Profile" : "Register Profile"}
       showBack
+      requiredPage="/profiles"
     >
       {loading ? (
         <View style={{ padding: 40, alignItems: "center" }}>

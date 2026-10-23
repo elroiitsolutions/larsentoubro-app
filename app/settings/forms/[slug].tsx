@@ -129,6 +129,7 @@ export default function FormDetailScreen() {
       title={title}
       subtitle={`/${slug} Schema Configuration`}
       showBackButton={true}
+      adminOnly={true}
       scrollable={true}
       refreshControl={
         <RefreshControl

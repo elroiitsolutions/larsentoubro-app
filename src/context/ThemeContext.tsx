@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
 import { useColorScheme as useNativeWindColorScheme } from "nativewind";
-import * as SecureStore from "expo-secure-store";
+import { secureStorage } from "@/services/storage";
 import { STORAGE_KEYS } from "@/constants/storageKeys";
 import { getTheme, AppTheme } from "@/theme/colors";
 import { useAppStore } from "@/store/appStore";
@@ -29,7 +29,7 @@ export function ThemeContextProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     async function loadSavedTheme() {
       try {
-        const saved = await SecureStore.getItemAsync(STORAGE_KEYS.THEME_MODE);
+        const saved = await secureStorage.getItemAsync(STORAGE_KEYS.THEME_MODE);
         if (saved === "light" || saved === "dark" || saved === "system") {
           setThemePreferenceState(saved);
           useAppStore.getState().setThemeMode(saved);
@@ -56,14 +56,18 @@ export function ThemeContextProvider({ children }: { children: React.ReactNode }
 
   // Sync with NativeWind
   useEffect(() => {
-    setColorScheme(colorScheme);
+    try {
+      setColorScheme(colorScheme);
+    } catch (e) {
+      // In case of SSR or unsupported environment
+    }
   }, [colorScheme, setColorScheme]);
 
   const setThemePreference = async (pref: ThemePreference) => {
     setThemePreferenceState(pref);
     useAppStore.getState().setThemeMode(pref);
     try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.THEME_MODE, pref);
+      await secureStorage.setItemAsync(STORAGE_KEYS.THEME_MODE, pref);
     } catch (e) {
       console.warn("Failed to persist theme preference:", e);
     }

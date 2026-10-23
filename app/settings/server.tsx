@@ -19,7 +19,7 @@ export default function ServerSettingsScreen() {
   const { theme } = useAppTheme();
 
   const [serverUrl, setServerUrl] = useState(
-    process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.2:4000"
+    process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.8:3000"
   );
   const [testing, setTesting] = useState(false);
   const [status, setStatus] = useState<"idle" | "connected" | "failed">("idle");
@@ -68,6 +68,7 @@ export default function ServerSettingsScreen() {
       title="API Server Host"
       subtitle="Enterprise Network & Connectivity Gateway"
       showBackButton={true}
+      adminOnly
       scrollable={true}
     >
       {/* Endpoint Configuration Card */}
@@ -106,7 +107,7 @@ export default function ServerSettingsScreen() {
 
         <Input
           label="Server Endpoint URL"
-          placeholder="http://192.168.1.2:4000"
+          placeholder="http://192.168.1.8:3000"
           value={serverUrl}
           onChangeText={setServerUrl}
           autoCapitalize="none"

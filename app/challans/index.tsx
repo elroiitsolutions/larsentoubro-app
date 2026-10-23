@@ -92,6 +92,7 @@ export default function ChallanHistoryScreen() {
       title="Challan Register"
       subtitle={`${challans.length} Movement Records`}
       showBackButton={true}
+      requiredPage="/challans"
       headerRight={
         canCreate ? (
           <TouchableOpacity

@@ -111,11 +111,26 @@ export default function StoresScreen() {
     });
   }, [stores, searchQuery, statusFilter]);
 
+  const stats = useMemo(() => {
+    const total = stores.length;
+    const hubs = stores.filter((s) => s.type === "HUB").length;
+    const operational = stores.filter((s) => s.status?.toLowerCase() === "operational").length;
+    const totalAssets = stores.reduce((sum, s) => sum + (s.totalToolsCount || 0), 0);
+    return { total, hubs, operational, totalAssets };
+  }, [stores]);
+
+  const getStatusCount = (status: string) => {
+    if (status === "All") return stores.length;
+    if (status === "HUB") return stores.filter((s) => s.type === "HUB").length;
+    return stores.filter((s) => s.status?.toLowerCase() === status.toLowerCase()).length;
+  };
+
   return (
     <ScreenWrapper
       title="Stores & Equipment Hubs"
-      subtitle={`${stores.length} Storage Facilities Registered`}
+      subtitle={`${stores.length} Facilities • ${stats.totalAssets} Tracked Assets`}
       showBackButton={false}
+      requiredPage="/stores"
       headerRight={
         canManageStores ? (
           <TouchableOpacity
@@ -124,14 +139,14 @@ export default function StoresScreen() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              gap: 4,
+              gap: 5,
               backgroundColor: theme.primary,
               paddingHorizontal: 12,
               paddingVertical: 7,
               borderRadius: 10,
             }}
           >
-            <Plus size={15} color="#FFFFFF" />
+            <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
             <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 12 }}>
               Add Store
             </Text>
@@ -139,6 +154,105 @@ export default function StoresScreen() {
         ) : undefined
       }
     >
+      {/* Facility KPI Overview Strip */}
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          backgroundColor: theme.surface,
+          borderBottomWidth: 1,
+          borderColor: theme.border,
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("All")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "All" ? (theme.isDark ? "#312E81" : "#EEF2FF") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "All" ? theme.primary : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: statusFilter === "All" ? theme.primary : theme.text }}>
+            {stats.total}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Total
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("HUB")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "HUB" ? (theme.isDark ? "rgba(79, 70, 229, 0.25)" : "#EEF2FF") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "HUB" ? "#4F46E5" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#4F46E5" }}>
+            {stats.hubs}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            HUBs
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setStatusFilter("Operational")}
+          style={{
+            flex: 1,
+            backgroundColor: statusFilter === "Operational" ? (theme.isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (theme.isDark ? "#1E293B" : "#F8FAFC"),
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: statusFilter === "Operational" ? "#059669" : theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#059669" }}>
+            {stats.operational}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Ready
+          </Text>
+        </TouchableOpacity>
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: theme.isDark ? "#1E293B" : "#F8FAFC",
+            paddingVertical: 8,
+            paddingHorizontal: 6,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#D97706" }}>
+            {stats.totalAssets}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+            Assets
+          </Text>
+        </View>
+      </View>
+
       {/* Search Bar & Filter Chips */}
       <View
         style={{
@@ -163,12 +277,16 @@ export default function StoresScreen() {
           showsHorizontalScrollIndicator={false}
           renderItem={({ item }) => {
             const isSelected = statusFilter === item;
+            const count = getStatusCount(item);
             return (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setStatusFilter(item)}
                 style={{
-                  paddingHorizontal: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingHorizontal: 11,
                   paddingVertical: 6,
                   borderRadius: 10,
                   marginRight: 6,
@@ -180,12 +298,30 @@ export default function StoresScreen() {
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: "600",
+                    fontWeight: "700",
                     color: isSelected ? "#FFFFFF" : theme.textSecondary,
                   }}
                 >
                   {item}
                 </Text>
+                <View
+                  style={{
+                    backgroundColor: isSelected ? "rgba(255, 255, 255, 0.25)" : theme.isDark ? "#334155" : "#E2E8F0",
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: "800",
+                      color: isSelected ? "#FFFFFF" : theme.textSecondary,
+                    }}
+                  >
+                    {count}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           }}

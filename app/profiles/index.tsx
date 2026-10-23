@@ -114,6 +114,7 @@ export default function ProfilesScreen() {
     <ScreenWrapper
       title="Profiles Directory"
       showBack
+      requiredPage="/profiles"
       rightAction={
         canManage ? (
           <TouchableOpacity

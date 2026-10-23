@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Clipboard,
+  StyleSheet,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
@@ -19,6 +20,8 @@ import {
   Copy,
   Check,
   QrCode as QrIcon,
+  Filter,
+  Layers,
 } from 'lucide-react-native';
 import { Modal } from '@/components/ui/Modal';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -32,6 +35,8 @@ interface BulkQrModalProps {
   onStatusChange?: () => void;
 }
 
+type PrintFilter = 'all' | 'unprinted' | 'printed';
+
 export const BulkQrModal: React.FC<BulkQrModalProps> = ({
   visible,
   onClose,
@@ -43,11 +48,43 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
   const [printing, setPrinting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Advanced Filtering and Batch Range State
+  const [filter, setFilter] = useState<PrintFilter>('all');
+  const [batchLimit, setBatchLimit] = useState<number>(24); // 24 per A4 sheet (12 per page, 2 pages)
+
   const toolList = tools || [];
-  const allPrinted = toolList.length > 0 && toolList.every((t) => t.isPrinted);
+
+  const unprintedCount = useMemo(
+    () => toolList.filter((t) => !t.isPrinted).length,
+    [toolList]
+  );
+  const printedCount = useMemo(
+    () => toolList.filter((t) => t.isPrinted).length,
+    [toolList]
+  );
+
+  // Apply print status filter
+  const filteredTools = useMemo(() => {
+    let list = toolList;
+    if (filter === 'unprinted') {
+      list = list.filter((t) => !t.isPrinted);
+    } else if (filter === 'printed') {
+      list = list.filter((t) => t.isPrinted);
+    }
+    return list;
+  }, [toolList, filter]);
+
+  // Apply batch range/limit
+  const activeTools = useMemo(() => {
+    if (batchLimit === 0) return filteredTools;
+    return filteredTools.slice(0, batchLimit);
+  }, [filteredTools, batchLimit]);
+
+  const allFilteredPrinted =
+    activeTools.length > 0 && activeTools.every((t) => t.isPrinted);
 
   const generateStickersHtml = () => {
-    const cardsHtml = toolList
+    const cardsHtml = activeTools
       .map((t) => {
         const code = t.toolId || t.toolCode || 'ID';
         const link = t.qrLink || `https://lntqr.com/vt/${code}`;
@@ -109,7 +146,7 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
       </head>
       <body>
         <div class="header-title">
-          LARSEN & TOUBRO - QR CODE LABELS (${toolList.length} TOOLS)
+          LARSEN &amp; TOUBRO - QR CODE LABELS (${activeTools.length} TOOLS)
         </div>
         <div class="grid">${cardsHtml}</div>
       </body>
@@ -118,11 +155,18 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
   };
 
   const handlePrintSheet = async () => {
-    if (toolList.length === 0) return;
+    if (activeTools.length === 0) return;
     try {
       setPrinting(true);
       const html = generateStickersHtml();
       await Print.printAsync({ html });
+
+      // Offer auto-mark printed
+      const unprintedIds = activeTools.filter((t) => !t.isPrinted).map((t) => t._id);
+      if (unprintedIds.length > 0) {
+        await toolService.markToolsAsPrinted(unprintedIds);
+        if (onStatusChange) onStatusChange();
+      }
     } catch (err: any) {
       Alert.alert('Print Error', err?.message || 'Could not print sticker sheet.');
     } finally {
@@ -131,7 +175,7 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
   };
 
   const handleSharePdf = async () => {
-    if (toolList.length === 0) return;
+    if (activeTools.length === 0) return;
     try {
       setPrinting(true);
       const html = generateStickersHtml();
@@ -142,8 +186,15 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
           mimeType: 'application/pdf',
           dialogTitle: 'Share L&T QR Code Stickers',
         });
+
+        // Offer auto-mark printed
+        const unprintedIds = activeTools.filter((t) => !t.isPrinted).map((t) => t._id);
+        if (unprintedIds.length > 0) {
+          await toolService.markToolsAsPrinted(unprintedIds);
+          if (onStatusChange) onStatusChange();
+        }
       } else {
-        Alert.alert('Sharing Unavailable', 'File sharing is not supported on this device.');
+        Alert.alert('PDF Generated', `Sticker sheet saved to:\n${uri}`);
       }
     } catch (err: any) {
       Alert.alert('Share Error', err?.message || 'Could not generate sticker PDF.');
@@ -153,12 +204,12 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
   };
 
   const handleTogglePrinted = async () => {
-    const ids = toolList.map((t) => t._id || t.toolId).filter(Boolean) as string[];
+    const ids = activeTools.map((t) => t._id || t.toolId).filter(Boolean) as string[];
     if (ids.length === 0) return;
 
     try {
       setMarking(true);
-      if (allPrinted) {
+      if (allFilteredPrinted) {
         await toolService.unmarkToolsAsPrinted(ids);
         Alert.alert('Status Updated', `Unmarked ${ids.length} tools as printed.`);
       } else {
@@ -169,7 +220,10 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
         onStatusChange();
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message || err?.message || 'Failed to update print status.');
+      Alert.alert(
+        'Error',
+        err?.response?.data?.message || err?.message || 'Failed to update print status.'
+      );
     } finally {
       setMarking(false);
     }
@@ -185,19 +239,19 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
 
   return (
     <Modal visible={visible} onClose={onClose} title="QR Code Stickers">
-      <View className="max-h-[82vh]">
+      <View style={{ maxHeight: '82%' }}>
         {/* Header Action Bar */}
-        <View className="flex-row items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <View className="flex-row items-center gap-2">
-            <View className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60">
+        <View style={styles.headerRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[styles.iconBox, { backgroundColor: '#EEF2FF' }]}>
               <QrIcon size={18} color="#4F46E5" />
             </View>
             <View>
-              <Text className="text-sm font-bold text-slate-900 dark:text-white">
-                {toolList.length} QR Stickers
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+                {activeTools.length} Stickers Ready
               </Text>
-              <Text className="text-[11px] text-slate-500">
-                A4 Printable Equipment Labels
+              <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                A4 Standard Grid Format (2x per row)
               </Text>
             </View>
           </View>
@@ -205,23 +259,26 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
           <TouchableOpacity
             onPress={handleTogglePrinted}
             disabled={marking}
-            className={`px-2.5 py-1.5 rounded-lg flex-row items-center gap-1.5 ${
-              allPrinted ? 'bg-amber-100 dark:bg-amber-950/60' : 'bg-emerald-100 dark:bg-emerald-950/60'
-            }`}
+            style={[
+              styles.markBtn,
+              {
+                backgroundColor: allFilteredPrinted ? '#FEF3C7' : '#ECFDF5',
+              },
+            ]}
           >
             {marking ? (
               <ActivityIndicator size="small" color="#059669" />
-            ) : allPrinted ? (
+            ) : allFilteredPrinted ? (
               <>
                 <XCircle size={13} color="#D97706" />
-                <Text className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309' }}>
                   Unmark
                 </Text>
               </>
             ) : (
               <>
                 <CheckCircle2 size={13} color="#059669" />
-                <Text className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>
                   Mark Printed
                 </Text>
               </>
@@ -229,18 +286,103 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* Filter Pills (All / Unprinted / Printed) */}
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            onPress={() => setFilter('all')}
+            style={[
+              styles.filterPill,
+              filter === 'all' && [styles.filterPillActive, { backgroundColor: '#4F46E5' }],
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: filter === 'all' ? '#FFFFFF' : theme.textSecondary },
+              ]}
+            >
+              All ({toolList.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setFilter('unprinted')}
+            style={[
+              styles.filterPill,
+              filter === 'unprinted' && [styles.filterPillActive, { backgroundColor: '#059669' }],
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: filter === 'unprinted' ? '#FFFFFF' : theme.textSecondary },
+              ]}
+            >
+              Unprinted ({unprintedCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setFilter('printed')}
+            style={[
+              styles.filterPill,
+              filter === 'printed' && [styles.filterPillActive, { backgroundColor: '#64748B' }],
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: filter === 'printed' ? '#FFFFFF' : theme.textSecondary },
+              ]}
+            >
+              Printed ({printedCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Batch Size Selector (24, 48, All) */}
+        {filteredTools.length > 24 && (
+          <View style={styles.batchRow}>
+            <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>
+              Batch Range:
+            </Text>
+            {[24, 48, 0].map((size) => (
+              <TouchableOpacity
+                key={size}
+                onPress={() => setBatchLimit(size)}
+                style={[
+                  styles.batchPill,
+                  batchLimit === size && { backgroundColor: theme.primary, borderColor: theme.primary },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: batchLimit === size ? '#FFFFFF' : theme.textSecondary,
+                  }}
+                >
+                  {size === 0 ? 'All' : `First ${size}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* QR Stickers Scroll View */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          className="my-3 max-h-[50vh]"
+          style={{ maxHeight: 340, marginVertical: 8 }}
         >
-          {toolList.length === 0 ? (
-            <View className="py-8 items-center justify-center">
-              <Text className="text-sm text-slate-400">No tools selected for QR generation.</Text>
+          {activeTools.length === 0 ? (
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: theme.textSecondary }}>
+                No equipment records matched filter.
+              </Text>
             </View>
           ) : (
-            <View className="gap-2.5">
-              {toolList.map((tool) => {
+            <View style={{ gap: 8 }}>
+              {activeTools.map((tool) => {
                 const code = tool.toolId || tool.toolCode || 'ID';
                 const link = tool.qrLink || `https://lntqr.com/vt/${code}`;
                 const isCopied = copiedId === code;
@@ -248,67 +390,64 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
                 return (
                   <View
                     key={tool._id || code}
-                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60"
+                    style={[
+                      styles.card,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                        borderColor: theme.border,
+                      },
+                    ]}
                   >
-                    <View className="flex-row items-center justify-between mb-2 pb-1.5 border-b border-slate-200 dark:border-slate-700">
-                      <Text className="text-[10px] font-extrabold tracking-wider text-indigo-700 dark:text-indigo-400 uppercase">
-                        L&T CONSTRUCTION
-                      </Text>
-                      <View className="flex-row items-center gap-1.5">
-                        <View className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700">
-                          <Text className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100">
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.lntLogo}>L&T CONSTRUCTION</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.codeBadge, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}>
+                          <Text style={[styles.codeBadgeText, { color: theme.text }]}>
                             {code}
                           </Text>
                         </View>
                         {tool.isPrinted && (
-                          <View className="px-1.5 py-0.5 rounded bg-emerald-500/20">
-                            <Text className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                              PRINTED
-                            </Text>
+                          <View style={styles.printedPill}>
+                            <Text style={styles.printedPillText}>PRINTED</Text>
                           </View>
                         )}
                       </View>
                     </View>
 
-                    <View className="flex-row items-center gap-3">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       {/* Interactive QR SVG */}
-                      <View className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm items-center justify-center">
-                        <QRCode
-                          value={link}
-                          size={64}
-                          color="#0F172A"
-                          backgroundColor="#FFFFFF"
-                        />
+                      <View style={styles.qrContainer}>
+                        <QRCode value={link} size={60} color="#0F172A" backgroundColor="#FFFFFF" />
                       </View>
 
                       {/* Tool Info */}
-                      <View className="flex-1">
+                      <View style={{ flex: 1 }}>
                         <Text
-                          className="text-xs font-bold text-slate-900 dark:text-white"
+                          style={{ fontSize: 12, fontWeight: '700', color: theme.text }}
                           numberOfLines={1}
                         >
                           {tool.description || 'Tool / Equipment'}
                         </Text>
-                        <Text className="text-[10px] text-slate-500 mt-0.5">
-                          Category: <Text className="font-semibold text-slate-700 dark:text-slate-300">{tool.category || '-'}</Text>
+                        <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>
+                          Category: {tool.category || '-'}
                         </Text>
-                        <Text className="text-[10px] text-slate-500">
-                          Validity: <Text className="font-semibold text-slate-700 dark:text-slate-300">{tool.validityPeriod || tool.validation || 'N/A'}</Text>
+                        <Text style={{ fontSize: 10, color: theme.textSecondary }}>
+                          Validation: {tool.validityPeriod || tool.validation || 'N/A'}
                         </Text>
-                        <Text className="text-[10px] text-slate-500">
-                          Date: <Text className="font-semibold text-slate-700 dark:text-slate-300">{tool.dateOfSupply || '-'}</Text>
+                        <Text style={{ fontSize: 10, color: theme.textSecondary }}>
+                          Date: {tool.dateOfSupply || '-'}
                         </Text>
                       </View>
 
                       {/* Copy Link Button */}
                       <TouchableOpacity
                         onPress={() => handleCopyLink(tool)}
-                        className="p-2 rounded-lg bg-slate-200/60 dark:bg-slate-700/60 active:bg-slate-300"
+                        style={[styles.copyBtn, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}
                       >
                         {isCopied ? (
-                          <Check size={14} color="#059669" />
+                          <Check size={13} color="#059669" />
                         ) : (
-                          <Copy size={14} color="#64748B" />
+                          <Copy size={13} color="#64748B" />
                         )}
                       </TouchableOpacity>
                     </View>
@@ -320,29 +459,31 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View className="flex-row gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <View style={styles.footerRow}>
           <TouchableOpacity
             onPress={handleSharePdf}
-            disabled={printing || toolList.length === 0}
-            className="flex-1 py-3 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 flex-row items-center justify-center gap-2 active:opacity-80"
+            disabled={printing || activeTools.length === 0}
+            style={[styles.actionBtn, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
           >
-            <Share2 size={16} color={isDark ? '#E2E8F0' : '#1E293B'} />
-            <Text className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            <Share2 size={16} color={theme.text} />
+            <Text style={[styles.actionBtnText, { color: theme.text }]}>
               Share PDF
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handlePrintSheet}
-            disabled={printing || toolList.length === 0}
-            className="flex-1 py-3 px-3 rounded-xl bg-indigo-600 flex-row items-center justify-center gap-2 active:bg-indigo-700"
+            disabled={printing || activeTools.length === 0}
+            style={[styles.actionBtn, { backgroundColor: '#4F46E5', flex: 1.2 }]}
           >
             {printing ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
                 <Printer size={16} color="#FFFFFF" />
-                <Text className="text-xs font-bold text-white">Print Sheet</Text>
+                <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>
+                  Print Stickers ({activeTools.length})
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -351,3 +492,133 @@ export const BulkQrModal: React.FC<BulkQrModalProps> = ({
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  filterPillActive: {},
+  filterPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  batchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  batchPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  card: {
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 6,
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  lntLogo: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#002B49',
+    letterSpacing: 0.5,
+  },
+  codeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  codeBadgeText: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+  },
+  printedPill: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  printedPillText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  qrContainer: {
+    padding: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  copyBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+});

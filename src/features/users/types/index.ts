@@ -9,6 +9,11 @@ export interface UserRecord {
   allowedPages?: string[];
   projects?: any[];
   stores?: any[];
+  parentUser?: any;
+  canCreateUser?: boolean;
+  hasInspectionAccess?: boolean;
+  isVendor?: boolean;
+  vendorCode?: string;
   status?: 'Active' | 'Inactive' | 'Pending';
   department?: string;
   createdAt?: string;

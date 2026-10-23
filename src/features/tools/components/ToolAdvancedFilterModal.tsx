@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Filter, X, Check, RotateCcw } from 'lucide-react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { Filter, X, Check, RotateCcw, ChevronDown, ChevronUp, Printer, SlidersHorizontal } from 'lucide-react-native';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -8,9 +8,20 @@ import { toolService } from '../services/toolService';
 
 export interface ToolFilterState {
   status: string;
+  printStatus?: string;
   category: string;
   validation: string;
   makeYear: string;
+  toolCode?: string;
+  toolId?: string;
+  capacity?: string;
+  safeWorkingLoad?: string;
+  metalType?: string;
+  toolVariant?: string;
+  purchaserName?: string;
+  supplierCode?: string;
+  jobCode?: string;
+  remarks?: string;
 }
 
 interface ToolAdvancedFilterModalProps {
@@ -34,6 +45,7 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
   const [categories, setCategories] = useState<string[]>([]);
   const [validations, setValidations] = useState<string[]>([]);
   const [makeYears, setMakeYears] = useState<string[]>([]);
+  const [showDeepFilters, setShowDeepFilters] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -89,19 +101,61 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
   const statusList = [
     'All',
     'Available',
-    'Issued',
-    'Under Maintenance',
-    'Inspection Due',
+    'In Use',
+    'Moving',
+    'Repair',
+    'Missing',
+    'Maintenance',
     'Damaged',
-    'Scrap',
+    'Expired',
   ];
+
+  const printStatusList = ['All', 'Printed', 'Not Printed'];
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (localFilters.status && localFilters.status !== 'All') count++;
+    if (localFilters.printStatus && localFilters.printStatus !== 'All') count++;
+    if (localFilters.category && localFilters.category !== 'All') count++;
+    if (localFilters.validation && localFilters.validation !== 'All') count++;
+    if (localFilters.makeYear && localFilters.makeYear !== 'All') count++;
+    const deepKeys: (keyof ToolFilterState)[] = [
+      'toolCode',
+      'toolId',
+      'capacity',
+      'safeWorkingLoad',
+      'metalType',
+      'toolVariant',
+      'purchaserName',
+      'supplierCode',
+      'jobCode',
+      'remarks',
+    ];
+    for (const k of deepKeys) {
+      if (localFilters[k] && String(localFilters[k]).trim() !== '') {
+        count++;
+      }
+    }
+    return count;
+  }, [localFilters]);
 
   const handleReset = () => {
     const empty: ToolFilterState = {
       status: 'All',
+      printStatus: 'All',
       category: 'All',
       validation: 'All',
       makeYear: 'All',
+      toolCode: '',
+      toolId: '',
+      capacity: '',
+      safeWorkingLoad: '',
+      metalType: '',
+      toolVariant: '',
+      purchaserName: '',
+      supplierCode: '',
+      jobCode: '',
+      remarks: '',
     };
     setLocalFilters(empty);
     onApply(empty);
@@ -113,25 +167,32 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
     onClose();
   };
 
+  const updateField = (key: keyof ToolFilterState, value: string) => {
+    setLocalFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
   const renderOptionGroup = (
     title: string,
     currentValue: string,
     options: string[],
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    icon?: React.ReactNode
   ) => (
     <View style={{ marginBottom: 18 }}>
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: '700',
-          textTransform: 'uppercase',
-          letterSpacing: 0.8,
-          color: theme.textSecondary,
-          marginBottom: 8,
-        }}
-      >
-        {title}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        {icon}
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+            color: theme.textSecondary,
+          }}
+        >
+          {title}
+        </Text>
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {['All', ...options.filter((o) => o !== 'All')].map((opt) => {
           const isSelected = currentValue === opt;
@@ -173,19 +234,56 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
     </View>
   );
 
+  const renderDeepInputField = (label: string, field: keyof ToolFilterState, placeholder: string) => {
+    const value = localFilters[field] || '';
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary }}>
+            {label}
+          </Text>
+          {value.trim() !== '' && (
+            <TouchableOpacity onPress={() => updateField(field, '')}>
+              <Text style={{ fontSize: 10, color: theme.primary, fontWeight: '700' }}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TextInput
+          value={value}
+          onChangeText={(txt) => updateField(field, txt)}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textMuted}
+          style={{
+            fontSize: 12,
+            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            color: theme.text,
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: value.trim() ? theme.primary : theme.border,
+          }}
+        />
+      </View>
+    );
+  };
+
+  const modalTitle = activeFilterCount > 0 ? `Filter Equipment (${activeFilterCount})` : 'Filter Equipment';
+
   return (
-    <Modal visible={visible} onClose={onClose} title="Filter Equipment">
+    <Modal visible={visible} onClose={onClose} title={modalTitle}>
       <ScrollView
-        style={{ maxHeight: 480 }}
+        style={{ maxHeight: 520 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 10 }}
       >
-        {/* Validation Filter Group */}
+        {/* Print Status Filter */}
         {renderOptionGroup(
-          'Validation Period',
-          localFilters.validation,
-          validations,
-          (val) => setLocalFilters((prev) => ({ ...prev, validation: val }))
+          'QR Print Status',
+          localFilters.printStatus || 'All',
+          printStatusList,
+          (val) => setLocalFilters((prev) => ({ ...prev, printStatus: val })),
+          <Printer size={13} color={theme.textSecondary} />
         )}
 
         {/* Operational Status */}
@@ -204,6 +302,14 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
           (val) => setLocalFilters((prev) => ({ ...prev, category: val }))
         )}
 
+        {/* Validation Period Group */}
+        {renderOptionGroup(
+          'Validation Period',
+          localFilters.validation,
+          validations,
+          (val) => setLocalFilters((prev) => ({ ...prev, validation: val }))
+        )}
+
         {/* Make Year if available */}
         {makeYears.length > 0 &&
           renderOptionGroup(
@@ -212,6 +318,59 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
             makeYears,
             (val) => setLocalFilters((prev) => ({ ...prev, makeYear: val }))
           )}
+
+        {/* Deep Field Filters Accordion */}
+        <View style={{ marginTop: 4, marginBottom: 10 }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setShowDeepFilters(!showDeepFilters)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              borderRadius: 10,
+              backgroundColor: isDark ? '#1E2538' : '#F1F5F9',
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <SlidersHorizontal size={14} color={theme.primary} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text }}>
+                Advanced Field Specifications
+              </Text>
+            </View>
+            {showDeepFilters ? (
+              <ChevronUp size={16} color={theme.textSecondary} />
+            ) : (
+              <ChevronDown size={16} color={theme.textSecondary} />
+            )}
+          </TouchableOpacity>
+
+          {showDeepFilters && (
+            <View
+              style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 10,
+                backgroundColor: isDark ? '#0F172A' : '#FAFAFA',
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              {renderDeepInputField('Tool / Equipment Code', 'toolCode', 'e.g. TC-4029, SH-102...')}
+              {renderDeepInputField('Tool ID', 'toolId', 'e.g. 5555...')}
+              {renderDeepInputField('Safe Working Load (SWL)', 'safeWorkingLoad', 'e.g. 5 Ton, 10T...')}
+              {renderDeepInputField('Capacity', 'capacity', 'e.g. 50kN, 200bar...')}
+              {renderDeepInputField('Purchaser Name', 'purchaserName', 'e.g. L&T Power, Third Party...')}
+              {renderDeepInputField('Supplier Code', 'supplierCode', 'e.g. SUP-100...')}
+              {renderDeepInputField('Job Code', 'jobCode', 'e.g. JOB-890...')}
+              {renderDeepInputField('Remarks', 'remarks', 'Search remarks...')}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Footer Controls */}

@@ -6,11 +6,13 @@ export interface SummaryCardsData {
   inspectionDue: number;
   expired: number;
   damagedRepair: number;
+  repair?: number;
   scrap: number;
   usable: number;
   unusable: number;
   missing: number;
   inTransit: number;
+  moving?: number;
 }
 
 export interface StoreNode {

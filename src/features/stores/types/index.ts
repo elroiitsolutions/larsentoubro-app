@@ -10,8 +10,10 @@ export interface StoreRecord {
   availableToolsCount?: number;
   underMaintenanceToolsCount?: number;
   status: "Active" | "Inactive" | string;
+  storeCode?: string;
   projectId?: string;
   projectName?: string;
+  project?: any;
   type?: "Store" | "HUB";
   createdAt?: string;
 }
@@ -30,10 +32,13 @@ export interface StoreMutationResponse {
 
 export interface StoreFormValues {
   name: string;
+  storeName?: string;
   location?: string;
   incharge?: string;
   contactNumber?: string;
   status?: string;
   projectId?: string;
+  project?: any;
   type?: string;
+  [key: string]: any;
 }

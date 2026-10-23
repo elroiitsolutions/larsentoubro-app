@@ -23,6 +23,7 @@ import {
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
+import { ENV } from "@/config/environment";
 
 interface SettingModuleCardProps {
   icon: React.ReactNode;
@@ -242,7 +243,7 @@ export default function SettingsScreen() {
                 }}
                 numberOfLines={1}
               >
-                {process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.2:4000"}
+                {ENV.API_BASE_URL}
               </Text>
             </View>
           </View>

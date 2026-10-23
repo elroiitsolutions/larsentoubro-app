@@ -83,7 +83,7 @@ export default function AdminApprovalsScreen() {
   };
 
   return (
-    <ScreenWrapper title="User Access Approvals" showBack>
+    <ScreenWrapper title="User Access Approvals" showBack adminOnly>
       {loading ? (
         <Loader fullScreen message="Loading pending registrations..." />
       ) : error ? (
