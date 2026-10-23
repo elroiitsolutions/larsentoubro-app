@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import {
   ArrowLeft,
   Store,
@@ -60,21 +60,19 @@ import { BulkQrModal } from "@/features/tools/components/BulkQrModal";
 import { ToolInspectionModal } from "@/features/tools/components/ToolInspectionModal";
 import { BulkImportModal } from "@/features/tools/components/BulkImportModal";
 import { SelectedToolsModal, BatchActionType } from "@/features/tools/components/SelectedToolsModal";
+import { selectionStore } from "@/features/tools/utils/selectionStore";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Loader } from "@/components/ui/Loader";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 const QUICK_STATUS_OPTIONS = [
-  { label: "All", value: "All" },
-  { label: "Available", value: "Available", color: "#10B981" },
-  { label: "In Use", value: "In Use", color: "#3B82F6" },
-  { label: "Moving", value: "Moving", color: "#6366F1" },
-  { label: "Repair", value: "Repair", color: "#F97316" },
-  { label: "Inspection Due", value: "Inspection Due", color: "#8B5CF6" },
-  { label: "Maintenance", value: "Maintenance", color: "#F59E0B" },
-  { label: "Damaged", value: "Damaged", color: "#EF4444" },
-  { label: "Scrap", value: "Scrap", color: "#DC2626" },
+  { label: "All", value: "All", countKey: "all" },
+  { label: "Available", value: "Available", countKey: "available", color: "#10B981" },
+  { label: "Moving", value: "Moving", countKey: "moving", color: "#6366F1" },
+  { label: "Repair", value: "Repair", countKey: "repair", color: "#F97316" },
+  { label: "Printed", value: "Printed", countKey: "printed", color: "#059669" },
+  { label: "unPrinted", value: "Unprinted", countKey: "unprinted", color: "#64748B" },
 ];
 
 export default function StoreInventoryScreen() {
@@ -90,6 +88,14 @@ export default function StoreInventoryScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalServerTools, setTotalServerTools] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<{
+    all?: number;
+    available?: number;
+    moving?: number;
+    repair?: number;
+    printed?: number;
+    unprinted?: number;
+  }>({});
 
   // Discrete loading states to avoid unmounting the UI while typing
   const [initialLoading, setInitialLoading] = useState(true);
@@ -141,6 +147,8 @@ export default function StoreInventoryScreen() {
 
   // Batch Operations & Selection State
   const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(new Set());
+  const [selectedToolsMap, setSelectedToolsMap] = useState<Record<string, ToolRecord>>({});
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedToolsModalOpen, setSelectedToolsModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -154,12 +162,26 @@ export default function StoreInventoryScreen() {
   const isInspectionRestricted = Boolean(!isAdmin && (user as any)?.hasInspectionAccess);
   const canInspect = isAdmin || (user as any)?.hasInspectionAccess;
 
-  const selectedTools = useMemo(
-    () => tools.filter((t) => selectedToolIds.has(t._id || t.toolId || "")),
-    [tools, selectedToolIds]
-  );
+  const isAllSelected = totalServerTools > 0 && selectedToolIds.size >= totalServerTools;
 
-  const toggleSelectTool = (toolId: string) => {
+  const selectedTools = useMemo(() => {
+    const list: ToolRecord[] = [];
+    selectedToolIds.forEach((toolId) => {
+      if (selectedToolsMap[toolId]) {
+        list.push(selectedToolsMap[toolId]);
+      } else {
+        const found = tools.find((t) => t._id === toolId);
+        if (found) {
+          list.push(found);
+        } else {
+          list.push({ _id: toolId, status: "Available" } as ToolRecord);
+        }
+      }
+    });
+    return list;
+  }, [selectedToolIds, selectedToolsMap, tools]);
+
+  const toggleSelectTool = (toolId: string, toolObj?: ToolRecord) => {
     setSelectedToolIds((prev) => {
       const next = new Set(prev);
       if (next.has(toolId)) {
@@ -172,20 +194,59 @@ export default function StoreInventoryScreen() {
       }
       return next;
     });
+
+    if (toolObj) {
+      setSelectedToolsMap((prev) => ({
+        ...prev,
+        [toolId]: toolObj,
+      }));
+    }
   };
 
-  const handleSelectAll = () => {
-    if (selectedToolIds.size >= tools.length && tools.length > 0) {
+  const handleSelectAll = async () => {
+    if (!id) return;
+    if (isAllSelected) {
       setSelectedToolIds(new Set());
+      setSelectedToolsMap({});
       setIsSelectionMode(false);
-    } else {
-      setSelectedToolIds(new Set(tools.map((t) => t._id)));
+      return;
+    }
+
+    try {
+      setIsSelectingAll(true);
+      const params = {
+        ...getQueryParams(1),
+        onlyIds: "true",
+      };
+      delete params.page;
+      delete params.limit;
+
+      const res = await toolService.getStoreToolIds(id, params);
+      const toolIds = res.ids || [];
+      const toolRecords = res.data || [];
+
+      const map: Record<string, ToolRecord> = {};
+      toolRecords.forEach((t) => {
+        if (t._id) map[t._id] = t;
+      });
+
+      setSelectedToolIds(new Set(toolIds));
+      setSelectedToolsMap(map);
       setIsSelectionMode(true);
+    } catch (err: any) {
+      console.error("Failed to select all filtered tools:", err);
+      Alert.alert(
+        "Selection Failed",
+        err?.response?.data?.message || err?.message || "Could not select all matching equipment."
+      );
+    } finally {
+      setIsSelectingAll(false);
     }
   };
 
   const handleClearSelection = () => {
     setSelectedToolIds(new Set());
+    setSelectedToolsMap({});
     setIsSelectionMode(false);
     setSelectedToolsModalOpen(false);
   };
@@ -197,12 +258,17 @@ export default function StoreInventoryScreen() {
         setTransferModalOpen(true);
         break;
       case "challan":
+        selectionStore.setPendingChallan({
+          storeId: id!,
+          toolIds: Array.from(selectedToolIds),
+          tools: selectedTools,
+        });
         router.push({
           pathname: "/challans/new",
           params: {
             storeId: id,
-            toolIds: Array.from(selectedToolIds).join(","),
             selectedCount: selectedToolIds.size,
+            ...(selectedToolIds.size <= 50 ? { toolIds: Array.from(selectedToolIds).join(",") } : {}),
           },
         } as any);
         break;
@@ -241,6 +307,9 @@ export default function StoreInventoryScreen() {
       setStore(storeData);
       const initialTools = toolsRes?.data || [];
       setTools(initialTools);
+      if (toolsRes?.statusCounts) {
+        setStatusCounts(toolsRes.statusCounts);
+      }
       const trueTotal =
         toolsRes?.total ??
         storeData?.totalToolsCount ??
@@ -264,6 +333,13 @@ export default function StoreInventoryScreen() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadInitialData();
+      handleClearSelection();
+    }, [loadInitialData])
+  );
 
   const getQueryParams = useCallback(
     (pageNumber: number = 1) => {
@@ -300,6 +376,16 @@ export default function StoreInventoryScreen() {
     }
     if (!id || initialLoading) return;
 
+    // Reset selection when filter criteria or search query change so selection stays consistent
+    setSelectedToolIds((prev) => {
+      if (prev.size > 0) {
+        setSelectedToolsMap({});
+        setIsSelectionMode(false);
+        return new Set();
+      }
+      return prev;
+    });
+
     let isCancelled = false;
     const currentRequestId = ++latestRequestIdRef.current;
 
@@ -318,6 +404,9 @@ export default function StoreInventoryScreen() {
 
         const newTools = toolsRes?.data || [];
         setTools(newTools);
+        if (toolsRes?.statusCounts) {
+          setStatusCounts(toolsRes.statusCounts);
+        }
         const total = toolsRes?.total ?? newTools.length;
         setTotalServerTools(total);
         setPage(1);
@@ -350,6 +439,9 @@ export default function StoreInventoryScreen() {
       const toolsRes = await toolService.getStoreToolsPaginated(id, getQueryParams(1));
       const newTools = toolsRes?.data || [];
       setTools(newTools);
+      if (toolsRes?.statusCounts) {
+        setStatusCounts(toolsRes.statusCounts);
+      }
       const total = toolsRes?.total ?? newTools.length;
       setTotalServerTools(total);
       setPage(1);
@@ -460,48 +552,69 @@ export default function StoreInventoryScreen() {
       {/* Primary Header */}
       {isSelectionMode ? (
         /* Elevated Selection Bar */
-        <View className="flex-row items-center justify-between px-4 py-3 bg-indigo-600 dark:bg-indigo-700 shadow-md">
-          <View className="flex-row items-center gap-2">
-            <View className="bg-white/20 px-2.5 py-1 rounded-full">
-              <Text className="text-xs font-bold text-white">
-                {selectedToolIds.size} of {tools.length} Selected
+        <View className="flex-row items-center justify-between px-2.5 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 dark:bg-indigo-700 shadow-md">
+          {/* Left Side: Count Badge & Clear */}
+          <View className="flex-row items-center gap-1.5 shrink min-w-0 mr-1.5">
+            <View className="bg-white/20 px-2 sm:px-2.5 py-1 rounded-full shrink min-w-0">
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                className="text-[11px] sm:text-xs font-bold text-white tracking-tight"
+              >
+                {selectedToolIds.size.toLocaleString()} / {totalServerTools.toLocaleString()} Selected
               </Text>
             </View>
             {selectedToolIds.size > 0 && (
-              <TouchableOpacity onPress={handleClearSelection} className="py-1 px-1.5">
-                <Text className="text-xs font-semibold text-indigo-100 underline">Clear</Text>
+              <TouchableOpacity
+                onPress={handleClearSelection}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                className="py-1 px-1 shrink-0"
+              >
+                <Text className="text-[11px] sm:text-xs font-semibold text-indigo-100 underline">
+                  Clear
+                </Text>
               </TouchableOpacity>
             )}
           </View>
 
-          <View className="flex-row items-center gap-2">
+          {/* Right Side: Options, Select/Deselect All, Done */}
+          <View className="flex-row items-center gap-1 sm:gap-1.5 shrink-0">
             {selectedToolIds.size > 0 && (
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setSelectedToolsModalOpen(true)}
-                className="bg-amber-400 active:bg-amber-300 px-3 py-1.5 rounded-xl shadow-sm flex-row items-center gap-1.5"
+                className="bg-amber-400 active:bg-amber-300 px-2 sm:px-2.5 py-1.5 rounded-lg shadow-sm flex-row items-center gap-1"
               >
-                <Sparkles size={14} color="#78350F" />
-                <Text className="text-xs font-bold text-amber-950">Options</Text>
+                <Sparkles size={13} color="#78350F" />
+                <Text className="text-[11px] sm:text-xs font-bold text-amber-950">
+                  Options
+                </Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
               activeOpacity={0.8}
+              disabled={isSelectingAll}
               onPress={handleSelectAll}
-              className="bg-white/15 px-3 py-1.5 rounded-xl border border-white/25"
+              className="bg-white/15 px-2 sm:px-2.5 py-1.5 rounded-lg border border-white/25 flex-row items-center gap-1"
             >
-              <Text className="text-xs font-bold text-white">
-                {selectedToolIds.size >= tools.length && tools.length > 0 ? "Deselect All" : "Select All"}
-              </Text>
+              {isSelectingAll ? (
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ transform: [{ scale: 0.7 }] }} />
+              ) : (
+                <Text className="text-[11px] sm:text-xs font-bold text-white">
+                  {isAllSelected ? "Deselect All" : "Select All"}
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => setIsSelectionMode(false)}
-              className="bg-white px-3.5 py-1.5 rounded-xl shadow-sm"
+              className="bg-white px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm"
             >
-              <Text className="text-xs font-bold text-indigo-700">Done</Text>
+              <Text className="text-[11px] sm:text-xs font-bold text-indigo-700">
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -620,16 +733,54 @@ export default function StoreInventoryScreen() {
           contentContainerStyle={{ paddingVertical: 4, gap: 6 }}
         >
           {QUICK_STATUS_OPTIONS.map((opt) => {
-            const isActive = filters.status === opt.value;
+            const isActive =
+              opt.value === "Printed"
+                ? filters.printStatus === "Printed" && (filters.status === "All" || !filters.status)
+                : opt.value === "Unprinted"
+                ? (filters.printStatus === "Unprinted" || filters.printStatus === "Not Printed") && (filters.status === "All" || !filters.status)
+                : opt.value === "All"
+                ? (filters.status === "All" || !filters.status) && (filters.printStatus === "All" || !filters.printStatus)
+                : filters.status === opt.value && (filters.printStatus === "All" || !filters.printStatus);
+
+            const tabStoreCount = statusCounts[opt.countKey as keyof typeof statusCounts];
+            const countToDisplay = isActive
+              ? totalServerTools
+              : tabStoreCount !== undefined
+              ? tabStoreCount
+              : opt.value === "All"
+              ? (store?.totalToolsCount || totalServerTools)
+              : undefined;
+
             return (
               <TouchableOpacity
                 key={opt.value}
                 activeOpacity={0.7}
                 onPress={() => {
-                  setFilters((prev) => ({
-                    ...prev,
-                    status: opt.value,
-                  }));
+                  if (opt.value === "Printed") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      status: "All",
+                      printStatus: prev.printStatus === "Printed" ? "All" : "Printed",
+                    }));
+                  } else if (opt.value === "Unprinted") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      status: "All",
+                      printStatus: prev.printStatus === "Unprinted" ? "All" : "Unprinted",
+                    }));
+                  } else if (opt.value === "All") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      status: "All",
+                      printStatus: "All",
+                    }));
+                  } else {
+                    setFilters((prev) => ({
+                      ...prev,
+                      status: prev.status === opt.value ? "All" : opt.value,
+                      printStatus: "All",
+                    }));
+                  }
                 }}
                 className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
                   isActive
@@ -655,7 +806,7 @@ export default function StoreInventoryScreen() {
                   }`}
                 >
                   {opt.label}
-                  {opt.value === "All" && totalServerTools > 0 ? ` (${totalServerTools})` : ""}
+                  {countToDisplay !== undefined ? ` (${countToDisplay.toLocaleString()})` : ""}
                 </Text>
               </TouchableOpacity>
             );
@@ -666,11 +817,11 @@ export default function StoreInventoryScreen() {
         {(filters.category !== "All" ||
           filters.validation !== "All" ||
           filters.makeYear !== "All" ||
-          (filters.printStatus && filters.printStatus !== "All") ||
+          (filters.printStatus && filters.printStatus !== "All" && filters.status !== "All") ||
           (filters.toolCode && filters.toolCode.trim() !== "") ||
           (filters.purchaserName && filters.purchaserName.trim() !== "")) && (
           <View className="flex-row flex-wrap items-center gap-1.5 pt-2">
-            {filters.printStatus && filters.printStatus !== "All" && (
+            {filters.printStatus && filters.printStatus !== "All" && filters.status !== "All" && (
               <View className="flex-row items-center bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg gap-1">
                 <Printer size={10} color="#2563EB" />
                 <Text className="text-[11px] font-semibold text-blue-900 dark:text-blue-200">
@@ -815,7 +966,7 @@ export default function StoreInventoryScreen() {
                 activeOpacity={0.75}
                 onPress={() => {
                   if (isSelectionMode) {
-                    toggleSelectTool(item._id);
+                    toggleSelectTool(item._id, item);
                   } else {
                     setPreviewTool(item);
                   }
@@ -824,7 +975,7 @@ export default function StoreInventoryScreen() {
                   if (!isSelectionMode) {
                     setIsSelectionMode(true);
                   }
-                  toggleSelectTool(item._id);
+                  toggleSelectTool(item._id, item);
                 }}
               >
                 {/* Card Header Row */}
@@ -832,7 +983,7 @@ export default function StoreInventoryScreen() {
                   <View className="flex-row items-center flex-1 mr-2">
                     {isSelectionMode && (
                       <TouchableOpacity
-                        onPress={() => toggleSelectTool(item._id)}
+                        onPress={() => toggleSelectTool(item._id, item)}
                         className="mr-3"
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
@@ -998,7 +1149,7 @@ export default function StoreInventoryScreen() {
             >
               <View className="bg-indigo-600 px-2.5 py-1 rounded-full shadow-sm">
                 <Text className="text-xs font-bold text-white">
-                  {selectedToolIds.size} Selected
+                  {selectedToolIds.size.toLocaleString()} Selected
                 </Text>
               </View>
               <Text className="text-xs text-slate-300 font-medium" numberOfLines={1}>

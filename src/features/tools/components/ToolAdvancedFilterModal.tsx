@@ -101,13 +101,8 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
   const statusList = [
     'All',
     'Available',
-    'In Use',
     'Moving',
     'Repair',
-    'Missing',
-    'Maintenance',
-    'Damaged',
-    'Expired',
   ];
 
   const printStatusList = ['All', 'Printed', 'Not Printed'];

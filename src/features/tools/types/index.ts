@@ -94,6 +94,14 @@ export interface ToolListResponse {
   success: boolean;
   data: ToolRecord[];
   total?: number;
+  statusCounts?: {
+    all?: number;
+    available?: number;
+    moving?: number;
+    repair?: number;
+    printed?: number;
+    unprinted?: number;
+  };
   page?: number;
   limit?: number;
   totalPages?: number;

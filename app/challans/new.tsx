@@ -29,25 +29,29 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { toast } from "@/components/ui/Toast";
 import { challanService } from "@/features/challans/services/challanService";
 import { storeService } from "@/features/stores/services/storeService";
 import { toolService } from "@/features/tools/services/toolService";
 import { profileService } from "@/features/profiles/services/profileService";
 import { ProfileRecord } from "@/features/profiles/types";
 import { ToolRecord } from "@/features/tools/types";
-import { generateAndShareChallanPdf } from "@/features/challans/utils/challanPdfGenerator";
+import { selectionStore } from "@/features/tools/utils/selectionStore";
+import { downloadOrShareChallanPdf, generateAndShareChallanPdf } from "@/features/challans/utils/challanPdfGenerator";
 
 export default function NewChallanScreen() {
   const router = useRouter();
   const { theme, isDark } = useAppTheme();
-  const { storeId, toolIds: rawToolIds, isScrap } = useLocalSearchParams<{
+  const { storeId, toolIds: rawToolIds, isScrap, transferFromDcId } = useLocalSearchParams<{
     storeId?: string;
     toolIds?: string;
     isScrap?: string;
+    transferFromDcId?: string;
   }>();
 
   const isScrapDC = isScrap === "true" || isScrap === "1";
   const [challanType, setChallanType] = useState<"Delivery" | "Return">("Delivery");
+  const [isCreatedSuccess, setIsCreatedSuccess] = useState(false);
 
   // Scroll View & Validation State
   const scrollViewRef = useRef<ScrollView>(null);
@@ -148,8 +152,25 @@ export default function NewChallanScreen() {
     loadInitialData();
   }, [storeId, isScrapDC]);
 
-  // Load selected tools if toolIds provided
+  // Load selected tools if pending in selectionStore or toolIds provided in params
   useEffect(() => {
+    // 1. Check in-memory selectionStore first (handles any number of tools with 0 extra network requests)
+    const pending = selectionStore.getPendingChallan(storeId);
+    if (pending && pending.tools.length > 0) {
+      setSelectedTools(pending.tools);
+      const first = pending.tools[0] as any;
+      if (!siteCode && first) {
+        if (first.currentSite?.storeCode) {
+          setSiteCode(first.currentSite.storeCode);
+        } else if (first.jobCode) {
+          setSiteCode(first.jobCode);
+        } else if (first.project?.projectCode) {
+          setSiteCode(first.project.projectCode);
+        }
+      }
+      return;
+    }
+
     if (!rawToolIds) return;
     const ids = rawToolIds
       .split(",")
@@ -161,10 +182,7 @@ export default function NewChallanScreen() {
     const loadTools = async () => {
       setLoadingTools(true);
       try {
-        const loaded = await Promise.all(
-          ids.map((id) => toolService.getToolById(id).catch(() => null))
-        );
-        const validTools = loaded.filter(Boolean) as ToolRecord[];
+        const validTools = await toolService.getToolsByIds(ids);
         setSelectedTools(validTools);
 
         // Pre-fill siteCode from tool if store did not have it
@@ -186,7 +204,7 @@ export default function NewChallanScreen() {
     };
 
     loadTools();
-  }, [rawToolIds]);
+  }, [rawToolIds, storeId]);
 
   // Challan Dates & Delivery Validity Presets (Web parity with VendorSelectionModal.tsx)
   const [challanDate, setChallanDate] = useState<string>(
@@ -226,7 +244,7 @@ export default function NewChallanScreen() {
 
   const handleQuickAddProfile = async () => {
     if (!newProfile.name.trim()) {
-      Alert.alert("Validation Error", "Subcontractor / Firm Name is required.");
+      toast.error("Subcontractor / Firm Name is required.");
       return;
     }
     try {
@@ -248,16 +266,10 @@ export default function NewChallanScreen() {
           address: "",
           gstNumber: "",
         });
-        Alert.alert(
-          "Profile Registered",
-          `${isScrapDC ? "Scrap Dealer" : "Subcontractor"} "${created.name}" created and selected.`
-        );
+        toast.success(`${isScrapDC ? "Scrap Dealer" : "Subcontractor"} "${created.name}" registered and selected.`);
       }
     } catch (err: any) {
-      Alert.alert(
-        "Registration Failed",
-        err?.response?.data?.message || err?.message || "Could not register profile."
-      );
+      toast.error(err?.response?.data?.message || err?.message || "Could not register profile.");
     } finally {
       setCreatingProfile(false);
     }
@@ -276,15 +288,18 @@ export default function NewChallanScreen() {
       setSelectedTools((prev) =>
         prev.map((t) => (unprintedIds.includes(t._id) ? { ...t, isPrinted: true } : t))
       );
-      Alert.alert("Success", "All selected tools have been marked as Printed.");
+      toast.success(`${unprintedIds.length} tool(s) marked as Printed.`);
     } catch (err: any) {
-      Alert.alert("Notice", err?.message || "Failed to mark tools as printed.");
+      toast.error(err?.message || "Failed to mark tools as printed.");
     } finally {
       setMarkingPrinted(false);
     }
   };
 
   const handleSubmit = async () => {
+    // Prevent duplicate submissions after success
+    if (isCreatedSuccess || saving) return;
+
     setFormError(null);
     const newFieldErrors: { vendorName?: string; siteCode?: string } = {};
 
@@ -298,21 +313,17 @@ export default function NewChallanScreen() {
 
     if (Object.keys(newFieldErrors).length > 0) {
       setFieldErrors(newFieldErrors);
-      setFormError("Please fill in all mandatory fields (marked with *) before generating.");
+      const errMsg = newFieldErrors.vendorName || newFieldErrors.siteCode || "Please fill in all mandatory fields.";
+      setFormError(errMsg);
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-      Alert.alert(
-        "Validation Error",
-        newFieldErrors.vendorName || newFieldErrors.siteCode || "Please fill in all mandatory fields."
-      );
+      toast.error(errMsg);
       return;
     }
 
     if (selectedTools.length === 0) {
-      setFormError("Please select at least one tool item to include in this Delivery Challan.");
-      Alert.alert(
-        "Validation Error",
-        "Please select at least one tool item to include in this Delivery Challan."
-      );
+      const errMsg = "Please select at least one tool item to include in this Delivery Challan.";
+      setFormError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
@@ -323,17 +334,18 @@ export default function NewChallanScreen() {
     if (repairTools.length > 0) {
       const msg = "Selected tool(s) are currently under Repair and cannot be issued in a Delivery Challan.";
       setFormError(msg);
-      Alert.alert("Challan Creation Blocked", msg);
+      toast.error(msg);
       return;
     }
 
     const movingTools = selectedTools.filter(
       (t) => (t.status || "").toLowerCase() === "moving"
     );
-    if (movingTools.length > 0) {
-      const msg = "Selected tool(s) are already marked as Moving.";
+    if (!transferFromDcId && movingTools.length > 0) {
+      const toolLabels = movingTools.map((t) => t.toolId || t.toolCode || t.description || "item").join(", ");
+      const msg = `Cannot create Delivery Challan: Tool(s) [${toolLabels}] are already dispatched (status: Moving). They must first be returned via a Return Challan (RC) or transferred.`;
       setFormError(msg);
-      Alert.alert("Challan Creation Blocked", msg);
+      toast.error(msg);
       return;
     }
 
@@ -341,12 +353,13 @@ export default function NewChallanScreen() {
       (t) => (t.status || "").toLowerCase() === "missing"
     );
     if (missingTools.length > 0) {
-      const msg = "Selected tool(s) are marked as Missing.";
+      const msg = "Selected tool(s) are marked as Missing and cannot be dispatched.";
       setFormError(msg);
-      Alert.alert("Challan Creation Blocked", msg);
+      toast.error(msg);
       return;
     }
 
+    // Unprinted tools: use Alert for the interactive confirm dialog (native UX)
     if (unprintedTools.length > 0) {
       Alert.alert(
         "Unprinted Equipment Warning",
@@ -369,6 +382,7 @@ export default function NewChallanScreen() {
   };
 
   const executeCreateChallan = async () => {
+    if (isCreatedSuccess) return; // Idempotency guard
     setSaving(true);
     setFormError(null);
     try {
@@ -407,9 +421,9 @@ export default function NewChallanScreen() {
       }
 
       if (!finalVendorId) {
-        const errMsg = "A valid subcontractor profile is required. Please select a profile or provide complete contractor details.";
+        const errMsg = "A valid subcontractor profile is required. Please select a profile from the saved list or use Quick Add.";
         setFormError(errMsg);
-        Alert.alert("Profile Required", errMsg);
+        toast.error(errMsg);
         setSaving(false);
         return;
       }
@@ -457,6 +471,7 @@ export default function NewChallanScreen() {
           address: siteLocation.trim() || undefined,
           gstNumber: consignorTaxNo.trim() || undefined,
         },
+        transferFromDcId: transferFromDcId || undefined,
         challanDate: challanDate || new Date().toISOString().split("T")[0],
         deliveryDate: deliveryDate || new Date().toISOString().split("T")[0],
         notes: notes.trim() || undefined,
@@ -474,40 +489,38 @@ export default function NewChallanScreen() {
       }
 
       const createdChallan = result?.data;
+      // Mark as done — prevents duplicate submissions on any re-render
+      setIsCreatedSuccess(true);
 
-      Alert.alert(
-        "Challan Generated!",
-        `${isScrapDC ? "Scrap Delivery Challan" : "Delivery Challan (DC)"} #${
-          createdChallan?.challanNumber || "Created"
-        } generated with ${selectedTools.length} equipment unit(s).`,
-        [
-          {
-            text: "View & Share PDF",
-            onPress: async () => {
-              if (createdChallan) {
-                try {
-                  await generateAndShareChallanPdf(createdChallan, { share: true });
-                } catch {
-                  // Fallback
-                }
-              }
-              router.back();
-            },
-          },
-          {
-            text: "Done",
-            style: "default",
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      const dcLabel = isScrapDC ? "Scrap Delivery Challan" : "Delivery Challan (DC)";
+      const challanNum = createdChallan?.challanNumber || "Created";
+
+      // 📥 Automatically download official PDF (Web) / trigger share (Mobile)
+      if (createdChallan) {
+        try {
+          await downloadOrShareChallanPdf(createdChallan, { share: true });
+        } catch (pdfErr) {
+          console.warn("Auto-download DC PDF error:", pdfErr);
+        }
+      }
+
+      // ✅ Toast success — fires after download starts and persists through navigation
+      toast.success(`${dcLabel} ${challanNum} generated & PDF downloaded automatically.`);
+
+      // Brief breather so browser initiates file download before screen unmounts
+      setTimeout(() => {
+        router.back();
+      }, 350);
+
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Failed to generate challan.";
+      // Extract the most meaningful error message from Axios or native Error
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to generate challan. Please try again.";
       setFormError(errMsg);
-      Alert.alert(
-        "Challan Creation Failed",
-        errMsg
-      );
+      // Show inline banner AND persistent error toast
+      toast.error(errMsg);
     } finally {
       setSaving(false);
     }
@@ -1190,14 +1203,15 @@ export default function NewChallanScreen() {
               title="Cancel"
               variant="outline"
               onPress={() => router.back()}
-              disabled={saving}
+              disabled={saving || isCreatedSuccess}
             />
           </View>
           <View style={{ flex: 1.5 }}>
             <Button
-              title={saving ? "Generating..." : "Generate Challan"}
+              title={isCreatedSuccess ? "Generated ✓" : saving ? "Generating..." : "Generate Challan"}
               onPress={handleSubmit}
               loading={saving}
+              disabled={saving || isCreatedSuccess}
             />
           </View>
         </View>

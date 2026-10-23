@@ -31,6 +31,41 @@ export const toolService = {
   },
 
   /**
+   * Retrieves all matching tool IDs and lean records for a store query (for multi-page Select All).
+   */
+  getStoreToolIds: async (
+    storeId: string,
+    params: ToolFilterParams = {}
+  ): Promise<{ ids: string[]; data: ToolRecord[]; total: number }> => {
+    const queryParams = { ...params, onlyIds: 'true' };
+    const response = await api.get<any>(`/api/stores/${storeId}/tools`, {
+      params: queryParams,
+    });
+    if (response.data && response.data.success) {
+      return {
+        ids: response.data.ids || [],
+        data: response.data.data || [],
+        total: response.data.total ?? (response.data.ids || []).length,
+      };
+    }
+    return { ids: [], data: [], total: 0 };
+  },
+
+  /**
+   * Batch fetches multiple tools by their MongoDB _ids.
+   */
+  getToolsByIds: async (toolIds: string[]): Promise<ToolRecord[]> => {
+    if (!toolIds || toolIds.length === 0) return [];
+    const response = await api.post<{ success: boolean; data: ToolRecord[] }>('/api/tools/batch-get', {
+      toolIds,
+    });
+    if (response.data && response.data.success) {
+      return response.data.data || [];
+    }
+    return [];
+  },
+
+  /**
    * Retrieves tools within a specific store (legacy direct array accessor).
    */
   getStoreTools: async (

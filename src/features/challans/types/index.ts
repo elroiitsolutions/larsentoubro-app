@@ -4,6 +4,7 @@ export interface ChallanItemRecord {
   toolId: string;
   description?: string;
   toolCode?: string;
+  materialCode?: string;
   quantity: number;
   unit: string;
   rate?: number;
@@ -19,6 +20,7 @@ export interface ChallanVendor {
   gstNumber?: string;
   contactPerson?: string;
   contactPhone?: string;
+  profileType?: string;
 }
 
 export interface ChallanRecord {
@@ -27,6 +29,8 @@ export interface ChallanRecord {
   challanType: "Delivery" | "Return" | string;
   type?: "Delivery" | "Return" | string;
   status: "Active" | "Completed" | "Cancelled" | "Transfer" | "Returned" | string;
+  isScrapDC?: boolean;
+  docReferenceCode?: string;
   vendor: ChallanVendor;
   store?: any;
   storeName?: string;
@@ -34,6 +38,7 @@ export interface ChallanRecord {
   deliveryDate?: string;
   indentNo?: string;
   siteCode?: string;
+  vendorCode?: string;
   subcontractorName?: string;
   locationChainage?: string;
   workFrontLocation?: string;

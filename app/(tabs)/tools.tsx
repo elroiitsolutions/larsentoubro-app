@@ -151,21 +151,42 @@ export default function ToolsCatalogScreen() {
 
       let matchesSearch = true;
       if (searchTokens.length > 0) {
-        matchesSearch = searchTokens.some((tok) =>
-          name.includes(tok) ||
-          code.includes(tok) ||
-          serial.includes(tok) ||
-          cat.includes(tok) ||
-          job.includes(tok) ||
-          purchaser.includes(tok) ||
-          supplier.includes(tok)
-        );
+        matchesSearch = searchTokens.some((tok) => {
+          const isNumeric = /^\d+$/.test(tok);
+          if (isNumeric) {
+            const num = parseInt(tok, 10);
+            return (
+              (t.toolId || "").toLowerCase() === tok ||
+              (t.toolId || "").toLowerCase().endsWith(tok) ||
+              (!isNaN(num) && Number(t.serialNumber) === num) ||
+              (t.toolCode || "").toLowerCase() === tok
+            );
+          }
+          return (
+            name.includes(tok) ||
+            (t.toolId || "").toLowerCase().includes(tok) ||
+            (t.toolCode || "").toLowerCase().startsWith(tok) ||
+            (t.toolCode || "").toLowerCase() === tok ||
+            cat.includes(tok) ||
+            job.includes(tok) ||
+            purchaser.includes(tok) ||
+            supplier.includes(tok)
+          );
+        });
       }
 
       // Status
-      const matchesStatus =
-        filters.status === "All" ||
-        (t.status && t.status.toLowerCase() === filters.status.toLowerCase());
+      let matchesStatus = filters.status === "All";
+      if (!matchesStatus && t.status) {
+        const s = t.status.toLowerCase();
+        if (filters.status === "Moving") {
+          matchesStatus = s === "moving" || s === "in transit";
+        } else if (filters.status === "Repair") {
+          matchesStatus = s === "repair" || s === "under repair" || s === "damaged/repair";
+        } else {
+          matchesStatus = s === filters.status.toLowerCase();
+        }
+      }
 
       // Print Status
       const matchesPrint =
@@ -246,12 +267,12 @@ export default function ToolsCatalogScreen() {
     return { total, available, moving, repair };
   }, [tools]);
 
-  const quickStatusOptions = ["All", "Available", "In Transit", "Under Repair", "Missing", "Scrap"];
+  const quickStatusOptions = ["All", "Available", "Moving", "Repair"];
 
   const getStatusCount = (status: string) => {
     if (status === "All") return tools.length;
-    if (status === "In Transit") return tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
-    if (status === "Under Repair") return tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
+    if (status === "Moving") return tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
+    if (status === "Repair") return tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
     return tools.filter((t) => t.status?.toLowerCase() === status.toLowerCase()).length;
   };
 

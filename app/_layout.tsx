@@ -10,6 +10,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 
 import { ThemeContextProvider, useAppTheme } from "@/context/ThemeContext";
 import { SidebarDrawer } from "@/components/sidebar/SidebarDrawer";
+import { Toast } from "@/components/ui/Toast";
 
 function InnerRootLayout() {
   const { isDark } = useAppTheme();
@@ -56,6 +57,8 @@ function InnerRootLayout() {
         </Stack>
         {/* Global Slide-Out Sidebar Drawer */}
         <SidebarDrawer />
+        {/* Global Non-Blocking Toast Notifications */}
+        <Toast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

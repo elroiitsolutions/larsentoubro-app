@@ -12,8 +12,11 @@ export const profileService = {
     type?: ProfileType,
     search?: string
   ): Promise<ProfileRecord[]> => {
-    const params: Record<string, string> = {};
-    if (type) params.type = type;
+    const params: Record<string, string> = {
+      limit: '1000', // Match web client: fetch all profiles in one call
+    };
+    // Backend expects 'profileType', not 'type'
+    if (type) params.profileType = type;
     if (search) params.search = search;
 
     const response = await api.get<ProfileListResponse>("/api/profiles", { params });

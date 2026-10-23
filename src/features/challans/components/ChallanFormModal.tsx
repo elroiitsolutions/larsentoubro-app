@@ -3,7 +3,9 @@ import { View, Text, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { toast } from "@/components/ui/Toast";
 import { challanService } from "../services/challanService";
+import { downloadOrShareChallanPdf } from "../utils/challanPdfGenerator";
 
 interface ChallanFormModalProps {
   visible: boolean;
@@ -27,7 +29,7 @@ export const ChallanFormModal: React.FC<ChallanFormModalProps> = ({
 
   const handleSubmit = async () => {
     if (!vendorName.trim()) {
-      Alert.alert("Validation Error", "Vendor or Contractor name is required.");
+      toast.error("Vendor or Contractor name is required.");
       return;
     }
 
@@ -47,19 +49,23 @@ export const ChallanFormModal: React.FC<ChallanFormModalProps> = ({
         items: [],
       };
 
+      let result: any;
       if (challanType === "Delivery") {
-        await challanService.createDeliveryChallan(payload);
-        Alert.alert("Success", "Delivery Challan (DC) created successfully!");
+        result = await challanService.createDeliveryChallan(payload);
+        toast.success("Delivery Challan (DC) created & PDF downloaded!");
       } else {
-        await challanService.createReturnChallan(payload);
-        Alert.alert("Success", "Return Challan (RC) created successfully!");
+        result = await challanService.createReturnChallan(payload);
+        toast.success("Return Challan (RC) created & PDF downloaded!");
+      }
+
+      if (result?.data) {
+        downloadOrShareChallanPdf(result.data).catch(() => {});
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert(
-        "Creation Failed",
+      toast.error(
         err?.response?.data?.message || err?.message || "Failed to generate challan"
       );
     } finally {

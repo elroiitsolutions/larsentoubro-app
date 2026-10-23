@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Recycle,
   RotateCcw,
@@ -82,6 +82,12 @@ export default function ScrapScreen() {
   useEffect(() => {
     fetchScrappedTools();
   }, [fetchScrappedTools]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchScrappedTools();
+    }, [fetchScrappedTools])
+  );
 
   const toggleSelect = (id: string, isDisposed?: boolean) => {
     if (isDisposed) {

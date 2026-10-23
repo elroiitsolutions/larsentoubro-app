@@ -6,6 +6,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -26,6 +27,7 @@ import {
   FileText,
   Menu,
   Share2,
+  Download,
   Printer,
   Hash,
 } from "lucide-react-native";
@@ -243,14 +245,21 @@ export default function ChallanDetailsScreen() {
           <View className="flex-row gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <View className="flex-1">
               <Button
-                title="Share PDF"
+                title={Platform.OS === "web" ? "Download PDF" : "Share PDF"}
                 variant="outline"
                 size="sm"
                 loading={pdfActionLoading}
-                icon={<Share2 size={13} color="#4F46E5" />}
+                icon={
+                  Platform.OS === "web" ? (
+                    <Download size={13} color="#4F46E5" />
+                  ) : (
+                    <Share2 size={13} color="#4F46E5" />
+                  )
+                }
                 onPress={handleSharePdf}
               />
             </View>
+
             <View className="flex-1">
               <Button
                 title="Print"

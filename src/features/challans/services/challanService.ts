@@ -41,34 +41,61 @@ export const challanService = {
 
   /**
    * Creates a new Delivery Challan (DC).
+   * Throws on failure — caller handles error display.
    */
   createDeliveryChallan: async (data: Record<string, any>) => {
-    const response = await api.post<{ success: boolean; data: ChallanRecord }>(
+    const response = await api.post<{ success: boolean; data: ChallanRecord; message?: string }>(
       "/api/challans/delivery",
       data
     );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Failed to create Delivery Challan");
+    }
     return response.data;
   },
 
   /**
    * Creates a new Return Challan (RC).
+   * Throws on failure — caller handles error display.
    */
   createReturnChallan: async (data: Record<string, any>) => {
-    const response = await api.post<{ success: boolean; data: ChallanRecord }>(
+    const response = await api.post<{ success: boolean; data: ChallanRecord; message?: string }>(
       "/api/challans/return",
       data
     );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Failed to create Return Challan");
+    }
     return response.data;
   },
 
   /**
    * Creates a Scrap Delivery Challan (DC for scrap dealer).
+   * Throws on failure — caller handles error display.
    */
   createScrapDeliveryChallan: async (data: Record<string, any>) => {
-    const response = await api.post<{ success: boolean; data: ChallanRecord }>(
+    const response = await api.post<{ success: boolean; data: ChallanRecord; message?: string }>(
       "/api/challans/scrap-delivery",
       data
     );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Failed to create Scrap Delivery Challan");
+    }
+    return response.data;
+  },
+
+  /**
+   * Cancels an active Delivery Challan and reverts tool statuses to Available.
+   * Parity with backend POST /api/challans/:id/cancel
+   */
+  cancelDeliveryChallan: async (id: string, reason?: string) => {
+    const response = await api.post<{ success: boolean; data: ChallanRecord; message?: string }>(
+      `/api/challans/${id}/cancel`,
+      { reason: reason || "Cancelled via mobile app" }
+    );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Failed to cancel Delivery Challan");
+    }
     return response.data;
   },
 
@@ -80,6 +107,16 @@ export const challanService = {
       `/api/challans/${id}`,
       data
     );
+    return response.data;
+  },
+
+  /**
+   * Fetches the official generated PDF as a Blob from the backend.
+   */
+  downloadChallanPdfBlob: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/api/challans/${id}/pdf`, {
+      responseType: "blob",
+    });
     return response.data;
   },
 

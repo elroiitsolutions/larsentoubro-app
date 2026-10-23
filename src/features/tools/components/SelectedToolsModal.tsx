@@ -155,6 +155,23 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
         return;
       }
 
+      if (hasMovingTool && (actionId === "transfer" || actionId === "scrap" || actionId === "challan")) {
+        const movingCount = selectedTools.filter(
+          (t) => (t.status || "").toLowerCase() === "moving"
+        ).length;
+        Alert.alert(
+          "Action Blocked",
+          `Cannot ${
+            actionId === "challan"
+              ? "create Delivery Challan for"
+              : actionId === "transfer"
+              ? "transfer"
+              : "scrap"
+          } ${movingCount} selected tool(s) that are already Moving (dispatched on an active Delivery Challan). Tools must first be returned via a Return Challan (RC).`
+        );
+        return;
+      }
+
       if (!areAllSelectedPrinted) {
         Alert.alert(
           "QR Label Required",
@@ -219,7 +236,7 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 6, paddingTop: 2 }}
           >
-            {selectedTools.map((t) => (
+            {selectedTools.slice(0, 30).map((t) => (
               <View
                 key={t._id}
                 className="bg-white dark:bg-slate-900 rounded-xl px-2.5 py-1.5 flex-row items-center gap-2 border border-slate-200 dark:border-slate-800"
@@ -258,6 +275,13 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
                 )}
               </View>
             ))}
+            {selectedTools.length > 30 && (
+              <View className="bg-indigo-100 dark:bg-indigo-950/80 rounded-xl px-3 py-2 justify-center border border-indigo-200 dark:border-indigo-900">
+                <Text className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                  +{selectedTools.length - 30} more
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -327,9 +351,9 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
               activeOpacity={0.7}
               onPress={() => handleActionClick("challan")}
               className={`flex-row items-center justify-between p-3 rounded-2xl border ${
-                areAllSelectedPrinted && !hasRepairTool
+                areAllSelectedPrinted && !hasRepairTool && !hasMovingTool
                   ? "bg-white dark:bg-slate-800/80 border-emerald-200 dark:border-emerald-900/40"
-                  : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"
+                  : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 opacity-75"
               }`}
             >
               <View className="flex-row items-center flex-1 mr-3">
@@ -341,16 +365,24 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
                     <Text className="text-sm font-bold text-slate-900 dark:text-white">
                       Subcontractor DC
                     </Text>
-                    {!areAllSelectedPrinted && (
+                    {hasMovingTool ? (
+                      <View className="bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
+                        <Text className="text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                          Already Moving
+                        </Text>
+                      </View>
+                    ) : !areAllSelectedPrinted ? (
                       <View className="bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded">
                         <Text className="text-[9px] font-bold text-amber-700 dark:text-amber-400">
                           Requires Printed
                         </Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <Text className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    Generate Delivery Challan to external subcontractor or work front
+                    {hasMovingTool
+                      ? "Blocked: Selected tool(s) are already Moving on an active DC"
+                      : "Generate Delivery Challan to external subcontractor or work front"}
                   </Text>
                 </View>
               </View>
@@ -364,9 +396,9 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
               activeOpacity={0.7}
               onPress={() => handleActionClick("transfer")}
               className={`flex-row items-center justify-between p-3 rounded-2xl border ${
-                areAllSelectedPrinted && !hasRepairTool
+                areAllSelectedPrinted && !hasRepairTool && !hasMovingTool
                   ? "bg-white dark:bg-slate-800/80 border-indigo-100 dark:border-indigo-900/40"
-                  : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"
+                  : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 opacity-75"
               }`}
             >
               <View className="flex-row items-center flex-1 mr-3">
@@ -378,16 +410,24 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
                     <Text className="text-sm font-bold text-slate-900 dark:text-white">
                       Store-to-Store Transfer
                     </Text>
-                    {!areAllSelectedPrinted && (
+                    {hasMovingTool ? (
+                      <View className="bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
+                        <Text className="text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                          Already Moving
+                        </Text>
+                      </View>
+                    ) : !areAllSelectedPrinted ? (
                       <View className="bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded">
                         <Text className="text-[9px] font-bold text-amber-700 dark:text-amber-400">
                           Requires Printed
                         </Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <Text className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    Transfer equipment to another store within the same project
+                    {hasMovingTool
+                      ? "Blocked: Selected tool(s) are already Moving"
+                      : "Transfer equipment to another store within the same project"}
                   </Text>
                 </View>
               </View>
@@ -475,7 +515,7 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
               activeOpacity={0.7}
               onPress={() => handleActionClick("scrap")}
               className={`flex-row items-center justify-between p-3 rounded-2xl border border-rose-200 dark:border-rose-900/50 ${
-                areAllSelectedPrinted && !hasRepairTool
+                areAllSelectedPrinted && !hasRepairTool && !hasMovingTool
                   ? "bg-rose-50/50 dark:bg-rose-950/20"
                   : "bg-slate-50/80 dark:bg-slate-800/30 opacity-70"
               }`}
@@ -489,16 +529,24 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
                     <Text className="text-sm font-bold text-rose-700 dark:text-rose-400">
                       Scrap / Decommission
                     </Text>
-                    {!areAllSelectedPrinted && (
+                    {hasMovingTool ? (
+                      <View className="bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
+                        <Text className="text-[9px] font-bold text-rose-700 dark:text-rose-400">
+                          Already Moving
+                        </Text>
+                      </View>
+                    ) : !areAllSelectedPrinted ? (
                       <View className="bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded">
                         <Text className="text-[9px] font-bold text-amber-700 dark:text-amber-400">
                           Requires Printed
                         </Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <Text className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    Mark tools as scrapped and transfer to Scrap Register
+                    {hasMovingTool
+                      ? "Blocked: Selected tool(s) are already Moving"
+                      : "Mark tools as scrapped and transfer to Scrap Register"}
                   </Text>
                 </View>
               </View>
