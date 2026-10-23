@@ -2,15 +2,9 @@ import React from "react";
 import { View, Text, TouchableOpacity, Platform } from "react-native";
 import {
   FolderGit2,
-  MapPin,
-  User,
-  Calendar,
-  IndianRupee,
   ChevronRight,
   Edit2,
   Trash2,
-  Building2,
-  Layers,
 } from "lucide-react-native";
 import { ProjectRecord } from "../types";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -91,22 +85,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         }),
       }}
     >
-      {/* Top Luminous Status Accent Bar */}
-      <View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          backgroundColor: statusMeta.color,
-        }}
-      />
-
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={onPress}
-        style={{ padding: 15, paddingTop: 16 }}
+        style={{ padding: 15 }}
       >
         {/* Header Row: Icon, Title, ID, and Status Badge */}
         <View
@@ -219,8 +201,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           </View>
         </View>
 
-       
-
         {/* Footer: Explore Action Link & Manage Buttons */}
         <View
           style={{
@@ -297,3 +277,5 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     </View>
   );
 };
+
+export default ProjectCard;

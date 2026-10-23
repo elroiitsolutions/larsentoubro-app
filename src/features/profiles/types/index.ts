@@ -37,6 +37,7 @@ export interface ProfileRecord {
   aadhaarNumber?: string;
   licenseNumber?: string;
   status: 'Active' | 'Inactive';
+  customFields?: Record<string, any>;
   projects?: string[];
   stores?: string[];
   documents?: ProfileDocument[];

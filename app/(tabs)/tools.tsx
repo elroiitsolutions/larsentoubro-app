@@ -90,8 +90,8 @@ export default function ToolsCatalogScreen() {
     } catch (err: any) {
       setError(
         err?.response?.data?.message ||
-          err?.message ||
-          "Failed to load tools catalog."
+        err?.message ||
+        "Failed to load tools catalog."
       );
     } finally {
       setLoading(false);
@@ -841,7 +841,7 @@ export default function ToolsCatalogScreen() {
                   >
                     {toolName}
                   </Text>
-                  
+
                   <Text
                     style={{
                       fontSize: 12,

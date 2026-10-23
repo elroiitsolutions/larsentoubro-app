@@ -20,7 +20,7 @@ function InnerRootLayout() {
 
   useEffect(() => {
     // Immediately hide any native splash overlay to ensure touches are never blocked
-    SplashScreen.hideAsync().catch(() => {});
+    SplashScreen.hideAsync().catch(() => { });
     initializeAuth();
   }, []);
 

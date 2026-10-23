@@ -14,12 +14,16 @@ export const storeService = {
     const url = projectId ? `/api/stores?projectId=${projectId}` : "/api/stores";
     const response = await api.get<StoresResponse>(url);
     if (response.data && response.data.success) {
-      return (response.data.data || []).map((s: any) => ({
-        ...s,
-        totalToolsCount: s.totalToolsCount ?? s.toolsCount ?? 0,
-        availableToolsCount: s.availableToolsCount ?? 0,
-        assignedToolsCount: s.assignedToolsCount ?? 0,
-      }));
+      return (response.data.data || []).map((s: any) => {
+        const count = s.toolsCount ?? s.totalToolsCount ?? 0;
+        return {
+          ...s,
+          toolsCount: count,
+          totalToolsCount: count,
+          availableToolsCount: (s.availableToolsCount !== undefined && s.availableToolsCount > 0) ? s.availableToolsCount : count,
+          assignedToolsCount: s.assignedToolsCount ?? 0,
+        };
+      });
     }
     return [];
   },
@@ -31,10 +35,12 @@ export const storeService = {
     const response = await api.get<{ success: boolean; data?: StoreRecord }>(`/api/stores/${id}`);
     if (response.data && response.data.success && response.data.data) {
       const s = response.data.data as any;
+      const count = s.toolsCount ?? s.totalToolsCount ?? 0;
       return {
         ...s,
-        totalToolsCount: s.totalToolsCount ?? s.toolsCount ?? 0,
-        availableToolsCount: s.availableToolsCount ?? 0,
+        toolsCount: count,
+        totalToolsCount: count,
+        availableToolsCount: (s.availableToolsCount !== undefined && s.availableToolsCount > 0) ? s.availableToolsCount : count,
         assignedToolsCount: s.assignedToolsCount ?? 0,
       };
     }

@@ -39,6 +39,24 @@ const FALLBACK_FORMS: FormDefinition[] = [
     description: "Dynamic schema for equipment tracking, calibration specs, and load ratings.",
     fields: [],
   },
+  {
+    slug: "subcontractor-form",
+    name: "Subcontractor (Vendor) Form",
+    description: "Configurable input fields, contact details, tax identifiers, and requirements for Subcontractor / Vendor profiles.",
+    fields: [],
+  },
+  {
+    slug: "scrap-dealer-form",
+    name: "Scrap Dealer Form",
+    description: "Customizable input fields, contact details, GST, PAN, and Scrap License details for Scrap Dealer profiles.",
+    fields: [],
+  },
+  {
+    slug: "supplier-form",
+    name: "Supplier (Purchaser Name) Form",
+    description: "Customizable fields for Suppliers and Procurement Sources used in tool creation and tracking.",
+    fields: [],
+  },
 ];
 
 export default function FormsManagementScreen() {

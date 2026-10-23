@@ -365,10 +365,10 @@ export default function ScrapScreen() {
             const isDisposed = Boolean(item.isDisposed);
             const dateStr = item.scrappedAt
               ? new Date(item.scrappedAt).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                })
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
               : '-';
 
             return (
@@ -627,8 +627,8 @@ export default function ScrapScreen() {
                 disposalStatus === 'pending'
                   ? 'No scrapped tools are currently pending disposal.'
                   : disposalStatus === 'disposed'
-                  ? 'No scrapped tools have been disposed via Delivery Challans yet.'
-                  : 'No tools found in the scrap register.'
+                    ? 'No scrapped tools have been disposed via Delivery Challans yet.'
+                    : 'No tools found in the scrap register.'
               }
             />
           }

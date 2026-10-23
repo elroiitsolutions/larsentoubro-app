@@ -1455,4 +1455,4 @@ export default function StoreInventoryScreen() {
     </SafeAreaView>
   );
 }
-
+

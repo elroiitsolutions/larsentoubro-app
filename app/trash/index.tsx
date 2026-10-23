@@ -175,8 +175,7 @@ export default function TrashScreen() {
 
     Alert.alert(
       'Permanent Bulk Deletion',
-      `CRITICAL WARNING: Are you sure you want to PERMANENTLY delete ${count} selected ${
-        count === 1 ? 'equipment' : 'equipments'
+      `CRITICAL WARNING: Are you sure you want to PERMANENTLY delete ${count} selected ${count === 1 ? 'equipment' : 'equipments'
       }? This action is irreversible.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -323,8 +322,8 @@ export default function TrashScreen() {
                       ? 'rgba(79, 70, 229, 0.08)'
                       : '#EEF2FF'
                     : isDark
-                    ? '#1E293B'
-                    : '#FFFFFF',
+                      ? '#1E293B'
+                      : '#FFFFFF',
                 }}
               >
                 <TouchableOpacity

@@ -319,9 +319,22 @@ export default function ProfilesScreen() {
                   </View>
                 )}
 
-                {/* Tax & Identifiers */}
+                {/* Address */}
+                {item.address ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginVertical: 2 }}>
+                    <MapPin size={12} color={theme.textMuted} />
+                    <Text
+                      style={{ fontSize: 11, color: theme.textSecondary, flex: 1 }}
+                      numberOfLines={1}
+                    >
+                      {item.address}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Tax, Identifiers & Custom Fields */}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 4 }}>
-                  {item.gstNumber && (
+                  {item.gstNumber ? (
                     <View
                       style={{
                         backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
@@ -334,9 +347,9 @@ export default function ProfilesScreen() {
                         GSTIN: {item.gstNumber}
                       </Text>
                     </View>
-                  )}
+                  ) : null}
 
-                  {item.panNumber && (
+                  {item.panNumber ? (
                     <View
                       style={{
                         backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
@@ -349,7 +362,51 @@ export default function ProfilesScreen() {
                         PAN: {item.panNumber}
                       </Text>
                     </View>
-                  )}
+                  ) : null}
+
+                  {item.licenseNumber ? (
+                    <View
+                      style={{
+                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, color: theme.textSecondary }}>
+                        License: {item.licenseNumber}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {item.customFields &&
+                    typeof item.customFields === "object" &&
+                    Object.entries(item.customFields).map(([k, v]) => {
+                      if (v === undefined || v === null || String(v).trim() === "") return null;
+                      return (
+                        <View
+                          key={k}
+                          style={{
+                            backgroundColor: isDark ? "rgba(99, 102, 241, 0.15)" : "#EEF2FF",
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: isDark ? "rgba(99, 102, 241, 0.3)" : "#C7D2FE",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: "600",
+                              color: isDark ? "#A5B4FC" : "#4338CA",
+                            }}
+                          >
+                            {k}: {String(v)}
+                          </Text>
+                        </View>
+                      );
+                    })}
                 </View>
 
                 {/* Action Footer */}

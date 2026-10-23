@@ -306,11 +306,10 @@ export default function QRScannerScreen() {
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setTorch((t) => !t)}
-              className={`w-10 h-10 rounded-full items-center justify-center border ${
-                torch
+              className={`w-10 h-10 rounded-full items-center justify-center border ${torch
                   ? "bg-amber-500/30 border-amber-400"
                   : "bg-black/60 border-white/10"
-              }`}
+                }`}
             >
               {torch ? <Zap size={18} color="#FBBF24" /> : <ZapOff size={18} color="#FFFFFF" />}
             </TouchableOpacity>
@@ -544,13 +543,12 @@ export default function QRScannerScreen() {
                       <Text className="font-semibold text-[11px] text-slate-400">Expiry Date</Text>
                     </View>
                     <Text
-                      className={`font-bold font-mono text-xs ${
-                        validityResult.validityStatus === "VALID"
+                      className={`font-bold font-mono text-xs ${validityResult.validityStatus === "VALID"
                           ? "text-emerald-400"
                           : validityResult.validityStatus === "EXPIRED"
-                          ? "text-rose-400"
-                          : "text-amber-400"
-                      }`}
+                            ? "text-rose-400"
+                            : "text-amber-400"
+                        }`}
                     >
                       {validityResult.expiryDate || "N/A"}
                     </Text>
