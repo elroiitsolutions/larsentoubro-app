@@ -330,12 +330,16 @@ export default function StoreInventoryScreen() {
     }
   }, [id]);
 
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
     loadInitialData();
+    hasMountedRef.current = true;
   }, [loadInitialData]);
 
   useFocusEffect(
     useCallback(() => {
+      if (!hasMountedRef.current) return;
       loadInitialData();
       handleClearSelection();
     }, [loadInitialData])
@@ -546,20 +550,45 @@ export default function StoreInventoryScreen() {
 
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} className="flex-1 bg-slate-50 dark:bg-slate-950">
+    <SafeAreaView
+      edges={["top", "left", "right"]}
+      style={{ flex: 1, backgroundColor: isDark ? "#020617" : "#F8FAFC" }}
+    >
       <StatusBar style="auto" />
 
       {/* Primary Header */}
       {isSelectionMode ? (
         /* Elevated Selection Bar */
-        <View className="flex-row items-center justify-between px-2.5 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 dark:bg-indigo-700 shadow-md">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: "#4F46E5",
+            borderBottomWidth: 1,
+            borderBottomColor: "#4338CA",
+          }}
+        >
           {/* Left Side: Count Badge & Clear */}
-          <View className="flex-row items-center gap-1.5 shrink min-w-0 mr-1.5">
-            <View className="bg-white/20 px-2 sm:px-2.5 py-1 rounded-full shrink min-w-0">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1, marginRight: 6 }}>
+            <View
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.2)",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 9999,
+              }}
+            >
               <Text
                 numberOfLines={1}
                 ellipsizeMode="tail"
-                className="text-[11px] sm:text-xs font-bold text-white tracking-tight"
+                style={{
+                  fontSize: 12,
+                  fontWeight: "700",
+                  color: "#FFFFFF",
+                }}
               >
                 {selectedToolIds.size.toLocaleString()} / {totalServerTools.toLocaleString()} Selected
               </Text>
@@ -568,9 +597,16 @@ export default function StoreInventoryScreen() {
               <TouchableOpacity
                 onPress={handleClearSelection}
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                className="py-1 px-1 shrink-0"
+                style={{ paddingVertical: 4, paddingHorizontal: 4 }}
               >
-                <Text className="text-[11px] sm:text-xs font-semibold text-indigo-100 underline">
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: "#E0E7FF",
+                    textDecorationLine: "underline",
+                  }}
+                >
                   Clear
                 </Text>
               </TouchableOpacity>
@@ -578,15 +614,23 @@ export default function StoreInventoryScreen() {
           </View>
 
           {/* Right Side: Options, Select/Deselect All, Done */}
-          <View className="flex-row items-center gap-1 sm:gap-1.5 shrink-0">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
             {selectedToolIds.size > 0 && (
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setSelectedToolsModalOpen(true)}
-                className="bg-amber-400 active:bg-amber-300 px-2 sm:px-2.5 py-1.5 rounded-lg shadow-sm flex-row items-center gap-1"
+                style={{
+                  backgroundColor: "#FBBF24",
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
               >
                 <Sparkles size={13} color="#78350F" />
-                <Text className="text-[11px] sm:text-xs font-bold text-amber-950">
+                <Text style={{ fontSize: 12, fontWeight: "700", color: "#451A03" }}>
                   Options
                 </Text>
               </TouchableOpacity>
@@ -596,12 +640,22 @@ export default function StoreInventoryScreen() {
               activeOpacity={0.8}
               disabled={isSelectingAll}
               onPress={handleSelectAll}
-              className="bg-white/15 px-2 sm:px-2.5 py-1.5 rounded-lg border border-white/25 flex-row items-center gap-1"
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.15)",
+                borderColor: "rgba(255, 255, 255, 0.25)",
+                borderWidth: 1,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 8,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+              }}
             >
               {isSelectingAll ? (
                 <ActivityIndicator size="small" color="#FFFFFF" style={{ transform: [{ scale: 0.7 }] }} />
               ) : (
-                <Text className="text-[11px] sm:text-xs font-bold text-white">
+                <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>
                   {isAllSelected ? "Deselect All" : "Select All"}
                 </Text>
               )}
@@ -610,9 +664,14 @@ export default function StoreInventoryScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => setIsSelectionMode(false)}
-              className="bg-white px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm"
+              style={{
+                backgroundColor: "#FFFFFF",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+              }}
             >
-              <Text className="text-[11px] sm:text-xs font-bold text-indigo-700">
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#4338CA" }}>
                 Done
               </Text>
             </TouchableOpacity>
@@ -620,8 +679,19 @@ export default function StoreInventoryScreen() {
         </View>
       ) : (
         /* Normal Header */
-        <View className="flex-row items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-          <View className="flex-row items-center flex-1 mr-2">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "#1E293B" : "#F1F5F9",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 }}>
             <TouchableOpacity
               activeOpacity={0.7}
               delayPressIn={0}
@@ -630,29 +700,67 @@ export default function StoreInventoryScreen() {
                 else openSidebar();
               }}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 items-center justify-center mr-2.5"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+              }}
             >
               <ArrowLeft size={18} color="#475569" />
             </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-slate-900 dark:text-white" numberOfLines={1}>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "700",
+                  color: isDark ? "#FFFFFF" : "#0F172A",
+                }}
+                numberOfLines={1}
+              >
                 {store?.name || "Store Details"}
               </Text>
-              <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: isDark ? "#94A3B8" : "#64748B",
+                }}
+              >
                 {store?.location || "Store Facility"} • {(totalServerTools || store?.totalToolsCount || (store as any)?.toolsCount || tools.length).toLocaleString()} Tools
               </Text>
             </View>
           </View>
 
-          <View className="flex-row items-center gap-1.5">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {canManageTools && (
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => setIsSelectionMode(true)}
-                className="flex-row items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-2 rounded-xl"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                }}
               >
                 <CheckSquare size={14} color="#475569" />
-                <Text className="text-xs font-bold text-slate-700 dark:text-slate-200">Select</Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: isDark ? "#E2E8F0" : "#334155",
+                  }}
+                >
+                  Select
+                </Text>
               </TouchableOpacity>
             )}
 
@@ -660,10 +768,28 @@ export default function StoreInventoryScreen() {
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => setBulkImportModalOpen(true)}
-                className="flex-row items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-2 rounded-xl"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                }}
               >
                 <FileSpreadsheet size={14} color="#4F46E5" />
-                <Text className="text-xs font-bold text-slate-800 dark:text-slate-100">Import</Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: isDark ? "#F1F5F9" : "#1E293B",
+                  }}
+                >
+                  Import
+                </Text>
               </TouchableOpacity>
             )}
 
@@ -676,10 +802,20 @@ export default function StoreInventoryScreen() {
                     params: { storeId: id },
                   } as any)
                 }
-                className="flex-row items-center gap-1 bg-indigo-600 px-3 py-2 rounded-xl shadow-sm"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: "#4F46E5",
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                }}
               >
                 <Plus size={15} color="#FFFFFF" strokeWidth={2.4} />
-                <Text className="text-xs font-bold text-white">Add Tool</Text>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>
+                  Add Tool
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -687,8 +823,17 @@ export default function StoreInventoryScreen() {
       )}
 
       {/* Search & Filter Header */}
-      <View className="pt-3 px-4 pb-2 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-        <View className="flex-row items-center gap-2 mb-2">
+      <View
+        style={{
+          paddingTop: 12,
+          paddingHorizontal: 16,
+          paddingBottom: 8,
+          backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? "#1E293B" : "#F1F5F9",
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <View className="flex-1">
             <SearchBar
               value={searchQuery}
@@ -782,11 +927,25 @@ export default function StoreInventoryScreen() {
                     }));
                   }
                 }}
-                className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
-                  isActive
-                    ? "bg-indigo-600 border-indigo-600 shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                }`}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: isActive
+                    ? "#4F46E5"
+                    : isDark
+                    ? "#334155"
+                    : "#E2E8F0",
+                  backgroundColor: isActive
+                    ? "#4F46E5"
+                    : isDark
+                    ? "#1E293B"
+                    : "#F1F5F9",
+                }}
               >
                 {opt.color && (
                   <View
@@ -799,11 +958,15 @@ export default function StoreInventoryScreen() {
                   />
                 )}
                 <Text
-                  className={`text-xs font-semibold ${
-                    isActive
-                      ? "text-white"
-                      : "text-slate-700 dark:text-slate-300"
-                  }`}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: isActive
+                      ? "#FFFFFF"
+                      : isDark
+                      ? "#CBD5E1"
+                      : "#334155",
+                  }}
                 >
                   {opt.label}
                   {countToDisplay !== undefined ? ` (${countToDisplay.toLocaleString()})` : ""}
@@ -822,7 +985,7 @@ export default function StoreInventoryScreen() {
           (filters.purchaserName && filters.purchaserName.trim() !== "")) && (
           <View className="flex-row flex-wrap items-center gap-1.5 pt-2">
             {filters.printStatus && filters.printStatus !== "All" && filters.status !== "All" && (
-              <View className="flex-row items-center bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg gap-1">
+              <View className="flex-row items-center bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg gap-1">
                 <Printer size={10} color="#2563EB" />
                 <Text className="text-[11px] font-semibold text-blue-900 dark:text-blue-200">
                   QR: {filters.printStatus}
@@ -837,7 +1000,7 @@ export default function StoreInventoryScreen() {
             )}
 
             {filters.category !== "All" && (
-              <View className="flex-row items-center bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-lg gap-1">
+              <View className="flex-row items-center bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-lg gap-1">
                 <Tag size={10} color="#4F46E5" />
                 <Text className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-200">
                   {filters.category}
@@ -852,7 +1015,7 @@ export default function StoreInventoryScreen() {
             )}
 
             {filters.validation !== "All" && (
-              <View className="flex-row items-center bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-lg gap-1">
+              <View className="flex-row items-center bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-lg gap-1">
                 <Clock size={10} color="#D97706" />
                 <Text className="text-[11px] font-semibold text-amber-900 dark:text-amber-200">
                   {filters.validation}
@@ -956,10 +1119,10 @@ export default function StoreInventoryScreen() {
 
           return (
             <Card
-              className={`p-4 mb-3 border rounded-2xl ${
+              className={`mb-3 ${
                 isSelected
-                  ? "border-2 border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/30 shadow-sm"
-                  : "border-slate-100 dark:border-slate-800 shadow-sm"
+                  ? "border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950"
+                  : "border-slate-100 dark:border-slate-800"
               }`}
             >
               <TouchableOpacity
@@ -984,7 +1147,7 @@ export default function StoreInventoryScreen() {
                     {isSelectionMode && (
                       <TouchableOpacity
                         onPress={() => toggleSelectTool(item._id, item)}
-                        className="mr-3"
+                        style={{ marginRight: 12 }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         {isSelected ? (
@@ -995,7 +1158,7 @@ export default function StoreInventoryScreen() {
                       </TouchableOpacity>
                     )}
 
-                    <View className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 items-center justify-center mr-3 border border-indigo-100 dark:border-indigo-900/40">
+                    <View className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 items-center justify-center mr-3 border border-indigo-100 dark:border-indigo-900">
                       <Wrench size={18} color="#4F46E5" />
                     </View>
                     <View className="flex-1">
@@ -1016,7 +1179,7 @@ export default function StoreInventoryScreen() {
                     <View
                       className={`px-1.5 py-0.5 rounded ${
                         item.isPrinted
-                          ? "bg-emerald-100 dark:bg-emerald-950/60"
+                          ? "bg-emerald-100 dark:bg-emerald-950"
                           : "bg-slate-100 dark:bg-slate-800"
                       }`}
                     >
@@ -1140,14 +1303,21 @@ export default function StoreInventoryScreen() {
           edges={["bottom"]}
           className="absolute bottom-4 left-4 right-4 z-40"
         >
-          <View className="bg-slate-900/95 dark:bg-slate-900/95 rounded-2xl p-2.5 px-3.5 shadow-2xl border border-slate-700/80 flex-row items-center justify-between">
+          <View
+            style={{
+              backgroundColor: "#0F172A",
+              borderColor: "#334155",
+              borderWidth: 1,
+            }}
+            className="rounded-2xl p-2.5 px-3.5 flex-row items-center justify-between"
+          >
             {/* Left: Tap to open modal */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedToolsModalOpen(true)}
               className="flex-row items-center gap-2.5 flex-1 mr-2"
             >
-              <View className="bg-indigo-600 px-2.5 py-1 rounded-full shadow-sm">
+              <View className="bg-indigo-600 px-2.5 py-1 rounded-full">
                 <Text className="text-xs font-bold text-white">
                   {selectedToolIds.size.toLocaleString()} Selected
                 </Text>
@@ -1162,7 +1332,7 @@ export default function StoreInventoryScreen() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setSelectedToolsModalOpen(true)}
-                className="bg-indigo-600 active:bg-indigo-700 px-3.5 py-2 rounded-xl flex-row items-center gap-1.5 shadow-md"
+                className="bg-indigo-600 px-3.5 py-2 rounded-xl flex-row items-center gap-1.5"
               >
                 <Sparkles size={14} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white">Options</Text>

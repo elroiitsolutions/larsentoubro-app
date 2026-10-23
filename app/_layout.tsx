@@ -54,6 +54,7 @@ function InnerRootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="stores/[id]" options={{ headerShown: false }} />
         </Stack>
         {/* Global Slide-Out Sidebar Drawer */}
         <SidebarDrawer />
