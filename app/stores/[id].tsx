@@ -31,6 +31,7 @@ import {
   Recycle,
   Edit3,
   Truck,
+  QrCode,
   QrCode as QrIcon,
   X,
   ClipboardCheck,
@@ -40,7 +41,10 @@ import {
   RotateCcw,
   Sparkles,
   Printer,
+  Download,
 } from "lucide-react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { storeService } from "@/features/stores/services/storeService";
 import { toolService } from "@/features/tools/services/toolService";
 import { StoreRecord } from "@/features/stores/types";
@@ -307,6 +311,149 @@ export default function StoreInventoryScreen() {
   };
 
   const canManageTools = user?.role === "Admin" || user?.role === "Manager";
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportTools = async () => {
+    if (!id) return;
+    try {
+      setExporting(true);
+
+      // Fetch tools matching current store query
+      const queryParams = { ...getQueryParams(1), limit: 1500 };
+      delete queryParams.page;
+      const res = await toolService.getStoreToolsPaginated(id, queryParams);
+      const toolsToExport = res?.data && res.data.length > 0 ? res.data : tools;
+
+      if (!toolsToExport || toolsToExport.length === 0) {
+        Alert.alert("Export", "No tools found in this store to export.");
+        setExporting(false);
+        return;
+      }
+
+      // Generate HTML report rows
+      const rowsHtml = toolsToExport
+        .map((t, idx) => {
+          const code = t.toolId || t.toolCode || '-';
+          const desc = t.description || t.name || '-';
+          const statusVal = t.status || 'Available';
+          const category = t.category || t.toolType || '-';
+          const capacity = t.capacity || t.safeWorkingLoad || '-';
+          const makeYear = t.makeYear || '-';
+          const supplier = t.purchaserName || (t as any).supplierName || (t as any).vendor?.supplierName || '-';
+          const supplyDate = t.dateOfSupply || '-';
+          const validity = t.validityPeriod || t.validation || '-';
+          const jobCode = t.jobCode || '-';
+
+          const badgeColor =
+            statusVal === 'Available' || statusVal === 'Usable'
+              ? 'badge-avail'
+              : statusVal === 'Moving' || statusVal === 'In Use'
+              ? 'badge-moving'
+              : 'badge-repair';
+
+          return `
+            <tr>
+              <td style="text-align: center; color: #64748B;">${idx + 1}</td>
+              <td style="font-family: monospace; font-weight: 700;">${code}</td>
+              <td style="font-weight: 600;">${desc}</td>
+              <td><span class="badge ${badgeColor}">${statusVal}</span></td>
+              <td>${category}</td>
+              <td>${capacity}</td>
+              <td>${makeYear}</td>
+              <td>${supplier}</td>
+              <td>${supplyDate}</td>
+              <td>${validity}</td>
+              <td>${jobCode}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Tools Registry Export</title>
+          <style>
+            @page { size: A4 landscape; margin: 8mm; }
+            * { box-sizing: border-box; }
+            body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 12px; color: #0F172A; }
+            .header-bar { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #002B66; padding-bottom: 10px; margin-bottom: 12px; }
+            .lnt-title { font-size: 18px; font-weight: 800; color: #002B66; letter-spacing: 0.5px; }
+            .sub-title { font-size: 11px; color: #475569; margin-top: 3px; font-weight: 500; }
+            .meta-right { text-align: right; font-size: 10px; color: #64748B; }
+            table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-top: 6px; }
+            th { background: #F1F5F9; color: #0F172A; font-weight: 700; text-align: left; padding: 6px 7px; border: 1px solid #CBD5E1; text-transform: uppercase; font-size: 8.5px; }
+            td { padding: 6px 7px; border: 1px solid #E2E8F0; vertical-align: middle; }
+            tr:nth-child(even) { background: #F8FAFC; }
+            .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 8.5px; }
+            .badge-avail { background: #ECFDF5; color: #059669; }
+            .badge-moving { background: #FFFBEB; color: #D97706; }
+            .badge-repair { background: #FEF2F2; color: #DC2626; }
+            .footer { margin-top: 14px; border-top: 1px solid #CBD5E1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 9px; color: #94A3B8; }
+          </style>
+        </head>
+        <body>
+          <div class="header-bar">
+            <div>
+              <div class="lnt-title">LARSEN &amp; TOUBRO — TOOLS REGISTRY EXPORT</div>
+              <div class="sub-title">Facility: <strong>${store?.name || 'Store'}</strong> • Total Exported: <strong>${toolsToExport.length} Tools</strong></div>
+            </div>
+            <div class="meta-right">
+              <div>Export Date: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString()}</div>
+              <div>L&amp;T Asset Tracking System</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25px; text-align: center;">#</th>
+                <th>Tool ID / Tag</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Category</th>
+                <th>Capacity / SWL</th>
+                <th>Year</th>
+                <th>Supplier</th>
+                <th>Supply Date</th>
+                <th>Validity</th>
+                <th>Job Code</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">
+            <div>Larsen &amp; Toubro Construction • Equipment Management</div>
+            <div>Total Tools: ${toolsToExport.length}</div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          UTI: '.pdf',
+          mimeType: 'application/pdf',
+          dialogTitle: `Export ${store?.name || 'Store'} Tools`,
+        });
+      } else {
+        Alert.alert("Export Ready", `Tools export file created at:\n${uri}`);
+      }
+    } catch (err: any) {
+      console.error("Export tools error:", err);
+      Alert.alert(
+        "Export Failed",
+        err?.response?.data?.message || err?.message || "Could not generate tools export file."
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Initial load: fetches store details and initial tools once
   const loadInitialData = useCallback(async () => {
@@ -723,26 +870,19 @@ export default function StoreInventoryScreen() {
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontSize: 16,
-                  fontWeight: "700",
+                  fontSize: 18,
+                  fontWeight: "800",
                   color: isDark ? "#FFFFFF" : "#0F172A",
+                  letterSpacing: -0.3,
                 }}
                 numberOfLines={1}
               >
-                {store?.name || "Store Details"}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 11,
-                  color: isDark ? "#94A3B8" : "#64748B",
-                }}
-              >
-                {store?.location || "Store Facility"} • {(totalServerTools || store?.totalToolsCount || (store as any)?.toolsCount || tools.length).toLocaleString()} Tools
+                Tools
               </Text>
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             {canManageTools && (
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -754,15 +894,15 @@ export default function StoreInventoryScreen() {
                   backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
                   borderWidth: 1,
                   borderColor: isDark ? "#334155" : "#E2E8F0",
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 7,
                   borderRadius: 12,
                 }}
               >
-                <CheckSquare size={14} color="#475569" />
+                <CheckSquare size={13} color="#475569" />
                 <Text
                   style={{
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: "700",
                     color: isDark ? "#E2E8F0" : "#334155",
                   }}
@@ -783,20 +923,54 @@ export default function StoreInventoryScreen() {
                   backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
                   borderWidth: 1,
                   borderColor: isDark ? "#334155" : "#E2E8F0",
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 7,
                   borderRadius: 12,
                 }}
               >
-                <FileSpreadsheet size={14} color="#4F46E5" />
+                <FileSpreadsheet size={13} color="#4F46E5" />
                 <Text
                   style={{
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: "700",
                     color: isDark ? "#F1F5F9" : "#1E293B",
                   }}
                 >
                   Import
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {canManageTools && (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleExportTools}
+                disabled={exporting}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  borderWidth: 1,
+                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  paddingHorizontal: 8,
+                  paddingVertical: 7,
+                  borderRadius: 12,
+                }}
+              >
+                {exporting ? (
+                  <ActivityIndicator size="small" color="#059669" />
+                ) : (
+                  <Download size={13} color="#059669" />
+                )}
+                <Text
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: "700",
+                    color: isDark ? "#F1F5F9" : "#1E293B",
+                  }}
+                >
+                  Export
                 </Text>
               </TouchableOpacity>
             )}
@@ -815,13 +989,13 @@ export default function StoreInventoryScreen() {
                   alignItems: "center",
                   gap: 4,
                   backgroundColor: "#4F46E5",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
                   borderRadius: 12,
                 }}
               >
-                <Plus size={15} color="#FFFFFF" strokeWidth={2.4} />
-                <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>
+                <Plus size={14} color="#FFFFFF" strokeWidth={2.4} />
+                <Text style={{ fontSize: 11.5, fontWeight: "700", color: "#FFFFFF" }}>
                   Add Tool
                 </Text>
               </TouchableOpacity>
@@ -851,6 +1025,35 @@ export default function StoreInventoryScreen() {
               onClear={() => setSearchQuery("")}
             />
           </View>
+
+          {/* Scan Tool QR Code in this Store */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/scanner",
+                params: {
+                  storeId: id,
+                  storeName: store?.name || "This Store",
+                },
+              } as any)
+            }
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              backgroundColor: isDark ? "#1E293B" : "#EFF6FF",
+              borderWidth: 1,
+              borderColor: isDark ? "#334155" : "#BFDBFE",
+            }}
+            accessibilityLabel="Scan tool QR code in this store"
+          >
+            <QrCode size={19} color="#2563EB" />
+          </TouchableOpacity>
+
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => setFilterModalVisible(true)}
