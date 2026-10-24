@@ -21,6 +21,7 @@ export interface ChallanPreviewState {
   isTransfer?: boolean;
   transferFromDcId?: string;
   transferFromDcNumber?: string;
+  [key: string]: any;
 }
 
 let pendingChallan: PendingChallanSelection | null = null;

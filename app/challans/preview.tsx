@@ -16,15 +16,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  MapPin,
   Layers,
   ArrowRightLeft,
+  MapPin,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
 import { toast } from "@/components/ui/Toast";
 import { challanService } from "@/features/challans/services/challanService";
-import { downloadOrShareChallanPdf, formatDateDDMMYYYY, formatDCNumber } from "@/features/challans/utils/challanPdfGenerator";
+import { downloadOrShareChallanPdf, formatDateDDMMYYYY } from "@/features/challans/utils/challanPdfGenerator";
 import { selectionStore, ChallanPreviewState } from "@/features/tools/utils/selectionStore";
 import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
 import { ToolRecord } from "@/features/tools/types";
@@ -66,16 +66,20 @@ export default function DeliveryChallanPreviewScreen() {
   const docReferenceCode = "ECC-O&M/STR/906";
   const registeredOfficeAddress = "Registered Office : L & T House, Ballard Estate, Bombay - 400 038.";
 
-  // Dates & Remarks (Only user-entered details)
+  // Dates & Remarks
   const [challanDate, setChallanDate] = useState(
     previewState?.challanDate || new Date().toISOString().split("T")[0]
   );
   const [remarks, setRemarks] = useState(previewState?.remarks || "");
 
-  // Consignee / Subcontractor & Location Details (Only user-entered details, NO auto-generation)
-  const vendorCode = initialVendor.vendorCode || initialVendor.code || "";
-  const [subcontractorName, setSubcontractorName] = useState(initialVendor.name || "");
-  const [consigneeAddress, setConsigneeAddress] = useState(initialVendor.address || "");
+  // Consignee / Subcontractor
+  const vendorCode = initialVendor.vendorCode || initialVendor.code || "-";
+  const [subcontractorName, setSubcontractorName] = useState(
+    initialVendor.name || previewState?.subcontractorName || ""
+  );
+  const [consigneeAddress, setConsigneeAddress] = useState(
+    initialVendor.address || previewState?.consigneeAddress || ""
+  );
   const [siteCode, setSiteCode] = useState(
     previewState?.siteCode && previewState.siteCode !== "-" ? previewState.siteCode : ""
   );
@@ -83,75 +87,93 @@ export default function DeliveryChallanPreviewScreen() {
   const [indentNo, setIndentNo] = useState(
     previewState?.indentNo && previewState.indentNo !== "-" ? previewState.indentNo : ""
   );
-  const [consigneeGstNo, setConsigneeGstNo] = useState(initialVendor.gstNumber || "");
+  const [consigneeGstNo, setConsigneeGstNo] = useState(
+    initialVendor.gstNumber || previewState?.consigneeGstNo || ""
+  );
 
-  // Accounting & TRN Fields (Default to empty, placeholder is "-")
-  const [trnCode, setTrnCode] = useState("");
-  const [sendingCentreCode, setSendingCentreCode] = useState("");
-  const [mrNo, setMrNo] = useState("");
-  const [mrDate, setMrDate] = useState("");
-  const [stockType, setStockType] = useState("");
-  const [ewayBillNo, setEwayBillNo] = useState("");
+  // Accounting & TRN Fields (Matching web details)
+  const [trnCode, setTrnCode] = useState(previewState?.trnCode || "-");
+  const [sendingCentreCode, setSendingCentreCode] = useState(previewState?.sendingCentreCode || "-");
+  const [mrNo, setMrNo] = useState(previewState?.mrNo || "-");
+  const [mrDate, setMrDate] = useState(previewState?.mrDate || "-");
+  const [stockType, setStockType] = useState(previewState?.stockType || "-");
+  const [ewayBillNo, setEwayBillNo] = useState(previewState?.ewayBillNo || "-");
 
-  // Gate Pass & Transport Details (Default to empty, placeholder is "-")
-  const [gatePassNo, setGatePassNo] = useState("");
-  const [gatePassApprovedBy, setGatePassApprovedBy] = useState("");
-  const [consignorTaxNo, setConsignorTaxNo] = useState(initialVendor.gstNumber || "");
+  // Gate Pass & Transport Details (Matching web details)
+  const [gatePassNo, setGatePassNo] = useState(previewState?.gatePassNo || "-");
+  const [gatePassApprovedBy, setGatePassApprovedBy] = useState(previewState?.gatePassApprovedBy || "-");
+  const [consignorTaxNo, setConsignorTaxNo] = useState(
+    previewState?.consignorTaxNo || initialVendor.gstNumber || ""
+  );
+  const [vehicleNo, setVehicleNo] = useState(previewState?.vehicleNo || "-");
+  const [lrNo, setLrNo] = useState(previewState?.lrNo || "-");
+  const [freightStatus, setFreightStatus] = useState(previewState?.freightStatus || "NOT APPLICABLE");
 
-  const [vehicleNo, setVehicleNo] = useState("");
-  const [lrNo, setLrNo] = useState("");
-  const [freightStatus, setFreightStatus] = useState("NOT APPLICABLE");
+  // Receiver Details (Matching web details)
+  const [receiverName, setReceiverName] = useState(previewState?.receiverName || "");
+  const [receiverMobile, setReceiverMobile] = useState(previewState?.receiverMobile || "");
+  const [mrnNo, setMrnNo] = useState(previewState?.mrnNo || "-");
+  const [receiptDate, setReceiptDate] = useState(
+    previewState?.receiptDate || new Date().toISOString().split("T")[0]
+  );
 
-  // Receiver Details
-  const [receiverName, setReceiverName] = useState("");
-  const [receiverMobile, setReceiverMobile] = useState("");
-  const [mrnNo, setMrnNo] = useState("");
-  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0]);
-
-  // Items State (Only user-selected tools)
+  // Items State - exact mapping as web: toolId is QR serial code, materialCode is Material code
   const [items, setItems] = useState<any[]>(() => {
-    return initialTools.map((t: any, idx: number) => ({
-      tool: t._id,
-      toolId: t.toolId || t.toolCode || t._id,
-      materialCode: t.materialCode || t.toolCode || "",
-      description: t.description || t.name || "Tool Item",
-      toolCode: t.toolCode || "",
-      quantity: Number(t.quantity || 1),
-      unit: "NOS",
-      rate: Number(t.rate || 0),
-      remarks: "",
-    }));
+    return initialTools.map((t: any) => {
+      const qrCodeVal = t.toolId || t.serialNumber || t._id || "";
+      const matCodeVal = t.materialCode || t.toolCode || "";
+      return {
+        tool: t._id || t.id,
+        toolId: qrCodeVal,
+        materialCode: matCodeVal,
+        description: t.description || t.name || "Tool Item",
+        toolCode: t.toolCode || matCodeVal,
+        quantity: Number(t.quantity || 1),
+        unit: t.unit || "NOS",
+        rate: Number(t.rate || 0),
+        remarks: t.remarks || "",
+      };
+    });
   });
 
-  // Re-sync whenever previewState is updated (Strictly what user provided)
+  // Re-sync if previewState updates later
   useEffect(() => {
-    const data = previewState || selectionStore.getPendingPreview();
-    if (data) {
-      if (data.challanDate) setChallanDate(data.challanDate);
-      if (data.remarks) setRemarks(data.remarks);
-      setSiteCode(data.siteCode && data.siteCode !== "-" ? data.siteCode : "");
-      setIndentNo(data.indentNo && data.indentNo !== "-" ? data.indentNo : "");
-
-      if (data.vendor) {
-        setSubcontractorName(data.vendor.name || "");
-        setConsigneeAddress(data.vendor.address || "");
-        setConsigneeGstNo(data.vendor.gstNumber || "");
-        setConsignorTaxNo(data.vendor.gstNumber || "");
+    if (previewState) {
+      if (previewState.siteCode && previewState.siteCode !== "-") {
+        setSiteCode(previewState.siteCode);
       }
-
-      if (data.selectedTools && data.selectedTools.length > 0) {
+      if (previewState.indentNo && previewState.indentNo !== "-") {
+        setIndentNo(previewState.indentNo);
+      }
+      if (previewState.challanDate) {
+        setChallanDate(previewState.challanDate);
+      }
+      if (previewState.remarks) {
+        setRemarks(previewState.remarks);
+      }
+      if (previewState.receiverName) {
+        setReceiverName(previewState.receiverName);
+      }
+      if (previewState.receiverMobile) {
+        setReceiverMobile(previewState.receiverMobile);
+      }
+      if (previewState.selectedTools && previewState.selectedTools.length > 0) {
         setItems(
-          data.selectedTools.map((t: any) => ({
-            tool: t._id,
-            toolId: t.toolId || t.toolCode || t._id,
-            materialCode: t.materialCode || t.toolCode || "",
-            description: t.description || t.name || "Tool Item",
-            toolCode: t.toolCode || "",
-            quantity: Number(t.quantity || 1),
-            unit: "NOS",
-            rate: Number(t.rate || 0),
-            remarks: "",
-          }))
+          previewState.selectedTools.map((t: any) => {
+            const qrCodeVal = t.toolId || t.serialNumber || t._id || "";
+            const matCodeVal = t.materialCode || t.toolCode || "";
+            return {
+              tool: t._id || t.id,
+              toolId: qrCodeVal,
+              materialCode: matCodeVal,
+              description: t.description || t.name || "Tool Item",
+              toolCode: t.toolCode || matCodeVal,
+              quantity: Number(t.quantity || 1),
+              unit: t.unit || "NOS",
+              rate: Number(t.rate || 0),
+              remarks: t.remarks || "",
+            };
+          })
         );
       }
     }
@@ -244,123 +266,126 @@ export default function DeliveryChallanPreviewScreen() {
       isScrapDC,
       indentNo: indentNo?.trim() || "-",
       vendorCode: vendorCode || "-",
-      vendorId: initialVendor._id,
+      vendorId: initialVendor._id || initialVendor.id,
       vendor: {
         ...initialVendor,
         name: subcontractorName,
+        vendorCode: vendorCode,
         address: consigneeAddress,
-        vendorCode: vendorCode || "-",
-        gstNumber: consigneeGstNo || "-",
+        gstNumber: consigneeGstNo,
+        contactPerson: initialVendor.contactPerson || "",
+        contactPhone: initialVendor.contactPhone || "",
       },
       storeId,
       challanDate,
-      trnCode: trnCode.trim() || "-",
-      sendingCentreCode: sendingCentreCode.trim() || "-",
-      mrNo: mrNo.trim() || "-",
-      mrDate: mrDate.trim() || "-",
-      stockType: stockType.trim() || "-",
-      ewayBillNo: ewayBillNo.trim() || "-",
-      gatePassNo: gatePassNo.trim() || "-",
-      gatePassApprovedBy: gatePassApprovedBy.trim() || "-",
-      consignorTaxNo: consignorTaxNo.trim() || "-",
-      vehicleNo: vehicleNo.trim() || "-",
-      lrNo: lrNo.trim() || "-",
-      freightStatus: freightStatus || "NOT APPLICABLE",
-      receiverName: receiverName.trim() || "",
-      receiverMobile: receiverMobile.trim() || "",
-      mrnNo: mrnNo.trim() || "-",
+      deliveryDate: challanDate,
+      trnCode,
+      sendingCentreCode,
+      mrNo,
+      mrDate,
+      stockType,
+      ewayBillNo,
+      gatePassNo,
+      gatePassApprovedBy,
+      consignorTaxNo,
+      vehicleNo,
+      lrNo,
+      freightStatus,
+      receiverName: receiverName || "-",
+      receiverMobile: receiverMobile || "-",
+      mrnNo,
       receiptDate,
       docReferenceCode,
       remarks,
-      notes: previewState?.notes || "",
-      transferFromDcId: params.transferFromDcId || previewState?.transferFromDcId || null,
-      transferFromDcNumber: transferFromDcNumber || "",
+      transferFromDcId: previewState?.transferFromDcId || params.transferFromDcId || null,
+      transferFromDcNumber: previewState?.transferFromDcNumber || params.transferFromDcNumber || "",
       items: challanItems,
     };
   };
 
   const handleDownloadDraft = async () => {
     try {
-      const draftData: any = {
+      const draftData = {
         challanNumber: isScrapDC ? "SDC-26-001" : "DC-26-001",
         ...getChallanPayload(true),
-        indentNo: indentNo || "-",
+        indentNo: indentNo?.trim() || "-",
       };
-      await downloadOrShareChallanPdf(draftData, { share: true });
-      toast.success("Downloaded Delivery Challan PDF Draft");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate draft PDF");
+      await downloadOrShareChallanPdf(draftData as any, {
+        share: true,
+      });
+      toast.success("Draft PDF prepared successfully");
+    } catch (err: any) {
+      console.error("PDF draft error:", err);
+      toast.error(err.message || "Failed to generate Draft PDF");
     }
   };
 
   const handleConfirmCreate = async () => {
+    const cleanSiteCode = typeof siteCode === "string" ? siteCode.trim() : "";
+    if (!isScrapDC && !cleanSiteCode) {
+      setSiteCodeError("Site Code No. is required");
+      toast.error("Site Code is mandatory! Please enter a valid Site Code No. before creating the Delivery Challan.");
+      return;
+    }
+
+    if (!isTransfer && initialTools.some((t: any) => t.status === "Moving")) {
+      toast.error("Cannot create Delivery Challan: One or more tools are already Moving");
+      return;
+    }
+    if (initialTools.some((t: any) => t.status === "Missing")) {
+      toast.error("Cannot create Delivery Challan: One or more tools are marked as Missing");
+      return;
+    }
+
     try {
-      const cleanSiteCode = typeof siteCode === "string" ? siteCode.trim() : "";
-      if (!isScrapDC && !cleanSiteCode) {
-        setSiteCodeError("Site Code No. is required");
-        toast.error("Site Code is mandatory! Please enter a valid Site Code No. before creating the Delivery Challan.");
-        return;
-      }
-
-      if (!isTransfer && initialTools.some((t: any) => t.status === "Moving")) {
-        toast.error("Cannot create Delivery Challan: One or more tools are already Moving");
-        return;
-      }
-      if (initialTools.some((t: any) => t.status === "Missing")) {
-        toast.error("Cannot create Delivery Challan: One or more tools are marked as Missing");
-        return;
-      }
-      if (initialTools.some((t: any) => !t.isPrinted)) {
-        toast.error("Cannot create Delivery Challan: One or more tools are not marked as Printed");
-        return;
-      }
-
       setCreating(true);
-      const payload = getChallanPayload(false);
+
+      const finalPayload = getChallanPayload(false);
       let res: any;
       if (isScrapDC) {
-        const scrapDealerId = initialVendor?._id || initialVendor?.id || payload.vendorId;
+        const scrapDealerId = initialVendor?._id || initialVendor?.id || finalPayload.vendorId || finalPayload.vendor?._id;
         res = await challanService.createScrapDeliveryChallan({
-          ...payload,
+          ...finalPayload,
           scrapDealerId,
         });
       } else {
-        res = await challanService.createDeliveryChallan(payload);
+        res = await challanService.createDeliveryChallan(finalPayload);
       }
 
-      if (res?.success && res?.data) {
-        const successMsg = isTransfer
-          ? `Transfer Delivery Challan ${formatDCNumber(res.data.challanNumber)} created! Source DC ${transferFromDcNumber} marked as Transfer.`
-          : `Delivery Challan ${formatDCNumber(res.data.challanNumber)} created successfully!`;
-        toast.success(`${successMsg} Automatically sharing PDF...`);
+      const newDc = res?.data || res;
+      toast.success(
+        isTransfer
+          ? `Transfer Delivery Challan ${newDc?.dcNumber || newDc?.challanNumber || "Created"} created! Source DC ${transferFromDcNumber} marked as Transfer.`
+          : `Delivery Challan ${newDc?.dcNumber || newDc?.challanNumber || "Created"} issued successfully!`
+      );
 
-        try {
-          const pdfPayload = getChallanPayload(true);
-          await downloadOrShareChallanPdf(
-            {
-              ...pdfPayload,
-              ...res.data,
-              items: pdfPayload.items,
-              indentNo: indentNo || res.data?.indentNo || "-",
-            },
-            { share: true }
-          );
-        } catch (pdfErr) {
-          console.error("PDF generation error:", pdfErr);
-        }
-
-        selectionStore.clearPendingChallan();
-        selectionStore.clearPendingPreview();
-
-        setTimeout(() => {
-          if (storeId) {
-            router.replace(`/stores/${storeId}` as any);
-          } else {
-            router.replace("/challans" as any);
+      try {
+        const pdfPayload = getChallanPayload(true);
+        await downloadOrShareChallanPdf(
+          {
+            ...pdfPayload,
+            ...newDc,
+            items: pdfPayload.items,
+            indentNo: indentNo || newDc?.indentNo,
+          } as any,
+          {
+            share: true,
           }
-        }, 1500);
+        );
+      } catch (pdfErr) {
+        console.error("PDF generation error:", pdfErr);
       }
+
+      selectionStore.clearPendingChallan();
+      selectionStore.clearPendingPreview();
+
+      setTimeout(() => {
+        if (storeId) {
+          router.replace(`/stores/${storeId}` as any);
+        } else {
+          router.replace("/challans" as any);
+        }
+      }, 1500);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || "Failed to create Delivery Challan");
     } finally {
@@ -401,9 +426,9 @@ export default function DeliveryChallanPreviewScreen() {
     );
   }
 
-  // Universal clean input style: perfectly vertically centered, zero clipped text
+  // Universal clean input style matching the screenshot: crisp, vertically centered, zero clipped text
   const baseCanvasInputStyle = {
-    height: 34,
+    height: 32,
     paddingVertical: Platform.OS === "android" ? 2 : 4,
     paddingHorizontal: 8,
     textAlignVertical: "center" as const,
@@ -425,128 +450,18 @@ export default function DeliveryChallanPreviewScreen() {
       requiredPage="/challans"
     >
       <ScrollView
-        contentContainerStyle={{ padding: 12, paddingBottom: 50 }}
+        contentContainerStyle={{ padding: 10, paddingBottom: 50 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Action Bar */}
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            marginBottom: 16,
-            paddingBottom: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.border,
-          }}
-        >
-          <View style={{ flex: 1, minWidth: 200 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <FileText size={20} color={theme.primary} />
-              <Text style={{ fontSize: 16, fontWeight: "800", color: theme.text }}>
-                {isTransfer ? "Site Transfer Delivery Challan Canvas" : "Official Delivery Challan Document Canvas"}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
-              {isTransfer
-                ? `Transfer tools to destination site. Original DC ${transferFromDcNumber} will be marked as Transfer.`
-                : "Subcontractor details, Location chainage, Material codes, Returnable stamp, and Receiver details editor."}
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 8, width: "100%", justifyContent: "flex-end" }}>
-            <TouchableOpacity
-              onPress={handleDownloadDraft}
-              disabled={creating}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                height: 40,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.card,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Download size={16} color={theme.primary} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.primary }}>PDF Draft</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleConfirmCreate}
-              disabled={creating}
-              style={{
-                flex: 1.5,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                height: 40,
-                borderRadius: 10,
-                backgroundColor: theme.primary,
-                paddingHorizontal: 12,
-              }}
-            >
-              {creating ? (
-                <>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>Creating...</Text>
-                </>
-              ) : isTransfer ? (
-                <>
-                  <ArrowRightLeft size={16} color="#FFFFFF" />
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>Confirm & Transfer</Text>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={16} color="#FFFFFF" />
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#FFFFFF" }}>Confirm & Issue</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Transfer Alert Banner if applicable */}
-        {isTransfer && (
-          <View
-            style={{
-              backgroundColor: isDark ? "#1E293B" : "#EFF6FF",
-              borderWidth: 1,
-              borderColor: "#3B82F6",
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <ArrowRightLeft size={20} color="#3B82F6" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: "#1D4ED8" }}>Site Tool Transfer</Text>
-              <Text style={{ fontSize: 11, color: isDark ? "#93C5FD" : "#1E40AF" }}>
-                Transferring {initialTools.length} tool(s) from Source DC: {transferFromDcNumber}.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Location, Indent & Receiver Entry Details Card */}
+        {/* Location & Receiver Entry Details Card (Matching Web Exactly) */}
         <View
           style={{
             backgroundColor: theme.card,
             borderWidth: 1,
             borderColor: theme.border,
             borderRadius: 14,
-            padding: 14,
-            marginBottom: 16,
+            padding: 12,
+            marginBottom: 14,
           }}
         >
           <View
@@ -557,7 +472,7 @@ export default function DeliveryChallanPreviewScreen() {
               borderBottomWidth: 1,
               borderBottomColor: theme.border,
               paddingBottom: 8,
-              marginBottom: 12,
+              marginBottom: 10,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -566,73 +481,45 @@ export default function DeliveryChallanPreviewScreen() {
                 Location & Receiver Entry Details
               </Text>
             </View>
-            <Text style={{ fontSize: 10, color: theme.textMuted }}>Manual Challan Slip Alignments</Text>
           </View>
 
           <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {!isScrapDC && (
-                <View style={{ flex: 1.2 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: theme.textMuted, marginBottom: 4 }}>
-                    Site Code No. <Text style={{ color: "#EF4444" }}>* (Required)</Text>
-                  </Text>
-                  <TextInput
-                    value={siteCode}
-                    onChangeText={(val) => {
-                      setSiteCode(val);
-                      if (siteCodeError) setSiteCodeError("");
-                    }}
-                    placeholder="e.g. sc-01, Site#101"
-                    placeholderTextColor={theme.textMuted}
-                    style={{
-                      height: 38,
-                      paddingVertical: 0,
-                      paddingHorizontal: 10,
-                      textAlignVertical: "center",
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: siteCodeError ? "#EF4444" : theme.border,
-                      backgroundColor: siteCodeError ? (isDark ? "#450A0A" : "#FEF2F2") : theme.surface,
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: theme.text,
-                    }}
-                  />
-                  {siteCodeError ? (
-                    <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>
-                      {siteCodeError}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              {/* INDENT NO. INPUT */}
-              <View style={{ flex: 1 }}>
+            {!isScrapDC && (
+              <View>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: theme.textMuted, marginBottom: 4 }}>
-                  Indent No.
+                  Site Code No. <Text style={{ color: "#EF4444" }}>* (Required)</Text>
                 </Text>
                 <TextInput
-                  value={indentNo}
-                  onChangeText={setIndentNo}
-                  placeholder="e.g. IND-001"
+                  value={siteCode}
+                  onChangeText={(val) => {
+                    setSiteCode(val);
+                    if (siteCodeError) setSiteCodeError("");
+                  }}
+                  placeholder="e.g. sc-01, Site#101, SC/2026-A"
                   placeholderTextColor={theme.textMuted}
                   style={{
-                    height: 38,
-                    paddingVertical: 0,
+                    height: 36,
+                    paddingVertical: Platform.OS === "android" ? 2 : 4,
                     paddingHorizontal: 10,
                     textAlignVertical: "center",
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: theme.surface,
+                    borderColor: siteCodeError ? "#EF4444" : theme.border,
+                    backgroundColor: siteCodeError ? (isDark ? "#450A0A" : "#FEF2F2") : theme.surface,
                     fontSize: 12,
                     fontWeight: "700",
                     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                     color: theme.text,
+                    includeFontPadding: false,
                   }}
                 />
+                {siteCodeError ? (
+                  <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>
+                    {siteCodeError}
+                  </Text>
+                ) : null}
               </View>
-            </View>
+            )}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 1 }}>
@@ -645,8 +532,8 @@ export default function DeliveryChallanPreviewScreen() {
                   placeholder="Full Name"
                   placeholderTextColor={theme.textMuted}
                   style={{
-                    height: 38,
-                    paddingVertical: 0,
+                    height: 36,
+                    paddingVertical: Platform.OS === "android" ? 2 : 4,
                     paddingHorizontal: 10,
                     textAlignVertical: "center",
                     borderRadius: 8,
@@ -656,9 +543,11 @@ export default function DeliveryChallanPreviewScreen() {
                     fontSize: 12,
                     fontWeight: "600",
                     color: theme.text,
+                    includeFontPadding: false,
                   }}
                 />
               </View>
+
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: theme.textMuted, marginBottom: 4 }}>
                   Receiver Mobile No.
@@ -670,8 +559,8 @@ export default function DeliveryChallanPreviewScreen() {
                   placeholderTextColor={theme.textMuted}
                   keyboardType="phone-pad"
                   style={{
-                    height: 38,
-                    paddingVertical: 0,
+                    height: 36,
+                    paddingVertical: Platform.OS === "android" ? 2 : 4,
                     paddingHorizontal: 10,
                     textAlignVertical: "center",
                     borderRadius: 8,
@@ -681,6 +570,7 @@ export default function DeliveryChallanPreviewScreen() {
                     fontSize: 12,
                     fontWeight: "600",
                     color: theme.text,
+                    includeFontPadding: false,
                   }}
                 />
               </View>
@@ -688,35 +578,60 @@ export default function DeliveryChallanPreviewScreen() {
           </View>
         </View>
 
-        {/* Authentic L&T Delivery Challan Canvas (Fits mobile screen with responsive layout) */}
+        {/* Transfer Alert Banner if applicable */}
+        {isTransfer && (
+          <View
+            style={{
+              backgroundColor: isDark ? "#1E293B" : "#EFF6FF",
+              borderWidth: 1,
+              borderColor: "#3B82F6",
+              borderRadius: 8,
+              padding: 10,
+              marginBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <ArrowRightLeft size={18} color="#3B82F6" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#1D4ED8" }}>Site Tool Transfer</Text>
+              <Text style={{ fontSize: 10.5, color: isDark ? "#93C5FD" : "#1E40AF" }}>
+                Transferring {initialTools.length} tool(s) from Source DC: {transferFromDcNumber}.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Authentic L&T Delivery Challan Canvas (Exact Old Model from user screenshot with NO Horizontal Scroll) */}
         <View
           style={{
             width: "100%",
             backgroundColor: "#FFFFFF",
-            borderRadius: 14,
+            borderRadius: 8,
             borderWidth: 2,
-            borderColor: "#0F172A",
-            padding: 12,
+            borderColor: "#000000",
+            padding: 10,
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
-            shadowRadius: 6,
+            shadowRadius: 4,
             elevation: 3,
             marginBottom: 20,
           }}
         >
           {/* L&T Top Header */}
-          <View style={{ alignItems: "center", paddingBottom: 10 }}>
+          <View style={{ alignItems: "center", paddingBottom: 8 }}>
             <View style={{ alignSelf: "flex-start", marginBottom: 2 }}>
               <Image
                 source={{ uri: LNT_LOGO_BASE64 }}
-                style={{ width: 44, height: 44 }}
+                style={{ width: 42, height: 42 }}
                 resizeMode="contain"
               />
             </View>
             <Text
               style={{
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: "900",
                 color: "#000000",
                 textTransform: "uppercase",
@@ -736,30 +651,30 @@ export default function DeliveryChallanPreviewScreen() {
             <View style={{ borderBottomWidth: 2, borderBottomColor: "#000000" }}>
               <View
                 style={{
-                  paddingVertical: 6,
+                  paddingVertical: 5,
                   backgroundColor: "#F8FAFC",
                   alignItems: "center",
                   borderBottomWidth: 2,
                   borderBottomColor: "#000000",
                 }}
               >
-                <Text style={{ fontSize: 13, fontWeight: "900", color: "#000000", textTransform: "uppercase" }}>
+                <Text style={{ fontSize: 12.5, fontWeight: "900", color: "#000000", textTransform: "uppercase" }}>
                   {documentTitle}
                 </Text>
               </View>
 
               <View style={{ flexDirection: "row" }}>
                 {/* DC NO */}
-                <View style={{ flex: 1, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#000000" }}>DC NO.</Text>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#334155", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace", marginTop: 4 }}>
+                <View style={{ flex: 1, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>DC NO.</Text>
+                  <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#334155", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace", marginTop: 3 }}>
                     {isScrapDC ? "SDC-26-001" : "DC-26-001"}
                   </Text>
                 </View>
 
                 {/* INDENT NO. */}
-                <View style={{ flex: 1.2, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#000000" }}>INDENT NO.</Text>
+                <View style={{ flex: 1.2, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>INDENT NO.</Text>
                   <TextInput
                     value={indentNo}
                     onChangeText={setIndentNo}
@@ -768,14 +683,16 @@ export default function DeliveryChallanPreviewScreen() {
                     style={{
                       ...baseCanvasInputStyle,
                       marginTop: 3,
+                      height: 28,
+                      fontSize: 10,
                       fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                     }}
                   />
                 </View>
 
                 {/* DATE */}
-                <View style={{ flex: 1.3, padding: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#000000" }}>DATE (DD-MM-YYYY)</Text>
+                <View style={{ flex: 1.3, padding: 5 }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>DATE (DD-MM-YYYY)</Text>
                   <TextInput
                     value={challanDate}
                     onChangeText={setChallanDate}
@@ -784,9 +701,11 @@ export default function DeliveryChallanPreviewScreen() {
                     style={{
                       ...baseCanvasInputStyle,
                       marginTop: 3,
+                      height: 28,
+                      fontSize: 10,
                     }}
                   />
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#64748B", marginTop: 2 }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "700", color: "#64748B", marginTop: 2 }}>
                     {formatDateDDMMYYYY(challanDate)}
                   </Text>
                 </View>
@@ -794,8 +713,8 @@ export default function DeliveryChallanPreviewScreen() {
             </View>
 
             {/* Row 1B: Consignee / Subcontractor Box */}
-            <View style={{ padding: 8, backgroundColor: "#F8FAFC", borderBottomWidth: 2, borderBottomColor: "#000000" }}>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: "#000000", marginBottom: 4 }}>
+            <View style={{ padding: 6, backgroundColor: "#F8FAFC", borderBottomWidth: 2, borderBottomColor: "#000000" }}>
+              <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000", marginBottom: 3 }}>
                 CONSIGNEE / SUBCONTRACTOR
               </Text>
               <TextInput
@@ -805,7 +724,9 @@ export default function DeliveryChallanPreviewScreen() {
                 placeholderTextColor="#94A3B8"
                 style={{
                   ...baseCanvasInputStyle,
-                  marginBottom: 6,
+                  marginBottom: 4,
+                  height: 30,
+                  fontSize: 10.5,
                 }}
               />
               <TextInput
@@ -817,10 +738,23 @@ export default function DeliveryChallanPreviewScreen() {
                   ...baseCanvasInputStyle,
                   fontWeight: "600",
                   marginBottom: 6,
+                  height: 30,
+                  fontSize: 10.5,
                 }}
               />
+
+              {/* SITE CODE NO. (Exact row as shown in user screenshot) */}
               {!isScrapDC && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingTop: 4,
+                    borderTopWidth: 1,
+                    borderTopColor: "#E2E8F0",
+                  }}
+                >
                   <Text style={{ fontSize: 9.5, fontWeight: "900", color: "#000000" }}>
                     SITE CODE NO. <Text style={{ color: "#DC2626" }}>*</Text>
                   </Text>
@@ -830,12 +764,14 @@ export default function DeliveryChallanPreviewScreen() {
                       setSiteCode(val);
                       if (siteCodeError) setSiteCodeError("");
                     }}
-                    placeholder="Required * (e.g. SC-01)"
+                    placeholder="Required *"
                     placeholderTextColor={siteCodeError ? "#DC2626" : "#94A3B8"}
                     style={{
                       ...baseCanvasInputStyle,
-                      flex: 1,
-                      textAlign: "left",
+                      width: 180,
+                      height: 32,
+                      fontSize: 11,
+                      textAlign: "center",
                       fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                       borderColor: siteCodeError ? "#DC2626" : "#94A3B8",
                       backgroundColor: siteCodeError ? "#FEF2F2" : "#FFFFFF",
@@ -843,68 +779,73 @@ export default function DeliveryChallanPreviewScreen() {
                   />
                 </View>
               )}
+              {siteCodeError ? (
+                <Text style={{ fontSize: 9, color: "#DC2626", fontWeight: "700", marginTop: 2, textAlign: "right" }}>
+                  {siteCodeError}
+                </Text>
+              ) : null}
             </View>
 
-            {/* Row 2: TRN CD & Accounting Details */}
+            {/* Row 2: TRN CD & Accounting Details (Exact 4-column and 3-column rows from screenshot) */}
             <View style={{ backgroundColor: "#F8FAFC", borderBottomWidth: 2, borderBottomColor: "#000000" }}>
-              {/* Row 2A */}
+              {/* Row 2A (TRN CD, SENDING CENTRE, M.R.N. NO., M.R.N. DATE) */}
               <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#CBD5E1" }}>
                 <View style={{ flex: 1, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>TRN CD</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>TRN CD</Text>
                   <TextInput
                     value={trnCode}
                     onChangeText={setTrnCode}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
-                <View style={{ flex: 1.6, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
-                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>SENDING CENTRE</Text>
+                <View style={{ flex: 1.5, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>SENDING CENTRE</Text>
                   <TextInput
                     value={sendingCentreCode}
                     onChangeText={setSendingCentreCode}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
                 <View style={{ flex: 1.2, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>M.R.N. NO.</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>M.R.N. NO.</Text>
                   <TextInput
                     value={mrNo}
                     onChangeText={setMrNo}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
                 <View style={{ flex: 1.2, padding: 4 }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>M.R.N. DATE</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>M.R.N. DATE</Text>
                   <TextInput
                     value={mrDate}
                     onChangeText={setMrDate}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
               </View>
 
-              {/* Row 2B */}
+              {/* Row 2B (STOCK TYPE, VENDOR CODE, E-WAY BILL NO.) */}
               <View style={{ flexDirection: "row" }}>
                 <View style={{ flex: 1.2, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>STOCK TYPE</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>STOCK TYPE</Text>
                   <TextInput
                     value={stockType}
                     onChangeText={setStockType}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
                 <View style={{ flex: 1.3, padding: 4, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>VENDOR CODE</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>VENDOR CODE</Text>
                   <TextInput
                     value={vendorCode}
                     editable={false}
@@ -912,8 +853,8 @@ export default function DeliveryChallanPreviewScreen() {
                     placeholderTextColor="#94A3B8"
                     style={{
                       ...baseCanvasInputStyle,
-                      height: 30,
-                      fontSize: 10,
+                      height: 28,
+                      fontSize: 9.5,
                       textAlign: "center",
                       backgroundColor: "#F1F5F9",
                       color: "#475569",
@@ -923,13 +864,13 @@ export default function DeliveryChallanPreviewScreen() {
                   />
                 </View>
                 <View style={{ flex: 1.5, padding: 4 }}>
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>E-WAY BILL NO.</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000", textAlign: "center", marginBottom: 2 }}>E-WAY BILL NO.</Text>
                   <TextInput
                     value={ewayBillNo}
                     onChangeText={setEwayBillNo}
                     placeholder="-"
                     placeholderTextColor="#94A3B8"
-                    style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10, textAlign: "center", paddingHorizontal: 2 }}
+                    style={{ ...baseCanvasInputStyle, height: 28, fontSize: 9.5, textAlign: "center", paddingHorizontal: 2 }}
                   />
                 </View>
               </View>
@@ -941,15 +882,15 @@ export default function DeliveryChallanPreviewScreen() {
                 backgroundColor: "#FEF2F2",
                 borderBottomWidth: 1,
                 borderBottomColor: "#FECACA",
-                paddingVertical: 6,
-                paddingHorizontal: 8,
+                paddingVertical: 5,
+                paddingHorizontal: 6,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 11, fontWeight: "900", color: "#B91C1C", textTransform: "uppercase", textAlign: "center" }}>
+              <Text style={{ fontSize: 10, fontWeight: "900", color: "#B91C1C", textTransform: "uppercase", textAlign: "center" }}>
                 NOT FOR SALE – MATERIAL ISSUED ON RETURNABLE BASIS
               </Text>
-              <Text style={{ fontSize: 9, fontStyle: "italic", color: "#334155", marginTop: 2, textAlign: "center" }}>
+              <Text style={{ fontSize: 8.5, fontStyle: "italic", color: "#334155", marginTop: 2, textAlign: "center" }}>
                 We have despatched the following goods. Kindly return the duplicate copy duly signed acknowledging receipt of goods.
               </Text>
             </View>
@@ -961,326 +902,214 @@ export default function DeliveryChallanPreviewScreen() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 backgroundColor: "#F1F5F9",
-                paddingHorizontal: 10,
-                paddingVertical: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 5,
                 borderBottomWidth: 2,
                 borderBottomColor: "#000000",
-                flexWrap: "wrap",
                 gap: 6,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
                 <Layers size={14} color="#1D4ED8" />
-                <Text style={{ fontSize: 11, fontWeight: "800", color: "#334155" }}>Tools Listing:</Text>
-                <Text style={{ fontSize: 11, color: "#475569" }}>
+                <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#334155" }}>Tools Listing:</Text>
+                <Text style={{ fontSize: 10.5, color: "#475569" }}>
                   {isGrouped
                     ? `Grouped (${groupedItems.length} groups, ${totalQuantity} qty)`
                     : `Individual (${items.length} listed)`}
                 </Text>
               </View>
 
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <View
-                  style={{
-                    backgroundColor: "#EFF6FF",
-                    paddingHorizontal: 6,
-                    paddingVertical: 3,
-                    borderRadius: 4,
-                    borderWidth: 1,
-                    borderColor: "#BFDBFE",
-                  }}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#1D4ED8" }}>
-                    Swipe for Qty →
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setIsGrouped((prev) => !prev)}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor: isGrouped ? "#1D4ED8" : "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: isGrouped ? "#1D4ED8" : "#94A3B8",
-                  }}
-                >
-                  <Layers size={12} color={isGrouped ? "#FFFFFF" : "#0F172A"} />
-                  <Text style={{ fontSize: 10.5, fontWeight: "700", color: isGrouped ? "#FFFFFF" : "#0F172A" }}>
-                    {isGrouped ? "Disable Grouping" : "Group by Description"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={() => setIsGrouped((prev) => !prev)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3.5,
+                  borderRadius: 5,
+                  backgroundColor: isGrouped ? "#1D4ED8" : "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: isGrouped ? "#1D4ED8" : "#94A3B8",
+                }}
+              >
+                <Layers size={11} color={isGrouped ? "#FFFFFF" : "#0F172A"} />
+                <Text style={{ fontSize: 10, fontWeight: "700", color: isGrouped ? "#FFFFFF" : "#0F172A" }}>
+                  {isGrouped ? "Disable Grouping" : "Group by Description"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Row 3: Items Table (Fits SL, Code, Description&QR on phone screen, scroll for Qty/Rates) */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <View style={{ minWidth: 526 }}>
-                {/* Table Header */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    backgroundColor: "#F8FAFC",
-                    borderBottomWidth: 2,
-                    borderBottomColor: "#000000",
-                  }}
-                >
-                  <View style={{ width: 36, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>SL.</Text>
-                  </View>
-                  <View style={{ width: 125, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>MATERIAL CODE</Text>
-                  </View>
-                  <View style={{ width: 185, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>DESCRIPTION & QR</Text>
-                  </View>
-                  <View style={{ width: 55, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>QTY</Text>
-                  </View>
-                  <View style={{ width: 50, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>UNIT</Text>
-                  </View>
-                  <View style={{ width: 75, padding: 6, alignItems: "center" }}>
-                    <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>RATE RS.</Text>
-                  </View>
+            {/* Row 3: Items Table (Exact 3-column table from screenshot, 100% width, ZERO horizontal scroll) */}
+            <View style={{ width: "100%" }}>
+              {/* Table Header */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: "#F8FAFC",
+                  borderBottomWidth: 2,
+                  borderBottomColor: "#000000",
+                }}
+              >
+                <View style={{ width: 44, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>SL. NO.</Text>
                 </View>
+                <View style={{ width: 130, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>MATERIAL CODE</Text>
+                </View>
+                <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>DESCRIPTION & QR</Text>
+                </View>
+              </View>
 
-                {/* Table Items */}
-                {isGrouped
-                  ? groupedItems.map((group, idx) => (
-                      <View
-                        key={group.stableId}
-                        style={{
-                          flexDirection: "row",
-                          backgroundColor: "#FFFFFF",
-                          borderBottomWidth: 1,
-                          borderBottomColor: "#000000",
-                        }}
-                      >
-                        <View style={{ width: 36, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontSize: 10, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
-                        </View>
-                        <View style={{ width: 125, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
-                          <TextInput
-                            value={group.materialCode}
-                            onChangeText={(val) => handleGroupedItemChange(group, "materialCode", val)}
-                            placeholder="-"
-                            placeholderTextColor="#94A3B8"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                              textAlign: "center",
-                              fontSize: 10,
-                              paddingHorizontal: 2,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 185, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
-                          <TextInput
-                            value={group.description}
-                            onChangeText={(val) => handleGroupedItemChange(group, "description", val)}
-                            placeholder="Tool Description"
-                            placeholderTextColor="#94A3B8"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              marginBottom: 4,
-                            }}
-                          />
-                          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-                            <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR:</Text>
-                            {group.qrs.map((qr, qIdx) => (
-                              <View
-                                key={qIdx}
-                                style={{
-                                  backgroundColor: "#EFF6FF",
-                                  paddingHorizontal: 4,
-                                  paddingVertical: 1.5,
-                                  borderRadius: 3,
-                                  borderWidth: 0.5,
-                                  borderColor: "#BFDBFE",
-                                }}
-                              >
-                                <Text
-                                  style={{
-                                    fontSize: 9,
-                                    fontWeight: "800",
-                                    color: "#1D4ED8",
-                                    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                                    includeFontPadding: false,
-                                  }}
-                                >
-                                  {qr}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                        <View style={{ width: 55, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={String(group.quantity)}
-                            editable={false}
-                            style={{
-                              ...baseCanvasInputStyle,
-                              textAlign: "center",
-                              backgroundColor: "#F1F5F9",
-                              color: "#0F172A",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 50, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={group.unit}
-                            onChangeText={(val) => handleGroupedItemChange(group, "unit", val)}
-                            style={{
-                              ...baseCanvasInputStyle,
-                              textAlign: "center",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 75, padding: 4, alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={String(group.rate || 0)}
-                            onChangeText={(val) => handleGroupedItemChange(group, "rate", Number(val) || 0)}
-                            keyboardType="numeric"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                              textAlign: "center",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
-                        </View>
+              {/* Table Items */}
+              {isGrouped
+                ? groupedItems.map((group, idx) => (
+                    <View
+                      key={group.stableId}
+                      style={{
+                        flexDirection: "row",
+                        backgroundColor: "#FFFFFF",
+                        borderBottomWidth: 1,
+                        borderBottomColor: "#000000",
+                      }}
+                    >
+                      {/* SL. NO. */}
+                      <View style={{ width: 44, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
                       </View>
-                    ))
-                  : items.map((item, idx) => (
-                      <View
-                        key={item.tool || idx}
-                        style={{
-                          flexDirection: "row",
-                          backgroundColor: "#FFFFFF",
-                          borderBottomWidth: 1,
-                          borderBottomColor: "#000000",
-                        }}
-                      >
-                        <View style={{ width: 36, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontSize: 10, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
-                        </View>
-                        <View style={{ width: 125, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
-                          <TextInput
-                            value={item.materialCode}
-                            onChangeText={(val) => handleItemChange(idx, "materialCode", val)}
-                            placeholder="-"
-                            placeholderTextColor="#94A3B8"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                              textAlign: "center",
-                              fontSize: 10,
-                              paddingHorizontal: 2,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 185, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
-                          <TextInput
-                            value={item.description}
-                            onChangeText={(val) => handleItemChange(idx, "description", val)}
-                            placeholder="Tool Description"
-                            placeholderTextColor="#94A3B8"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              marginBottom: 4,
-                            }}
-                          />
-                          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-                            <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR:</Text>
-                            <View
+
+                      {/* MATERIAL CODE */}
+                      <View style={{ width: 130, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={group.materialCode}
+                          onChangeText={(val) => handleGroupedItemChange(group, "materialCode", val)}
+                          placeholder="-"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                            textAlign: "center",
+                            fontSize: 9.5,
+                            paddingHorizontal: 2,
+                            height: 32,
+                          }}
+                        />
+                      </View>
+
+                      {/* DESCRIPTION & QR */}
+                      <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
+                        <TextInput
+                          value={group.description}
+                          onChangeText={(val) => handleGroupedItemChange(group, "description", val)}
+                          placeholder="Tool Description"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            marginBottom: 4,
+                            height: 30,
+                            fontSize: 10.5,
+                          }}
+                        />
+                        {/* QR Code Text in Blue */}
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
+                          <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
+                          {group.qrs.map((qr, qIdx) => (
+                            <Text
+                              key={qIdx}
                               style={{
-                                backgroundColor: "#EFF6FF",
-                                paddingHorizontal: 4,
-                                paddingVertical: 1.5,
-                                borderRadius: 3,
-                                borderWidth: 0.5,
-                                borderColor: "#BFDBFE",
+                                fontSize: 9,
+                                fontWeight: "800",
+                                color: "#1D4ED8",
+                                fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                                includeFontPadding: false,
                               }}
                             >
-                              <Text
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: "800",
-                                  color: "#1D4ED8",
-                                  fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                                  includeFontPadding: false,
-                                }}
-                              >
-                                {item.toolId || item.toolCode || item.tool || "-"}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        <View style={{ width: 55, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={String(item.quantity)}
-                            onChangeText={(val) => handleItemChange(idx, "quantity", Number(val) || 1)}
-                            keyboardType="numeric"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              textAlign: "center",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 50, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={item.unit}
-                            onChangeText={(val) => handleItemChange(idx, "unit", val)}
-                            style={{
-                              ...baseCanvasInputStyle,
-                              textAlign: "center",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: 75, padding: 4, alignItems: "center", justifyContent: "center" }}>
-                          <TextInput
-                            value={String(item.rate || 0)}
-                            onChangeText={(val) => handleItemChange(idx, "rate", Number(val) || 0)}
-                            keyboardType="numeric"
-                            style={{
-                              ...baseCanvasInputStyle,
-                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                              textAlign: "center",
-                              paddingHorizontal: 2,
-                              fontSize: 10,
-                            }}
-                          />
+                              {qr}{qIdx < group.qrs.length - 1 ? ", " : ""}
+                            </Text>
+                          ))}
                         </View>
                       </View>
-                    ))}
-              </View>
-            </ScrollView>
+                    </View>
+                  ))
+                : items.map((item, idx) => (
+                    <View
+                      key={item.tool || idx}
+                      style={{
+                        flexDirection: "row",
+                        backgroundColor: "#FFFFFF",
+                        borderBottomWidth: 1,
+                        borderBottomColor: "#000000",
+                      }}
+                    >
+                      {/* SL. NO. */}
+                      <View style={{ width: 44, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
+                      </View>
 
-            {/* Row 4: Gate Pass Approval & Total Qty (Proper non-wrapping layout) */}
+                      {/* MATERIAL CODE */}
+                      <View style={{ width: 130, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={item.materialCode}
+                          onChangeText={(val) => handleItemChange(idx, "materialCode", val)}
+                          placeholder="-"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                            textAlign: "center",
+                            fontSize: 9.5,
+                            paddingHorizontal: 2,
+                            height: 32,
+                          }}
+                        />
+                      </View>
+
+                      {/* DESCRIPTION & QR */}
+                      <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
+                        <TextInput
+                          value={item.description}
+                          onChangeText={(val) => handleItemChange(idx, "description", val)}
+                          placeholder="Tool Description"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            marginBottom: 4,
+                            height: 30,
+                            fontSize: 10.5,
+                          }}
+                        />
+                        {/* QR Code Text in Blue */}
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
+                          <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: "#1D4ED8",
+                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                              includeFontPadding: false,
+                            }}
+                          >
+                            {item.toolId || item.toolCode || item.tool || "-"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+            </View>
+
+            {/* Row 4: Gate Pass Approval & Total Qty (Exact match with user screenshot) */}
             <View
               style={{
                 backgroundColor: "#F8FAFC",
-                padding: 8,
+                padding: 6,
                 borderBottomWidth: 2,
                 borderBottomColor: "#000000",
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <View style={{ flex: 1.2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000", marginBottom: 3 }}>
                     GATE PASS NO:
                   </Text>
@@ -1291,12 +1120,12 @@ export default function DeliveryChallanPreviewScreen() {
                     placeholderTextColor="#94A3B8"
                     style={{
                       ...baseCanvasInputStyle,
-                      height: 32,
+                      height: 30,
                     }}
                   />
                 </View>
 
-                <View style={{ flex: 1.5 }}>
+                <View style={{ flex: 1.2 }}>
                   <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000", marginBottom: 3 }}>
                     APPROVED BY:
                   </Text>
@@ -1307,19 +1136,20 @@ export default function DeliveryChallanPreviewScreen() {
                     placeholderTextColor="#94A3B8"
                     style={{
                       ...baseCanvasInputStyle,
-                      height: 32,
+                      height: 30,
                     }}
                   />
                 </View>
+              </View>
 
-                <View style={{ minWidth: 60, alignItems: "flex-end", justifyContent: "center", paddingRight: 4 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "900", color: "#64748B" }}>TOTAL</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "900", color: "#1E3A8A" }}>{totalQuantity}</Text>
-                </View>
+              <View style={{ marginTop: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: "900", color: "#000000" }}>
+                  TOTAL: <Text style={{ color: "#1D4ED8" }}>{totalQuantity}</Text>
+                </Text>
               </View>
             </View>
 
-            {/* Row 5: Tax Info */}
+            {/* Row 5: Consignor & Consignee GST Details (Exact match with user screenshot) */}
             <View
               style={{
                 borderBottomWidth: 2,
@@ -1339,6 +1169,7 @@ export default function DeliveryChallanPreviewScreen() {
                   style={{
                     ...baseCanvasInputStyle,
                     marginTop: 3,
+                    height: 30,
                     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                   }}
                 />
@@ -1360,13 +1191,14 @@ export default function DeliveryChallanPreviewScreen() {
                   style={{
                     ...baseCanvasInputStyle,
                     marginTop: 3,
+                    height: 30,
                     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                   }}
                 />
               </View>
             </View>
 
-            {/* Row 6: Vehicle, LR, Freight */}
+            {/* Row 6: Vehicle, LR, Freight (Exact match with user screenshot) */}
             <View
               style={{
                 borderBottomWidth: 2,
@@ -1375,7 +1207,7 @@ export default function DeliveryChallanPreviewScreen() {
               }}
             >
               <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#CBD5E1" }}>
-                <View style={{ flex: 1, padding: 6, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
+                <View style={{ flex: 1, padding: 5, borderRightWidth: 1, borderRightColor: "#CBD5E1" }}>
                   <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>VEHICLE / DESPATCH THROUGH</Text>
                   <TextInput
                     value={vehicleNo}
@@ -1385,10 +1217,11 @@ export default function DeliveryChallanPreviewScreen() {
                     style={{
                       ...baseCanvasInputStyle,
                       marginTop: 3,
+                      height: 28,
                     }}
                   />
                 </View>
-                <View style={{ flex: 1, padding: 6 }}>
+                <View style={{ flex: 1, padding: 5 }}>
                   <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>LR / RR NO. & DATE</Text>
                   <TextInput
                     value={lrNo}
@@ -1398,12 +1231,13 @@ export default function DeliveryChallanPreviewScreen() {
                     style={{
                       ...baseCanvasInputStyle,
                       marginTop: 3,
+                      height: 28,
                     }}
                   />
                 </View>
               </View>
 
-              <View style={{ padding: 6 }}>
+              <View style={{ padding: 5 }}>
                 <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>FREIGHT RS.</Text>
                 <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
                   {["PAID", "TO PAY", "NOT APPLICABLE"].map((st) => (
@@ -1428,7 +1262,7 @@ export default function DeliveryChallanPreviewScreen() {
               </View>
             </View>
 
-            {/* Row 7: Receipt Details & Signature (Structured 2x2 grid) */}
+            {/* Row 7: Receipt Details & Signature (Exact match with user screenshot) */}
             <View
               style={{
                 borderBottomWidth: 2,
@@ -1436,9 +1270,9 @@ export default function DeliveryChallanPreviewScreen() {
                 backgroundColor: "#FFFFFF",
               }}
             >
-              <View style={{ padding: 8, borderBottomWidth: 1, borderBottomColor: "#CBD5E1" }}>
+              <View style={{ padding: 6, borderBottomWidth: 1, borderBottomColor: "#CBD5E1" }}>
                 <Text style={{ fontSize: 9, fontWeight: "900", color: "#000000" }}>RECEIPT DETAILS</Text>
-                <Text style={{ fontSize: 8, fontStyle: "italic", color: "#475569", marginTop: 2, marginBottom: 8 }}>
+                <Text style={{ fontSize: 8, fontStyle: "italic", color: "#475569", marginTop: 2, marginBottom: 6 }}>
                   We have despatched the following goods. Kindly return the duplicate copy duly signed acknowledging receipt of goods.
                 </Text>
                 <View style={{ gap: 6 }}>
@@ -1450,7 +1284,7 @@ export default function DeliveryChallanPreviewScreen() {
                         onChangeText={setReceiverName}
                         placeholder="Full Name"
                         placeholderTextColor="#94A3B8"
-                        style={{ ...baseCanvasInputStyle, height: 32, fontSize: 10 }}
+                        style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10 }}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -1461,7 +1295,7 @@ export default function DeliveryChallanPreviewScreen() {
                         placeholder="Phone"
                         placeholderTextColor="#94A3B8"
                         keyboardType="phone-pad"
-                        style={{ ...baseCanvasInputStyle, height: 32, fontSize: 10 }}
+                        style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10 }}
                       />
                     </View>
                   </View>
@@ -1474,7 +1308,7 @@ export default function DeliveryChallanPreviewScreen() {
                         onChangeText={setMrnNo}
                         placeholder="-"
                         placeholderTextColor="#94A3B8"
-                        style={{ ...baseCanvasInputStyle, height: 32, fontSize: 10 }}
+                        style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10 }}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -1484,26 +1318,26 @@ export default function DeliveryChallanPreviewScreen() {
                         onChangeText={setReceiptDate}
                         placeholder="YYYY-MM-DD"
                         placeholderTextColor="#94A3B8"
-                        style={{ ...baseCanvasInputStyle, height: 32, fontSize: 10 }}
+                        style={{ ...baseCanvasInputStyle, height: 30, fontSize: 10 }}
                       />
                     </View>
                   </View>
                 </View>
               </View>
 
-              <View style={{ padding: 8, alignItems: "flex-end", backgroundColor: "#F8FAFC" }}>
-                <Text style={{ fontSize: 9.5, fontWeight: "900", color: "#000000", textAlign: "right" }}>
+              <View style={{ padding: 6, alignItems: "flex-end", backgroundColor: "#F8FAFC" }}>
+                <Text style={{ fontSize: 9, fontWeight: "900", color: "#000000", textAlign: "right" }}>
                   FOR LARSEN & TOUBRO LIMITED CONSTRUCTION DIVISION
                 </Text>
-                <Text style={{ fontSize: 9, fontWeight: "800", color: "#334155", marginTop: 4 }}>
+                <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#334155", marginTop: 3 }}>
                   AUTHORIZED SIGNATORY
                 </Text>
               </View>
             </View>
 
             {/* Row 8: Remarks */}
-            <View style={{ padding: 8, backgroundColor: "#F8FAFC" }}>
-              <Text style={{ fontSize: 9, fontWeight: "900", color: "#000000", marginBottom: 4 }}>REMARKS</Text>
+            <View style={{ padding: 6, backgroundColor: "#F8FAFC" }}>
+              <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000", marginBottom: 3 }}>REMARKS</Text>
               <TextInput
                 value={remarks}
                 onChangeText={setRemarks}
@@ -1512,12 +1346,12 @@ export default function DeliveryChallanPreviewScreen() {
                 multiline
                 numberOfLines={2}
                 style={{
-                  minHeight: 44,
+                  minHeight: 40,
                   borderWidth: 1,
                   borderColor: "#94A3B8",
                   borderRadius: 4,
                   padding: 6,
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: "600",
                   color: "#000000",
                   backgroundColor: "#FFFFFF",
@@ -1528,10 +1362,10 @@ export default function DeliveryChallanPreviewScreen() {
           </View>
 
           {/* Footer Copy Distribution Line with Checkboxes */}
-          <View style={{ marginTop: 10, gap: 4 }}>
+          <View style={{ marginTop: 8, gap: 4 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
-              <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#475569" }}>{docReferenceCode}</Text>
-              <Text style={{ fontSize: 8.5, fontWeight: "700", color: "#475569" }}>{registeredOfficeAddress}</Text>
+              <Text style={{ fontSize: 8, fontWeight: "800", color: "#475569" }}>{docReferenceCode}</Text>
+              <Text style={{ fontSize: 8, fontWeight: "700", color: "#475569" }}>{registeredOfficeAddress}</Text>
             </View>
 
             <View
@@ -1539,36 +1373,90 @@ export default function DeliveryChallanPreviewScreen() {
                 flexDirection: "row",
                 alignItems: "center",
                 flexWrap: "wrap",
-                gap: 12,
-                paddingTop: 6,
+                gap: 10,
+                paddingTop: 5,
                 borderTopWidth: 1,
                 borderTopColor: "#CBD5E1",
               }}
             >
-              <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>COPY DISTRIBUTION:</Text>
+              <Text style={{ fontSize: 8, fontWeight: "900", color: "#000000" }}>COPY DISTRIBUTION:</Text>
               {[
                 "CONSIGNEE",
                 "CONSIGNEE – CONSIGNOR",
                 "GATE PASS (SECURITY - ACCOUNTS)",
                 "CONSIGNOR'S FILE",
               ].map((copyName) => (
-                <View key={copyName} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <View key={copyName} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                   <View
                     style={{
-                      width: 9,
-                      height: 9,
+                      width: 8,
+                      height: 8,
                       borderWidth: 1.5,
                       borderColor: "#000000",
                       borderRadius: 2,
                     }}
                   />
-                  <Text style={{ fontSize: 8, fontWeight: "800", color: "#000000" }}>{copyName}</Text>
+                  <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#000000" }}>{copyName}</Text>
                 </View>
               ))}
             </View>
           </View>
 
         </View>
+
+        {/* Bottom Full Action Buttons */}
+        <View style={{ gap: 8, marginTop: 4 }}>
+          <TouchableOpacity
+            onPress={handleConfirmCreate}
+            disabled={creating}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              height: 46,
+              borderRadius: 10,
+              backgroundColor: theme.primary,
+            }}
+          >
+            {creating ? (
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#FFFFFF" }}>Creating Delivery Challan...</Text>
+              </>
+            ) : isTransfer ? (
+              <>
+                <ArrowRightLeft size={18} color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#FFFFFF" }}>Confirm & Transfer Equipment</Text>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={18} color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#FFFFFF" }}>Confirm & Issue Delivery Challan</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDownloadDraft}
+            disabled={creating}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              height: 44,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: theme.border,
+              backgroundColor: theme.card,
+            }}
+          >
+            <Download size={16} color={theme.primary} />
+            <Text style={{ fontSize: 12.5, fontWeight: "700", color: theme.primary }}>Download PDF Draft Document</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </ScreenWrapper>
   );
