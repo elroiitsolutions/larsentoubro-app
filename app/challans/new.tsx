@@ -22,6 +22,10 @@ import {
   Share2,
   Calendar,
   Check,
+  Mail,
+  MapPin,
+  Hash,
+  FileText,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -69,6 +73,7 @@ export default function NewChallanScreen() {
   // Vendor / Contractor Selection
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<ProfileRecord | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
 
   // Form Fields
@@ -92,6 +97,7 @@ export default function NewChallanScreen() {
 
   // Handle Profile Selection
   const handleSelectProfile = (profile: ProfileRecord) => {
+    setSelectedProfile(profile);
     setSelectedProfileId(profile._id);
     setVendorName(profile.name || "");
     setVendorCode(profile.code || "");
@@ -128,16 +134,6 @@ export default function NewChallanScreen() {
           const proj = storeDoc.project as any;
           setProjectId(proj?._id || proj);
 
-          // Intelligent siteCode pre-filling
-          if (!siteCode) {
-            if (storeDoc.storeCode) {
-              setSiteCode(storeDoc.storeCode);
-            } else if (proj?.projectCode) {
-              setSiteCode(proj.projectCode);
-            } else if (storeDoc.name) {
-              setSiteCode(`${storeDoc.name.replace(/\s+/g, "-").toUpperCase()}-01`);
-            }
-          }
           if (storeDoc.location && !siteLocation) {
             setSiteLocation(storeDoc.location);
           }
@@ -158,16 +154,6 @@ export default function NewChallanScreen() {
     const pending = selectionStore.getPendingChallan(isScrapDC ? undefined : storeId);
     if (pending && pending.tools.length > 0) {
       setSelectedTools(pending.tools);
-      const first = pending.tools[0] as any;
-      if (!siteCode && first) {
-        if (first.currentSite?.storeCode) {
-          setSiteCode(first.currentSite.storeCode);
-        } else if (first.jobCode) {
-          setSiteCode(first.jobCode);
-        } else if (first.project?.projectCode) {
-          setSiteCode(first.project.projectCode);
-        }
-      }
       return;
     }
 
@@ -184,24 +170,14 @@ export default function NewChallanScreen() {
       try {
         const validTools = await toolService.getToolsByIds(ids);
         setSelectedTools(validTools);
-
-        // Pre-fill siteCode from tool if store did not have it
-        if (!siteCode && validTools.length > 0) {
-          const first = validTools[0] as any;
-          if (first.currentSite?.storeCode) {
-            setSiteCode(first.currentSite.storeCode);
-          } else if (first.jobCode) {
-            setSiteCode(first.jobCode);
-          } else if (first.project?.projectCode) {
-            setSiteCode(first.project.projectCode);
-          }
-        }
       } catch (err) {
         console.error("Failed to load selected tools for challan:", err);
       } finally {
         setLoadingTools(false);
       }
     };
+
+
 
     loadTools();
   }, [rawToolIds, storeId]);
@@ -296,24 +272,13 @@ export default function NewChallanScreen() {
     }
   };
 
-  const handleSubmit = async () => {
-    // Prevent duplicate submissions after success
-    if (isCreatedSuccess || saving) return;
-
+  const handleProceedToPreview = async () => {
     setFormError(null);
-    const newFieldErrors: { vendorName?: string; siteCode?: string } = {};
 
-    if (!vendorName.trim()) {
-      newFieldErrors.vendorName = "Vendor or Contractor name is required.";
-    }
-
-    if (!isScrapDC && !siteCode.trim()) {
-      newFieldErrors.siteCode = "Site Code is required by L&T standard challan specifications.";
-    }
-
-    if (Object.keys(newFieldErrors).length > 0) {
-      setFieldErrors(newFieldErrors);
-      const errMsg = newFieldErrors.vendorName || newFieldErrors.siteCode || "Please fill in all mandatory fields.";
+    if (!selectedProfileId && !vendorName.trim()) {
+      const errMsg = isScrapDC
+        ? "Please select a destination scrap dealer first."
+        : "Please select a destination subcontractor first.";
       setFormError(errMsg);
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       toast.error(errMsg);
@@ -372,7 +337,7 @@ export default function NewChallanScreen() {
             text: "Mark Printed & Proceed",
             onPress: async () => {
               await handleMarkAllPrinted();
-              executeCreateChallan();
+              navigateToPreview();
             },
           },
         ]
@@ -380,156 +345,61 @@ export default function NewChallanScreen() {
       return;
     }
 
-    executeCreateChallan();
+    navigateToPreview();
   };
 
-  const executeCreateChallan = async () => {
-    if (isCreatedSuccess) return; // Idempotency guard
-    setSaving(true);
-    setFormError(null);
-    try {
-      // 1. Ensure a valid profile vendorId exists in database (required by backend)
-      let finalVendorId = selectedProfileId;
-      if (!finalVendorId) {
-        // Try to match existing profile by name
-        const match = profiles.find(
-          (p) => (p.name || "").trim().toLowerCase() === vendorName.trim().toLowerCase()
-        );
-        if (match) {
-          finalVendorId = match._id;
-          setSelectedProfileId(finalVendorId);
-        } else {
-          // Auto-register subcontractor / recipient profile to satisfy backend validation
-          try {
-            const createRes = await profileService.createProfile({
-              name: vendorName.trim(),
-              code: vendorCode.trim() || undefined,
-              contactPerson: contactPerson.trim() || undefined,
-              contactPhone: contactPhone.trim() || undefined,
-              address: siteLocation.trim() || undefined,
-              gstNumber: consignorTaxNo.trim() || undefined,
-              profileType: isScrapDC ? "ScrapDealer" : "Subcontractor",
-            });
-            if (createRes?.data?._id) {
-              const newProf = createRes.data as ProfileRecord;
-              finalVendorId = newProf._id;
-              setProfiles((prev) => [newProf, ...prev]);
-              setSelectedProfileId(finalVendorId);
-            }
-          } catch (createErr) {
-            console.error("Auto profile creation failed:", createErr);
-          }
-        }
-      }
-
-      if (!finalVendorId) {
-        const errMsg = isScrapDC
-          ? "A valid scrap dealer profile is required. Please select a scrap dealer from the saved list or use Quick Add."
-          : "A valid subcontractor profile is required. Please select a profile from the saved list or use Quick Add.";
-        setFormError(errMsg);
-        toast.error(errMsg);
-        setSaving(false);
-        return;
-      }
-
-      const itemsPayload = selectedTools.map((t, idx) => ({
-        tool: t._id,
-        toolId: t.toolId || t.toolCode || `ITEM-${idx + 1}`,
-        description: t.description || t.name || "Equipment Item",
-        toolCode: t.toolCode || "",
-        category: t.category || t.toolType || "",
-        capacity: t.capacity || "",
-        safeWorkingLoad: t.safeWorkingLoad || "",
-        serialNumber: t.serialNumber !== undefined ? String(t.serialNumber) : "",
-        makeYear: t.makeYear ? String(t.makeYear) : "",
-        quantity: 1,
-        unit: "NOS",
-        remarks: "",
-      }));
-
-      const payload = {
-        challanType: isScrapDC ? "Scrap" : challanType,
-        isScrapDC,
-        storeId: storeId || undefined,
-        project: projectId || undefined,
-        vendorId: finalVendorId,
-        scrapDealerId: isScrapDC ? finalVendorId : undefined,
-        indentNo: indentNo.trim() || undefined,
-        siteCode: siteCode.trim(),
-        vehicleNo: vehicleNo.trim().toUpperCase() || undefined,
-        gatePassNo: gatePassNo.trim() || undefined,
-        gatePassApprovedBy: gatePassApprovedBy.trim() || undefined,
-        consignorTaxNo: consignorTaxNo.trim() || undefined,
-        locationChainage: siteLocation.trim() || undefined,
-        workFrontLocation: workFrontLocation.trim() || undefined,
-        receiverName: receiverName.trim() || undefined,
-        receiverMobile: receiverMobile.trim() || undefined,
-        subcontractorName: vendorName.trim(),
-        vendorCode: vendorCode.trim() || undefined,
-        vendor: {
-          _id: finalVendorId,
-          name: vendorName.trim(),
-          vendorCode: vendorCode.trim() || undefined,
-          contactPerson: contactPerson.trim() || undefined,
-          contactPhone: contactPhone.trim() || undefined,
-          address: siteLocation.trim() || undefined,
-          gstNumber: consignorTaxNo.trim() || undefined,
-        },
-        transferFromDcId: transferFromDcId || undefined,
-        challanDate: challanDate || new Date().toISOString().split("T")[0],
-        deliveryDate: deliveryDate || new Date().toISOString().split("T")[0],
-        notes: notes.trim() || undefined,
-        remarks: remarks.trim() || undefined,
-        items: itemsPayload,
-      };
-
-      let result: any;
-      if (isScrapDC) {
-        result = await challanService.createScrapDeliveryChallan(payload);
-      } else if (challanType === "Delivery") {
-        result = await challanService.createDeliveryChallan(payload);
-      } else {
-        result = await challanService.createReturnChallan(payload);
-      }
-
-      const createdChallan = result?.data;
-      // Mark as done — prevents duplicate submissions on any re-render
-      setIsCreatedSuccess(true);
-      selectionStore.clearPendingChallan();
-
-      const dcLabel = isScrapDC ? "Scrap Delivery Challan" : "Delivery Challan (DC)";
-      const challanNum = createdChallan?.challanNumber || "Created";
-
-      // 📥 Automatically download official PDF (Web) / trigger share (Mobile)
-      if (createdChallan) {
-        try {
-          await downloadOrShareChallanPdf(createdChallan, { share: true });
-        } catch (pdfErr) {
-          console.warn("Auto-download DC PDF error:", pdfErr);
-        }
-      }
-
-      // ✅ Toast success — fires after download starts and persists through navigation
-      toast.success(`${dcLabel} ${challanNum} generated & PDF downloaded automatically.`);
-
-      // Brief breather so browser initiates file download before screen unmounts
-      setTimeout(() => {
-        router.back();
-      }, 350);
-
-    } catch (err: any) {
-      // Extract the most meaningful error message from Axios or native Error
-      const errMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to generate challan. Please try again.";
-      setFormError(errMsg);
-      // Show inline banner AND persistent error toast
-      toast.error(errMsg);
-    } finally {
-      setSaving(false);
+  const navigateToPreview = () => {
+    let finalVendorId = selectedProfileId;
+    if (!finalVendorId) {
+      const match = profiles.find(
+        (p) => (p.name || "").trim().toLowerCase() === vendorName.trim().toLowerCase()
+      );
+      if (match) finalVendorId = match._id;
     }
+
+    const mappedVendorObj = {
+      _id: finalVendorId || selectedProfile?._id,
+      name: vendorName.trim(),
+      vendorCode: vendorCode.trim() || "-",
+      code: vendorCode.trim() || "-",
+      address: siteLocation.trim() || "-",
+      gstNumber: consignorTaxNo.trim() || "-",
+      contactPerson: contactPerson.trim() || "",
+      contactPhone: contactPhone.trim() || "",
+      profileType: isScrapDC ? "ScrapDealer" : "Subcontractor",
+    };
+
+    const finalSiteCode = siteCode?.trim() || "";
+
+    selectionStore.setPendingPreview({
+      selectedTools,
+      vendor: mappedVendorObj,
+      storeId: storeId || "",
+      storeName: storeName || "",
+      challanDate: challanDate || new Date().toISOString().split("T")[0],
+      deliveryDate: deliveryDate || new Date().toISOString().split("T")[0],
+      remarks: remarks.trim() || `Dispatched to ${isScrapDC ? "Scrap Dealer" : "Subcontractor"} ${vendorName.trim()}`,
+      notes: notes.trim() || "",
+      siteCode: finalSiteCode,
+      indentNo: indentNo?.trim() || "",
+      isScrapDC,
+      isTransfer: Boolean(transferFromDcId),
+      transferFromDcId: transferFromDcId || "",
+    });
+
+
+
+    router.push({
+      pathname: "/challans/preview",
+      params: {
+        storeId: storeId || "",
+        isScrap: isScrapDC ? "true" : "false",
+        isTransfer: transferFromDcId ? "true" : "false",
+        transferFromDcId: transferFromDcId || "",
+      },
+    });
   };
+
 
   return (
     <ScreenWrapper
@@ -935,243 +805,151 @@ export default function NewChallanScreen() {
             </View>
           )}
 
-          {/* Active Profile Info Banner when a profile is selected */}
-          {selectedProfileId && (
+          {/* Active Profile Info Card when a profile is selected (Web Parity) */}
+          {selectedProfileId ? (
             <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
                 backgroundColor: isDark ? "#1E293B" : "#F0FDF4",
                 borderWidth: 1,
                 borderColor: isDark ? "#334155" : "#BBF7D0",
-                padding: 10,
-                borderRadius: 8,
-                marginBottom: 12,
+                padding: 14,
+                borderRadius: 12,
               }}
             >
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                  <CheckCircle2 size={13} color="#16A34A" />
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>
-                    Selected {isScrapDC ? "Scrap Dealer" : "Subcontractor"}
-                  </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  borderBottomWidth: 1,
+                  borderBottomColor: isDark ? "#334155" : "#DCFCE7",
+                  paddingBottom: 10,
+                  marginBottom: 10,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: theme.text }}>
+                      {vendorName}
+                    </Text>
+                    {vendorCode ? (
+                      <View style={{ backgroundColor: isDark ? "#334155" : "#E0E7FF", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, fontFamily: "monospace", fontWeight: "700", color: "#4F46E5" }}>
+                          {vendorCode}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View style={{ backgroundColor: isDark ? "#14532D" : "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 12 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>
+                        Active
+                      </Text>
+                    </View>
+                  </View>
+                  {consignorTaxNo ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                      <Hash size={12} color={theme.primary} />
+                      <Text style={{ fontSize: 11, fontFamily: "monospace", color: theme.textSecondary }}>
+                        GST: <Text style={{ color: theme.text, fontWeight: "700" }}>{consignorTaxNo}</Text>
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-                <Text style={{ fontSize: 12, fontWeight: "700", color: theme.text, marginTop: 2 }}>
-                  {vendorName} {vendorCode ? `(${vendorCode})` : ""}
-                </Text>
-              </View>
-              {profiles.length > 1 && (
-                <TouchableOpacity
-                  onPress={() => setShowProfileSelector(!showProfileSelector)}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor: isDark ? "#334155" : "#DCFCE7",
-                  }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>
-                    Change
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
 
-          {/* Quick Profile Selection Chips */}
-          {!selectedProfileId && profiles.length > 0 && (
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary, marginBottom: 6 }}>
-                Pick from Registered Profiles:
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: "row" }}>
-                {profiles.map((p) => (
+                {profiles.length > 1 && (
                   <TouchableOpacity
-                    key={p._id}
-                    onPress={() => handleSelectProfile(p)}
+                    onPress={() => setShowProfileSelector(!showProfileSelector)}
                     style={{
-                      backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      borderRadius: 6,
-                      paddingHorizontal: 8,
+                      paddingHorizontal: 10,
                       paddingVertical: 5,
-                      marginRight: 6,
+                      borderRadius: 6,
+                      backgroundColor: isDark ? "#334155" : "#DCFCE7",
                     }}
                   >
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: theme.text }}>
-                      {p.name} {p.code ? `(${p.code})` : ""}
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>
+                      Change
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+                )}
+              </View>
 
-          <Input
-            label={isScrapDC ? "Scrap Dealer Name *" : "Vendor / Contractor / Transporter *"}
-            placeholder="e.g. Apex Civil Infra Pvt Ltd"
-            value={vendorName}
-            onChangeText={(txt) => {
-              setVendorName(txt);
-              if (fieldErrors.vendorName) {
-                setFieldErrors((prev) => ({ ...prev, vendorName: undefined }));
-              }
-              if (formError) setFormError(null);
-            }}
-            error={fieldErrors.vendorName}
-          />
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Vendor Code"
-                placeholder="e.g. VND-4092"
-                value={vendorCode}
-                onChangeText={setVendorCode}
-                autoCapitalize="characters"
-              />
+              <View style={{ gap: 6 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <User size={13} color={theme.primary} />
+                  <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                    Contact: <Text style={{ color: theme.text, fontWeight: "700" }}>{contactPerson || "Not Specified"}</Text>
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Phone size={13} color={theme.primary} />
+                  <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                    Phone: <Text style={{ color: theme.text, fontWeight: "700" }}>{contactPhone || "N/A"}</Text>
+                  </Text>
+                </View>
+                {selectedProfile?.contactEmail ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Mail size={13} color={theme.primary} />
+                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                      Email: <Text style={{ color: theme.text, fontWeight: "700" }}>{selectedProfile.contactEmail}</Text>
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+                  <MapPin size={13} color={theme.primary} style={{ marginTop: 2 }} />
+                  <Text style={{ fontSize: 11, color: theme.textSecondary, flex: 1 }}>
+                    Address: <Text style={{ color: theme.text, fontWeight: "700" }}>{siteLocation || "No address on file"}</Text>
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label={isScrapDC ? "Site Code" : "Site Code *"}
-                placeholder="e.g. SC-102"
-                value={siteCode}
-                onChangeText={(txt) => {
-                  setSiteCode(txt);
-                  if (fieldErrors.siteCode) {
-                    setFieldErrors((prev) => ({ ...prev, siteCode: undefined }));
-                  }
-                  if (formError) setFormError(null);
-                }}
-                error={fieldErrors.siteCode}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Contact Person"
-                placeholder="e.g. Suresh Patel"
-                value={contactPerson}
-                onChangeText={setContactPerson}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Contact Phone"
-                placeholder="e.g. +91 94000 12345"
-                value={contactPhone}
-                onChangeText={setContactPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          <Input
-            label="Site Location / Project Destination"
-            placeholder="e.g. Metro Site Pier 44, Chainage 12+400"
-            value={siteLocation}
-            onChangeText={setSiteLocation}
-          />
+          ) : !loadingStore ? (
+            <TouchableOpacity
+              onPress={() => setShowProfileSelector(true)}
+              style={{
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: theme.border,
+                borderRadius: 10,
+                padding: 16,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                Please select a recipient profile from "Pick Saved" above.
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </Card>
 
-        {/* L&T Logistics & Transport Specifications */}
+        {/* Remarks & Instructions (Web Parity with VendorSelectionModal.tsx) */}
         <Card style={{ padding: 16, marginBottom: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <Truck size={18} color={theme.primary} />
+            <FileText size={18} color={theme.primary} />
             <Text style={{ fontSize: 14, fontWeight: "700", color: theme.text }}>
-              Logistics & Dispatch Verification
+              Remarks & Instructions
             </Text>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Indent Number"
-                placeholder="e.g. IND-2026-001"
-                value={indentNo}
-                onChangeText={setIndentNo}
-                autoCapitalize="characters"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Vehicle Registration No"
-                placeholder="e.g. MH-04-AB-1234"
-                value={vehicleNo}
-                onChangeText={setVehicleNo}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Gate Pass Number"
-                placeholder="e.g. GP-9941"
-                value={gatePassNo}
-                onChangeText={setGatePassNo}
-                autoCapitalize="characters"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Gate Pass Approved By"
-                placeholder="e.g. K. V. Sharma"
-                value={gatePassApprovedBy}
-                onChangeText={setGatePassApprovedBy}
-              />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Consignor Tax / GST No"
-                placeholder="e.g. 27AAACL1234F1Z5"
-                value={consignorTaxNo}
-                onChangeText={setConsignorTaxNo}
-                autoCapitalize="characters"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Work Front Location"
-                placeholder="e.g. Pier 12 West"
-                value={workFrontLocation}
-                onChangeText={setWorkFrontLocation}
-              />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Receiver Name"
-                placeholder="e.g. Rajesh Kumar"
-                value={receiverName}
-                onChangeText={setReceiverName}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label="Receiver Mobile"
-                placeholder="e.g. 9876543210"
-                value={receiverMobile}
-                onChangeText={setReceiverMobile}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
+          <Input
+            label="Indent No. (Optional)"
+            placeholder="e.g. IND-001"
+            value={indentNo}
+            onChangeText={setIndentNo}
+          />
 
           <Input
-            label="Dispatch Remarks / Instructions"
-            placeholder="Handling precautions, packaging details, driver instructions..."
+            label="Remarks / Dispatch Instructions"
+            placeholder="e.g. Dispatch for site work or scrap disposal"
+            value={remarks}
+            onChangeText={setRemarks}
+            multiline
+            numberOfLines={2}
+          />
+
+
+          <Input
+            label="Internal Notes (Optional)"
+            placeholder="Additional internal reference notes..."
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -1211,15 +989,16 @@ export default function NewChallanScreen() {
               disabled={saving || isCreatedSuccess}
             />
           </View>
-          <View style={{ flex: 1.5 }}>
+          <View style={{ flex: 2 }}>
             <Button
-              title={isCreatedSuccess ? "Generated ✓" : saving ? "Generating..." : "Generate Challan"}
-              onPress={handleSubmit}
+              title={`Proceed to Preview (${selectedTools.length} Tools) →`}
+              onPress={handleProceedToPreview}
               loading={saving}
               disabled={saving || isCreatedSuccess}
             />
           </View>
         </View>
+
       </ScrollView>
     </ScreenWrapper>
   );
