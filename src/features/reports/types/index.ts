@@ -206,3 +206,67 @@ export interface LoginReportResponse {
     rejected: number;
   };
 }
+
+export interface ReportFilterState {
+  // Universal
+  project: string;
+  store: string;
+  vendor: string;
+  datePreset: 'all' | 'today' | 'month' | '30days';
+  startDate?: string;
+  endDate?: string;
+
+  // Tools tab
+  toolStatus: string;
+  toolPrinted: string;
+  toolType: string;
+
+  // Challans tab
+  challanType: string;
+  challanStatus: string;
+  outstandingOnly: boolean;
+
+  // Missing tab
+  missingStatus: string;
+
+  // Inspections tab
+  inspectionCompliance: string;
+  inspectionResult: string;
+  lifeExtension: string;
+
+  // Scrap tab
+  scrapDisposalStatus: string;
+  scrapDealer: string;
+
+  // Subcontractors tab
+  complianceTier: string;
+
+  // Logins tab
+  loginRole: string;
+  loginStatus: string;
+}
+
+export const DEFAULT_REPORT_FILTERS: ReportFilterState = {
+  project: 'All',
+  store: 'All',
+  vendor: 'All',
+  datePreset: 'all',
+  startDate: '',
+  endDate: '',
+  toolStatus: 'All',
+  toolPrinted: 'All',
+  toolType: 'All',
+  challanType: 'All',
+  challanStatus: 'All',
+  outstandingOnly: false,
+  missingStatus: 'All',
+  inspectionCompliance: 'All',
+  inspectionResult: 'All',
+  lifeExtension: 'All',
+  scrapDisposalStatus: 'All',
+  scrapDealer: 'All',
+  complianceTier: 'All',
+  loginRole: 'All',
+  loginStatus: 'All',
+};
+

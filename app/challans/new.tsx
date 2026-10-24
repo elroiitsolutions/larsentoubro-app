@@ -155,7 +155,7 @@ export default function NewChallanScreen() {
   // Load selected tools if pending in selectionStore or toolIds provided in params
   useEffect(() => {
     // 1. Check in-memory selectionStore first (handles any number of tools with 0 extra network requests)
-    const pending = selectionStore.getPendingChallan(storeId);
+    const pending = selectionStore.getPendingChallan(isScrapDC ? undefined : storeId);
     if (pending && pending.tools.length > 0) {
       setSelectedTools(pending.tools);
       const first = pending.tools[0] as any;
@@ -321,7 +321,9 @@ export default function NewChallanScreen() {
     }
 
     if (selectedTools.length === 0) {
-      const errMsg = "Please select at least one tool item to include in this Delivery Challan.";
+      const errMsg = isScrapDC
+        ? "Please select at least one scrap tool from the scrap register to generate a Scrap DC."
+        : "Please select at least one tool item to include in this Delivery Challan.";
       setFormError(errMsg);
       toast.error(errMsg);
       return;
@@ -421,7 +423,9 @@ export default function NewChallanScreen() {
       }
 
       if (!finalVendorId) {
-        const errMsg = "A valid subcontractor profile is required. Please select a profile from the saved list or use Quick Add.";
+        const errMsg = isScrapDC
+          ? "A valid scrap dealer profile is required. Please select a scrap dealer from the saved list or use Quick Add."
+          : "A valid subcontractor profile is required. Please select a profile from the saved list or use Quick Add.";
         setFormError(errMsg);
         toast.error(errMsg);
         setSaving(false);
@@ -491,6 +495,7 @@ export default function NewChallanScreen() {
       const createdChallan = result?.data;
       // Mark as done — prevents duplicate submissions on any re-render
       setIsCreatedSuccess(true);
+      selectionStore.clearPendingChallan();
 
       const dcLabel = isScrapDC ? "Scrap Delivery Challan" : "Delivery Challan (DC)";
       const challanNum = createdChallan?.challanNumber || "Created";
@@ -1030,7 +1035,7 @@ export default function NewChallanScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Input
-                label="Site Code *"
+                label={isScrapDC ? "Site Code" : "Site Code *"}
                 placeholder="e.g. SC-102"
                 value={siteCode}
                 onChangeText={(txt) => {

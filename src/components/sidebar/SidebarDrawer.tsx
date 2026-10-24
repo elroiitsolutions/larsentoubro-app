@@ -23,8 +23,6 @@ import {
   LayoutDashboard,
   BarChart3,
   FolderGit2,
-  Building2,
-  Wrench,
   Truck,
   Recycle,
   Users,
@@ -73,8 +71,6 @@ const MENU_SECTIONS: MenuSection[] = [
     title: "Operations & Assets",
     items: [
       { label: "Projects", route: "/(tabs)/projects", icon: FolderGit2, requiredPage: "/projects" },
-      { label: "Stores & HUBs", route: "/(tabs)/stores", icon: Building2, requiredPage: "/stores" },
-      { label: "Tools Inventory", route: "/(tabs)/tools", icon: Wrench, requiredPage: "/tools" },
       { label: "Challan Register", route: "/challans", icon: Truck, requiredPage: "/challans" },
       { label: "Scrap Register", route: "/scrap", icon: Recycle, requiredPage: "/scrap" },
     ],

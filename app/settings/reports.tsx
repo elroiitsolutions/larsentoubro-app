@@ -21,6 +21,9 @@ import {
   ShieldCheck,
   Share2,
   Download,
+  SlidersHorizontal,
+  X,
+  RotateCcw,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -31,6 +34,14 @@ import { Loader } from '@/components/ui/Loader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { reportService } from '@/features/reports/services/reportService';
+import { projectService } from '@/features/projects/services/projectService';
+import { storeService } from '@/features/stores/services/storeService';
+import { profileService } from '@/features/profiles/services/profileService';
+import { ProjectRecord } from '@/features/projects/types';
+import { StoreRecord } from '@/features/stores/types';
+import { ProfileRecord } from '@/features/profiles/types';
+import { ReportFilterState, DEFAULT_REPORT_FILTERS } from '@/features/reports/types';
+import { ReportFilterModal } from '@/features/reports/components/ReportFilterModal';
 import {
   generateAndShareReportPdf,
   ColumnDefinition,
@@ -76,6 +87,36 @@ export default function ReportsHubScreen() {
   const [reportData, setReportData] = useState<any[]>([]);
   const [summaryStats, setSummaryStats] = useState<any>({});
 
+  // Filter State & Modal
+  const [filters, setFilters] = useState<ReportFilterState>(DEFAULT_REPORT_FILTERS);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  // Master Data for Filters
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [stores, setStores] = useState<StoreRecord[]>([]);
+  const [vendors, setVendors] = useState<ProfileRecord[]>([]);
+  const [scrapDealers, setScrapDealers] = useState<ProfileRecord[]>([]);
+
+  useEffect(() => {
+    const loadMasters = async () => {
+      try {
+        const [projs, storesList, subcontractors, dealers] = await Promise.all([
+          projectService.getProjects().catch(() => []),
+          storeService.getStores().catch(() => []),
+          profileService.getProfiles('Subcontractor').catch(() => []),
+          profileService.getProfiles('ScrapDealer').catch(() => []),
+        ]);
+        setProjects(projs || []);
+        setStores(storesList || []);
+        setVendors(subcontractors || []);
+        setScrapDealers(dealers || []);
+      } catch (err) {
+        console.warn('Failed to load master report filters', err);
+      }
+    };
+    loadMasters();
+  }, []);
+
   const fetchTabReport = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -86,45 +127,105 @@ export default function ReportsHubScreen() {
       if (searchQuery.trim()) {
         params.search = searchQuery.trim();
       }
+      if (filters.project && filters.project !== 'All') {
+        params.project = filters.project;
+      }
+      if (filters.store && filters.store !== 'All') {
+        params.store = filters.store;
+      }
+      if (filters.vendor && filters.vendor !== 'All') {
+        params.vendor = filters.vendor;
+      }
+      if (filters.startDate) {
+        params.startDate = filters.startDate;
+      }
+      if (filters.endDate) {
+        params.endDate = filters.endDate;
+      }
 
       switch (activeTab) {
         case 'tools': {
+          if (filters.toolStatus && filters.toolStatus !== 'All') {
+            params.status = filters.toolStatus;
+          }
+          if (filters.toolType && filters.toolType !== 'All') {
+            params.toolType = filters.toolType;
+          }
+          if (filters.toolPrinted && filters.toolPrinted !== 'All') {
+            params.isPrinted = filters.toolPrinted === 'Yes';
+          }
           const res = await reportService.getToolsReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'challans': {
+          if (filters.challanType && filters.challanType !== 'All') {
+            params.challanType = filters.challanType;
+          }
+          if (filters.challanStatus && filters.challanStatus !== 'All') {
+            params.status = filters.challanStatus;
+          }
+          if (filters.outstandingOnly) {
+            params.isOutstandingOnly = 'true';
+          }
           const res = await reportService.getChallansReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'missing': {
+          if (filters.missingStatus && filters.missingStatus !== 'All') {
+            params.status = filters.missingStatus;
+          }
           const res = await reportService.getMissingToolsReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'inspections': {
+          if (filters.inspectionCompliance && filters.inspectionCompliance !== 'All') {
+            params.complianceStatus = filters.inspectionCompliance;
+          }
+          if (filters.inspectionResult && filters.inspectionResult !== 'All') {
+            params.inspectionResult = filters.inspectionResult;
+          }
+          if (filters.lifeExtension && filters.lifeExtension !== 'All') {
+            params.lifeExtension = filters.lifeExtension;
+          }
           const res = await reportService.getInspectionsReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'scrap': {
+          if (filters.scrapDisposalStatus && filters.scrapDisposalStatus !== 'All') {
+            params.disposalStatus = filters.scrapDisposalStatus;
+          }
+          if (filters.scrapDealer && filters.scrapDealer !== 'All') {
+            params.scrapDealer = filters.scrapDealer;
+          }
           const res = await reportService.getScrapReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'subcontractors': {
+          if (filters.complianceTier && filters.complianceTier !== 'All') {
+            params.complianceFilter = filters.complianceTier;
+          }
           const res = await reportService.getSubcontractorsReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.summary || {});
           break;
         }
         case 'logins': {
+          if (filters.loginRole && filters.loginRole !== 'All') {
+            params.role = filters.loginRole;
+          }
+          if (filters.loginStatus && filters.loginStatus !== 'All') {
+            params.status = filters.loginStatus;
+          }
           const res = await reportService.getLoginReport(params);
           setReportData(res.data || []);
           setSummaryStats(res.stats || {});
@@ -137,7 +238,7 @@ export default function ReportsHubScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, filters]);
 
   useEffect(() => {
     fetchTabReport();
@@ -361,11 +462,245 @@ export default function ReportsHubScreen() {
   };
 
   const handleDownloadCsv = () => {
-    const url = reportService.getExportUrl(activeTab, 'csv');
+    const exportParams: Record<string, any> = {};
+    if (searchQuery.trim()) exportParams.search = searchQuery.trim();
+    if (filters.project && filters.project !== 'All') exportParams.project = filters.project;
+    if (filters.store && filters.store !== 'All') exportParams.store = filters.store;
+    if (filters.vendor && filters.vendor !== 'All') exportParams.vendor = filters.vendor;
+    if (filters.startDate) exportParams.startDate = filters.startDate;
+    if (filters.endDate) exportParams.endDate = filters.endDate;
+
+    if (activeTab === 'tools') {
+      if (filters.toolStatus !== 'All') exportParams.status = filters.toolStatus;
+      if (filters.toolType !== 'All') exportParams.toolType = filters.toolType;
+      if (filters.toolPrinted !== 'All') exportParams.isPrinted = filters.toolPrinted === 'Yes';
+    } else if (activeTab === 'challans') {
+      if (filters.challanType !== 'All') exportParams.challanType = filters.challanType;
+      if (filters.challanStatus !== 'All') exportParams.status = filters.challanStatus;
+      if (filters.outstandingOnly) exportParams.isOutstandingOnly = 'true';
+    } else if (activeTab === 'missing') {
+      if (filters.missingStatus !== 'All') exportParams.status = filters.missingStatus;
+    } else if (activeTab === 'inspections') {
+      if (filters.inspectionCompliance !== 'All') exportParams.complianceStatus = filters.inspectionCompliance;
+      if (filters.lifeExtension !== 'All') exportParams.lifeExtension = filters.lifeExtension;
+    } else if (activeTab === 'scrap') {
+      if (filters.scrapDisposalStatus !== 'All') exportParams.disposalStatus = filters.scrapDisposalStatus;
+      if (filters.scrapDealer !== 'All') exportParams.scrapDealer = filters.scrapDealer;
+    } else if (activeTab === 'subcontractors') {
+      if (filters.complianceTier !== 'All') exportParams.complianceFilter = filters.complianceTier;
+    } else if (activeTab === 'logins') {
+      if (filters.loginRole !== 'All') exportParams.role = filters.loginRole;
+      if (filters.loginStatus !== 'All') exportParams.status = filters.loginStatus;
+    }
+
+    const url = reportService.getExportUrl(activeTab, 'csv', exportParams);
     Linking.openURL(url).catch(() => {
       Alert.alert('Download Error', 'Could not open download link.');
     });
   };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.project !== 'All') count++;
+    if (filters.store !== 'All') count++;
+    if (filters.vendor !== 'All') count++;
+    if (filters.datePreset !== 'all' || filters.startDate || filters.endDate) count++;
+
+    if (activeTab === 'tools') {
+      if (filters.toolStatus !== 'All') count++;
+      if (filters.toolPrinted !== 'All') count++;
+      if (filters.toolType !== 'All') count++;
+    } else if (activeTab === 'challans') {
+      if (filters.challanType !== 'All') count++;
+      if (filters.challanStatus !== 'All') count++;
+      if (filters.outstandingOnly) count++;
+    } else if (activeTab === 'missing') {
+      if (filters.missingStatus !== 'All') count++;
+    } else if (activeTab === 'inspections') {
+      if (filters.inspectionCompliance !== 'All') count++;
+      if (filters.lifeExtension !== 'All') count++;
+    } else if (activeTab === 'scrap') {
+      if (filters.scrapDisposalStatus !== 'All') count++;
+      if (filters.scrapDealer !== 'All') count++;
+    } else if (activeTab === 'subcontractors') {
+      if (filters.complianceTier !== 'All') count++;
+    } else if (activeTab === 'logins') {
+      if (filters.loginRole !== 'All') count++;
+      if (filters.loginStatus !== 'All') count++;
+    }
+    return count;
+  }, [filters, activeTab]);
+
+  const activeFilterTags = useMemo(() => {
+    const tags: { key: string; label: string; onClear: () => void }[] = [];
+
+    if (filters.project !== 'All') {
+      const proj = projects.find((p) => p._id === filters.project);
+      tags.push({
+        key: 'project',
+        label: `Project: ${proj?.name || filters.project}`,
+        onClear: () => setFilters((prev) => ({ ...prev, project: 'All', store: 'All' })),
+      });
+    }
+
+    if (filters.store !== 'All') {
+      const st = stores.find((s) => s._id === filters.store);
+      tags.push({
+        key: 'store',
+        label: `Store: ${st?.name || filters.store}`,
+        onClear: () => setFilters((prev) => ({ ...prev, store: 'All' })),
+      });
+    }
+
+    if (filters.vendor !== 'All') {
+      tags.push({
+        key: 'vendor',
+        label: `Vendor: ${filters.vendor}`,
+        onClear: () => setFilters((prev) => ({ ...prev, vendor: 'All' })),
+      });
+    }
+
+    if (filters.datePreset !== 'all') {
+      const presetLabels: Record<string, string> = {
+        today: 'Date: Today',
+        month: 'Date: This Month',
+        '30days': 'Date: Last 30 Days',
+      };
+      tags.push({
+        key: 'datePreset',
+        label: presetLabels[filters.datePreset] || 'Date Filtered',
+        onClear: () =>
+          setFilters((prev) => ({
+            ...prev,
+            datePreset: 'all',
+            startDate: '',
+            endDate: '',
+          })),
+      });
+    } else if (filters.startDate || filters.endDate) {
+      tags.push({
+        key: 'customDate',
+        label: `${filters.startDate || ''} ~ ${filters.endDate || ''}`,
+        onClear: () =>
+          setFilters((prev) => ({
+            ...prev,
+            datePreset: 'all',
+            startDate: '',
+            endDate: '',
+          })),
+      });
+    }
+
+    if (activeTab === 'tools') {
+      if (filters.toolStatus !== 'All') {
+        tags.push({
+          key: 'toolStatus',
+          label: `Status: ${filters.toolStatus}`,
+          onClear: () => setFilters((prev) => ({ ...prev, toolStatus: 'All' })),
+        });
+      }
+      if (filters.toolPrinted !== 'All') {
+        tags.push({
+          key: 'toolPrinted',
+          label: `QR: ${filters.toolPrinted === 'Yes' ? 'Printed' : 'Not Printed'}`,
+          onClear: () => setFilters((prev) => ({ ...prev, toolPrinted: 'All' })),
+        });
+      }
+      if (filters.toolType !== 'All') {
+        tags.push({
+          key: 'toolType',
+          label: `Category: ${filters.toolType}`,
+          onClear: () => setFilters((prev) => ({ ...prev, toolType: 'All' })),
+        });
+      }
+    } else if (activeTab === 'challans') {
+      if (filters.challanType !== 'All') {
+        tags.push({
+          key: 'challanType',
+          label: `Type: ${filters.challanType}`,
+          onClear: () => setFilters((prev) => ({ ...prev, challanType: 'All' })),
+        });
+      }
+      if (filters.challanStatus !== 'All') {
+        tags.push({
+          key: 'challanStatus',
+          label: `Status: ${filters.challanStatus}`,
+          onClear: () => setFilters((prev) => ({ ...prev, challanStatus: 'All' })),
+        });
+      }
+      if (filters.outstandingOnly) {
+        tags.push({
+          key: 'outstandingOnly',
+          label: 'Outstanding Only',
+          onClear: () => setFilters((prev) => ({ ...prev, outstandingOnly: false })),
+        });
+      }
+    } else if (activeTab === 'missing') {
+      if (filters.missingStatus !== 'All') {
+        tags.push({
+          key: 'missingStatus',
+          label: `Status: ${filters.missingStatus}`,
+          onClear: () => setFilters((prev) => ({ ...prev, missingStatus: 'All' })),
+        });
+      }
+    } else if (activeTab === 'inspections') {
+      if (filters.inspectionCompliance !== 'All') {
+        tags.push({
+          key: 'inspectionCompliance',
+          label: `Compliance: ${filters.inspectionCompliance}`,
+          onClear: () => setFilters((prev) => ({ ...prev, inspectionCompliance: 'All' })),
+        });
+      }
+      if (filters.lifeExtension !== 'All') {
+        tags.push({
+          key: 'lifeExtension',
+          label: `Extension: ${filters.lifeExtension}`,
+          onClear: () => setFilters((prev) => ({ ...prev, lifeExtension: 'All' })),
+        });
+      }
+    } else if (activeTab === 'scrap') {
+      if (filters.scrapDisposalStatus !== 'All') {
+        tags.push({
+          key: 'scrapDisposalStatus',
+          label: `Disposal: ${filters.scrapDisposalStatus}`,
+          onClear: () => setFilters((prev) => ({ ...prev, scrapDisposalStatus: 'All' })),
+        });
+      }
+      if (filters.scrapDealer !== 'All') {
+        const dealer = scrapDealers.find((d) => d._id === filters.scrapDealer);
+        tags.push({
+          key: 'scrapDealer',
+          label: `Dealer: ${dealer?.name || filters.scrapDealer}`,
+          onClear: () => setFilters((prev) => ({ ...prev, scrapDealer: 'All' })),
+        });
+      }
+    } else if (activeTab === 'subcontractors') {
+      if (filters.complianceTier !== 'All') {
+        tags.push({
+          key: 'complianceTier',
+          label: `Tier: ${filters.complianceTier}`,
+          onClear: () => setFilters((prev) => ({ ...prev, complianceTier: 'All' })),
+        });
+      }
+    } else if (activeTab === 'logins') {
+      if (filters.loginRole !== 'All') {
+        tags.push({
+          key: 'loginRole',
+          label: `Role: ${filters.loginRole}`,
+          onClear: () => setFilters((prev) => ({ ...prev, loginRole: 'All' })),
+        });
+      }
+      if (filters.loginStatus !== 'All') {
+        tags.push({
+          key: 'loginStatus',
+          label: `Status: ${filters.loginStatus}`,
+          onClear: () => setFilters((prev) => ({ ...prev, loginStatus: 'All' })),
+        });
+      }
+    }
+
+    return tags;
+  }, [filters, activeTab, projects, stores, scrapDealers]);
 
   return (
     <ScreenWrapper title="Enterprise Reports Hub" showBack requiredPage="/reports">
@@ -424,11 +759,84 @@ export default function ReportsHubScreen() {
           gap: 10,
         }}
       >
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={`Search ${activeTabConfig.title}...`}
-        />
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={`Search ${activeTabConfig.title}...`}
+            />
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setFilterModalVisible(true)}
+            style={[
+              styles.filterBtn,
+              {
+                backgroundColor: activeFilterCount > 0 ? theme.primary : isDark ? '#1E293B' : '#F1F5F9',
+                borderColor: activeFilterCount > 0 ? theme.primary : theme.border,
+              },
+            ]}
+          >
+            <SlidersHorizontal size={14} color={activeFilterCount > 0 ? '#FFFFFF' : theme.text} />
+            <Text
+              style={[
+                styles.filterBtnText,
+                { color: activeFilterCount > 0 ? '#FFFFFF' : theme.text },
+              ]}
+            >
+              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Active Filter Badges */}
+        {activeFilterTags.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingVertical: 2 }}
+          >
+            {activeFilterTags.map((tag) => (
+              <View
+                key={tag.key}
+                style={[
+                  styles.activeFilterTag,
+                  {
+                    backgroundColor: isDark ? 'rgba(79, 70, 229, 0.2)' : '#EEF2FF',
+                    borderColor: isDark ? '#4338CA' : '#C7D2FE',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.activeFilterTagText,
+                    { color: isDark ? '#A5B4FC' : '#4338CA' },
+                  ]}
+                >
+                  {tag.label}
+                </Text>
+                <TouchableOpacity
+                  onPress={tag.onClear}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={11} color={isDark ? '#A5B4FC' : '#4338CA'} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => setFilters(DEFAULT_REPORT_FILTERS)}
+              style={[styles.clearAllBtn, { borderColor: theme.border }]}
+            >
+              <RotateCcw size={10} color={theme.textSecondary} />
+              <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '700' }}>
+                Clear All
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '600' }}>
@@ -854,6 +1262,20 @@ export default function ReportsHubScreen() {
           }
         />
       )}
+
+      {/* Filter Modal */}
+      <ReportFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        activeTab={activeTab}
+        filters={filters}
+        onApply={(newFilters) => setFilters(newFilters)}
+        onReset={() => setFilters(DEFAULT_REPORT_FILTERS)}
+        projects={projects}
+        stores={stores}
+        vendors={vendors}
+        scrapDealers={scrapDealers}
+      />
     </ScreenWrapper>
   );
 }
@@ -870,6 +1292,41 @@ const styles = StyleSheet.create({
   },
   tabChipText: {
     fontSize: 12,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  filterBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  activeFilterTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  activeFilterTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  clearAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   headerActionBtn: {
     flexDirection: 'row',
@@ -909,3 +1366,4 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148, 163, 184, 0.2)',
   },
 });
+

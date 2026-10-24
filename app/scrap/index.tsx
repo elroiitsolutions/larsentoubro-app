@@ -38,6 +38,7 @@ import { Loader } from '@/components/ui/Loader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { ToolPreviewModal } from '@/features/tools/components/ToolPreviewModal';
+import { selectionStore } from '@/features/tools/utils/selectionStore';
 
 type DisposalStatusTab = 'pending' | 'disposed' | 'all';
 
@@ -189,6 +190,13 @@ export default function ScrapScreen() {
       targetTool?.store?._id ||
       targetTool?.storeId ||
       '';
+
+    const selectedToolsList = tools.filter((t) => idsToDispatch.includes(t._id));
+    selectionStore.setPendingChallan({
+      storeId: String(storeId || ''),
+      toolIds: idsToDispatch,
+      tools: selectedToolsList,
+    });
 
     router.push({
       pathname: '/challans/new',
