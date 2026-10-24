@@ -28,6 +28,7 @@ import { downloadOrShareChallanPdf, formatDateDDMMYYYY } from "@/features/challa
 import { selectionStore, ChallanPreviewState } from "@/features/tools/utils/selectionStore";
 import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
 import { ToolRecord } from "@/features/tools/types";
+import { ToolPreviewModal } from "@/features/tools/components/ToolPreviewModal";
 
 export default function DeliveryChallanPreviewScreen() {
   const router = useRouter();
@@ -135,6 +136,34 @@ export default function DeliveryChallanPreviewScreen() {
       };
     });
   });
+
+  // Tool Preview Modal State
+  const [previewTool, setPreviewTool] = useState<any | null>(null);
+  const [previewToolId, setPreviewToolId] = useState<string | null>(null);
+  const [toolPreviewVisible, setToolPreviewVisible] = useState(false);
+
+  const handleOpenToolPreview = (qrOrId: string) => {
+    if (!qrOrId || qrOrId === "-") return;
+    const cleaned = qrOrId.trim();
+    const found =
+      (initialTools || []).find(
+        (t: any) =>
+          t.toolId === cleaned ||
+          t.toolCode === cleaned ||
+          t.serialNumber === cleaned ||
+          t._id === cleaned
+      ) ||
+      (previewState?.selectedTools || []).find(
+        (t: any) =>
+          t.toolId === cleaned ||
+          t.toolCode === cleaned ||
+          t.serialNumber === cleaned ||
+          t._id === cleaned
+      );
+    setPreviewTool(found || null);
+    setPreviewToolId(cleaned);
+    setToolPreviewVisible(true);
+  };
 
   // Re-sync if previewState updates later
   useEffect(() => {
@@ -1011,22 +1040,29 @@ export default function DeliveryChallanPreviewScreen() {
                             fontSize: 10.5,
                           }}
                         />
-                        {/* QR Code Text in Blue */}
+                        {/* QR Code Text in Blue (Interactive Click to Open Tool Preview) */}
                         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
                           <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
                           {group.qrs.map((qr, qIdx) => (
-                            <Text
+                            <TouchableOpacity
                               key={qIdx}
-                              style={{
-                                fontSize: 9,
-                                fontWeight: "800",
-                                color: "#1D4ED8",
-                                fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                                includeFontPadding: false,
-                              }}
+                              activeOpacity={0.7}
+                              onPress={() => handleOpenToolPreview(qr)}
+                              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                             >
-                              {qr}{qIdx < group.qrs.length - 1 ? ", " : ""}
-                            </Text>
+                              <Text
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: "800",
+                                  color: "#1D4ED8",
+                                  fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                                  includeFontPadding: false,
+                                  textDecorationLine: "underline",
+                                }}
+                              >
+                                {qr}{qIdx < group.qrs.length - 1 ? ", " : ""}
+                              </Text>
+                            </TouchableOpacity>
                           ))}
                         </View>
                       </View>
@@ -1079,20 +1115,27 @@ export default function DeliveryChallanPreviewScreen() {
                             fontSize: 10.5,
                           }}
                         />
-                        {/* QR Code Text in Blue */}
+                        {/* QR Code Text in Blue (Interactive Click to Open Tool Preview) */}
                         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
                           <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
-                          <Text
-                            style={{
-                              fontSize: 9,
-                              fontWeight: "800",
-                              color: "#1D4ED8",
-                              fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-                              includeFontPadding: false,
-                            }}
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => handleOpenToolPreview(item.toolId || item.toolCode || item.tool)}
+                            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                           >
-                            {item.toolId || item.toolCode || item.tool || "-"}
-                          </Text>
+                            <Text
+                              style={{
+                                fontSize: 9,
+                                fontWeight: "800",
+                                color: "#1D4ED8",
+                                fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                                includeFontPadding: false,
+                                textDecorationLine: "underline",
+                              }}
+                            >
+                              {item.toolId || item.toolCode || item.tool || "-"}
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                     </View>
@@ -1458,6 +1501,18 @@ export default function DeliveryChallanPreviewScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Quick Tool Preview Modal matching web popup */}
+      <ToolPreviewModal
+        visible={toolPreviewVisible}
+        tool={previewTool}
+        toolId={previewToolId}
+        onClose={() => {
+          setToolPreviewVisible(false);
+          setPreviewTool(null);
+          setPreviewToolId(null);
+        }}
+      />
     </ScreenWrapper>
   );
 }

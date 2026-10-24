@@ -104,10 +104,20 @@ export const toolService = {
   },
 
   /**
-   * Retrieves single tool details by ID.
+   * Retrieves single tool details by ID (optionally scoped to storeId/projectId).
    */
-  getToolById: async (id: string): Promise<ToolRecord | null> => {
-    const response = await api.get<ToolDetailResponse>(`/api/tools/${encodeURIComponent(id)}`);
+  getToolById: async (
+    id: string,
+    storeId?: string,
+    projectId?: string
+  ): Promise<ToolRecord | null> => {
+    const params: Record<string, string> = {};
+    if (storeId) params.storeId = storeId;
+    if (projectId) params.projectId = projectId;
+    const response = await api.get<ToolDetailResponse>(
+      `/api/tools/${encodeURIComponent(id)}`,
+      { params }
+    );
     if (response.data && response.data.success && response.data.data) {
       return response.data.data;
     }

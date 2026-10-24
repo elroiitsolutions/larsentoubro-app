@@ -31,10 +31,12 @@ export const StoreCard: React.FC<StoreCardProps> = ({
 
   const isHub = store.type === "HUB";
   const accentColor = isHub ? "#4F46E5" : "#059669";
-  const availableTools =
-    (store.availableToolsCount !== undefined && store.availableToolsCount > 0)
-      ? store.availableToolsCount
-      : (store.toolsCount || store.totalToolsCount || store.availableToolsCount || 0);
+  const totalTools =
+    (store.totalToolsCount !== undefined && store.totalToolsCount !== null)
+      ? store.totalToolsCount
+      : (store.toolsCount !== undefined && store.toolsCount !== null)
+      ? store.toolsCount
+      : (store.availableToolsCount || 0);
 
   return (
     <View
@@ -57,90 +59,96 @@ export const StoreCard: React.FC<StoreCardProps> = ({
         onPress={onPress}
         style={{ padding: 15 }}
       >
-        {/* Header Row: Facility Icon & Name */}
+        {/* Main Content Row: Left (Icon + Name & Location) & Right (Total Tools) */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            marginBottom: 12,
+            justifyContent: "space-between",
+            marginBottom: 14,
+            gap: 10,
           }}
         >
+          {/* Left Div: Store Icon + (Name and Location) */}
           <View
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              backgroundColor: isHub
-                ? isDark
-                  ? "rgba(79, 70, 229, 0.2)"
-                  : "#EEF2FF"
-                : isDark
-                ? "rgba(5, 150, 105, 0.2)"
-                : "#ECFDF5",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
-              borderWidth: 1,
-              borderColor: isHub
-                ? isDark
-                  ? "#3730A3"
-                  : "#C7D2FE"
-                : isDark
-                ? "#065F46"
-                : "#A7F3D0",
-            }}
-          >
-            {isHub ? (
-              <Building2 size={20} color={accentColor} />
-            ) : (
-              <Store size={20} color={accentColor} />
-            )}
-          </View>
-
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "800",
-              color: theme.text,
-              letterSpacing: -0.3,
               flex: 1,
+              minWidth: 0,
+              gap: 10,
             }}
-            numberOfLines={1}
           >
-            {store.name}
-          </Text>
-        </View>
-
-        {/* Structured Meta Box: Location & Available Tools */}
-        <View
-          style={{
-            backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            marginBottom: 12,
-            borderWidth: 1,
-            borderColor: isDark ? "#334155" : "#E2E8F0",
-            gap: 8,
-          }}
-        >
-          {/* Location */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <MapPin size={14} color="#64748B" />
-            <Text
+            <View
               style={{
-                fontSize: 12,
-                fontWeight: "600",
-                color: isDark ? "#CBD5E1" : "#475569",
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: isHub
+                  ? isDark
+                    ? "rgba(79, 70, 229, 0.2)"
+                    : "#EEF2FF"
+                  : isDark
+                  ? "rgba(5, 150, 105, 0.2)"
+                  : "#ECFDF5",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: isHub
+                  ? isDark
+                    ? "#3730A3"
+                    : "#C7D2FE"
+                  : isDark
+                  ? "#065F46"
+                  : "#A7F3D0",
               }}
-              numberOfLines={1}
             >
-              {store.location || "Facility Yard"}
-            </Text>
+              {isHub ? (
+                <Building2 size={20} color={accentColor} />
+              ) : (
+                <Store size={20} color={accentColor} />
+              )}
+            </View>
+
+            {/* Name and Location in same div */}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "800",
+                  color: theme.text,
+                  letterSpacing: -0.3,
+                  marginBottom: 2,
+                }}
+                numberOfLines={1}
+              >
+                {store.name}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <MapPin size={12} color="#64748B" />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: isDark ? "#CBD5E1" : "#64748B",
+                  }}
+                  numberOfLines={1}
+                >
+                  {store.location || "Facility Yard"}
+                </Text>
+              </View>
+            </View>
           </View>
 
-          {/* Available Tools */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {/* Right Div: Total Tools */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              flexShrink: 0,
+            }}
+          >
             <Wrench size={13} color={accentColor} />
             <Text
               style={{
@@ -149,7 +157,7 @@ export const StoreCard: React.FC<StoreCardProps> = ({
                 color: theme.text,
               }}
             >
-              {availableTools} Available Tools
+              {totalTools} Total Tools
             </Text>
           </View>
         </View>
