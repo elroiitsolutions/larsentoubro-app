@@ -284,6 +284,25 @@ export default function StoreInventoryScreen() {
       case "scrap":
         setScrapModalOpen(true);
         break;
+      case "delete":
+        handleBulkDelete();
+        break;
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedToolIds);
+    if (ids.length === 0) return;
+    try {
+      const res = await toolService.bulkDeleteTools(id, ids);
+      Alert.alert("Success", res.message || `Moved ${ids.length} tools to Trash.`);
+      handleClearSelection();
+      await reloadTools();
+    } catch (err: any) {
+      Alert.alert(
+        "Error",
+        err?.response?.data?.message || err?.message || "Failed to delete selected tools."
+      );
     }
   };
 
@@ -450,6 +469,16 @@ export default function StoreInventoryScreen() {
       setTotalServerTools(total);
       setPage(1);
       setHasMore(newTools.length < total);
+      // Synchronize selectedToolsMap with updated server data
+      setSelectedToolsMap((prev) => {
+        const next = { ...prev };
+        for (const t of newTools) {
+          if (next[t._id]) {
+            next[t._id] = t;
+          }
+        }
+        return next;
+      });
     } catch (err) {
       console.error("Failed to reload tools:", err);
     } finally {
@@ -613,29 +642,8 @@ export default function StoreInventoryScreen() {
             )}
           </View>
 
-          {/* Right Side: Options, Select/Deselect All, Done */}
+          {/* Right Side: Select/Deselect All, Done */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            {selectedToolIds.size > 0 && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setSelectedToolsModalOpen(true)}
-                style={{
-                  backgroundColor: "#FBBF24",
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Sparkles size={13} color="#78350F" />
-                <Text style={{ fontSize: 12, fontWeight: "700", color: "#451A03" }}>
-                  Options
-                </Text>
-              </TouchableOpacity>
-            )}
-
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={isSelectingAll}

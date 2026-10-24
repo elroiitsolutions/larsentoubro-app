@@ -5,33 +5,34 @@ import Constants from "expo-constants";
  * Returns the appropriate API base URL based on environment and platform.
  */
 function getApiBaseUrl(): string {
-  // 1. Web browser: connect directly to localhost:3000 or the same host
+  // 1. Explicitly configured public env variable (for native devices & web)
+  const rawUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (rawUrl && typeof rawUrl === "string" && rawUrl.trim() !== "") {
+    return rawUrl.trim().replace(/\/+$/, "");
+  }
+
+  // 2. Web browser: connect directly to backend on port 4000
   if (Platform.OS === "web") {
     if (typeof window !== "undefined" && window.location) {
       const hostname = window.location.hostname || "localhost";
-      return `http://${hostname}:3000`;
+      return `http://${hostname}:4000`;
     }
-    return "http://localhost:3000";
-  }
-
-  // 2. Explicitly configured public env variable (for native devices)
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_API_BASE_URL;
+    return "http://localhost:4000";
   }
 
   // 3. Development host detection (auto-resolves your PC's IP when scanning from Expo Go)
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
     const ip = hostUri.split(":")[0];
-    return `http://${ip}:3000`;
+    return `http://${ip}:4000`;
   }
 
   // 4. Android emulator alias for host machine
   if (Platform.OS === "android") {
-    return "http://10.0.2.2:3000";
+    return "http://10.0.2.2:4000";
   }
 
-  return "http://localhost:3000";
+  return "http://localhost:4000";
 }
 
 export const ENV = {
