@@ -46,7 +46,12 @@ export default function UsersScreen() {
   const { theme, isDark } = useAppTheme();
   const { user: currentUser } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState<UserTab>('users');
+  const isAdmin = currentUser?.role === 'Admin';
+  const canManageSubusers = Boolean(
+    isAdmin || (currentUser as any)?.canCreateUser
+  );
+
+  const [activeTab, setActiveTab] = useState<UserTab>(isAdmin ? 'users' : 'subusers');
   const [userList, setUserList] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,15 +66,17 @@ export default function UsersScreen() {
   const [subuserModalVisible, setSubuserModalVisible] = useState(false);
   const [selectedSubuser, setSelectedSubuser] = useState<UserRecord | null>(null);
 
-  const canManageSubusers = Boolean(
-    currentUser?.role === 'Admin' || (currentUser as any)?.canCreateUser
-  );
+  useEffect(() => {
+    if (!isAdmin) {
+      setActiveTab('subusers');
+    }
+  }, [isAdmin]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      if (activeTab === 'users') {
+      if (isAdmin && activeTab === 'users') {
         const data = await userService.getUsers();
         setUserList(data || []);
       } else {
@@ -82,7 +89,7 @@ export default function UsersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab]);
+  }, [activeTab, isAdmin]);
 
   useEffect(() => {
     fetchData();
@@ -94,7 +101,7 @@ export default function UsersScreen() {
   };
 
   const handleOpenAdd = () => {
-    if (activeTab === 'users') {
+    if (isAdmin && activeTab === 'users') {
       setSelectedUser(null);
       setUserModalVisible(true);
     } else {
@@ -104,7 +111,7 @@ export default function UsersScreen() {
   };
 
   const handleEditItem = (item: UserRecord) => {
-    if (activeTab === 'users') {
+    if (isAdmin && activeTab === 'users') {
       setSelectedUser(item);
       setUserModalVisible(true);
     } else {
@@ -126,25 +133,25 @@ export default function UsersScreen() {
 
   return (
     <ScreenWrapper
-      title="Users & Access Directory"
+      title={isAdmin ? "Users & Access Directory" : "Subuser Team Accounts"}
       showBack
       requiredPage="/users"
       headerRight={
-        (currentUser?.role === 'Admin' || (activeTab === 'subusers' && canManageSubusers)) ? (
+        (isAdmin || (activeTab === 'subusers' && canManageSubusers)) ? (
           <TouchableOpacity
             onPress={handleOpenAdd}
             className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 active:bg-indigo-700 shadow-sm"
           >
             <UserPlus size={14} color="#FFFFFF" />
             <Text className="text-xs font-bold text-white">
-              {activeTab === 'users' ? 'Add User' : 'Add Subuser'}
+              {isAdmin && activeTab === 'users' ? 'Add User' : 'Add Subuser'}
             </Text>
           </TouchableOpacity>
         ) : undefined
       }
     >
-      {/* Tabs Switcher (Visible if user has subuser management privilege) */}
-      {canManageSubusers && (
+      {/* Tabs Switcher (Only visible to Admin who manages BOTH organization users and subusers) */}
+      {isAdmin && (
         <View
           style={[
             styles.tabBar,
@@ -363,6 +370,8 @@ export default function UsersScreen() {
             <EmptyState
               title={`No ${activeTab === 'users' ? 'Users' : 'Subusers'} Found`}
               description={`No ${activeTab === 'users' ? 'organization users' : 'delegated subuser team accounts'} matched your criteria.`}
+              actionTitle={canManageSubusers ? (isAdmin && activeTab === 'users' ? 'Add User' : 'Add Subuser') : undefined}
+              onAction={canManageSubusers ? handleOpenAdd : undefined}
             />
           }
         />

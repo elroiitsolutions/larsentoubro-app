@@ -16,6 +16,7 @@ interface InputProps extends TextInputProps {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerClassName?: string;
+  containerStyle?: any;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -26,6 +27,7 @@ export const Input: React.FC<InputProps> = ({
   leftIcon,
   rightIcon,
   containerClassName = "",
+  containerStyle,
   className = "",
   style,
   onFocus,
@@ -36,7 +38,7 @@ export const Input: React.FC<InputProps> = ({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View className={`w-full mb-4 ${containerClassName}`}>
+    <View className={`w-full mb-4 ${containerClassName}`} style={containerStyle}>
       {label && (
         <Text className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wide">
           {label}

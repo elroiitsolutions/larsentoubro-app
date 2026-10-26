@@ -20,6 +20,8 @@ import {
   FolderGit2,
   Store,
   UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { Switch } from 'react-native';
 import { Modal } from '@/components/ui/Modal';
@@ -38,7 +40,12 @@ interface UserFormModalProps {
   onSuccess: () => void;
 }
 
-const ROLES = ['Admin', 'User', 'Vendor', 'Guest'] as const;
+const ROLES = ['Admin', 'User'] as const;
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  Admin: 'Full system & RBAC access',
+  User: 'Standard equipment & inventory',
+};
 
 const AVAILABLE_PAGES = [
   { label: 'Dashboard', path: '/dashboard' },
@@ -67,7 +74,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   const [email, setEmail] = useState('');
   const [phonenumber, setPhonenumber] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'Admin' | 'User' | 'Vendor' | 'Guest'>('User');
+  const [role, setRole] = useState<'Admin' | 'User'>('User');
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [hasInspectionAccess, setHasInspectionAccess] = useState(false);
   const [canCreateUser, setCanCreateUser] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
@@ -108,7 +116,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setEmail(user.email || '');
       setPhonenumber(user.phonenumber || user.phone || '');
       setPassword('');
-      setRole((user.role as any) || 'User');
+      setRole(user.role === 'Admin' ? 'Admin' : 'User');
       setHasInspectionAccess(Boolean(user.role === 'Admin' || user.hasInspectionAccess));
       setCanCreateUser(Boolean(user.role === 'Admin' || user.canCreateUser));
       setSelectedProjects(
@@ -122,6 +130,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
           ? user.allowedPages
           : ['/dashboard', '/projects', '/stores', '/tools']
       );
+      setRoleDropdownOpen(false);
     } else {
       setName('');
       setUserId('');
@@ -129,6 +138,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setPhonenumber('');
       setPassword('');
       setRole('User');
+      setRoleDropdownOpen(false);
       setHasInspectionAccess(false);
       setCanCreateUser(false);
       setSelectedProjects([]);
@@ -290,59 +300,263 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
           placeholder="Min 6 characters"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry
+          isPassword
           autoCapitalize="none"
         />
 
-        {/* Role Selector */}
-        <View className="mb-4">
-          <Text className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
-            System Role
+        {/* System Role Dropdown */}
+        <View style={{ marginBottom: 16 }}>
+          <Text
+            style={{
+              fontSize: 11.5,
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              color: isDark ? '#CBD5E1' : '#334155',
+              letterSpacing: 0.5,
+              marginBottom: 6,
+            }}
+          >
+            System Role *
           </Text>
-          <View className="flex-row gap-2">
-            {ROLES.map((r) => {
-              const isSelected = role === r;
-              return (
-                <TouchableOpacity
-                  key={r}
-                  activeOpacity={0.7}
-                  onPress={() => setRole(r)}
-                  className={`flex-1 py-2 rounded-xl items-center border ${
-                    isSelected
-                      ? 'bg-indigo-600 border-indigo-600'
-                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                  }`}
+
+          {/* Dropdown Trigger */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setRoleDropdownOpen((prev) => !prev)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 12,
+              paddingVertical: 11,
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: roleDropdownOpen
+                ? '#4F46E5'
+                : isDark
+                ? '#334155'
+                : '#E2E8F0',
+              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  backgroundColor:
+                    role === 'Admin'
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : 'rgba(79, 70, 229, 0.12)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Shield
+                  size={16}
+                  color={role === 'Admin' ? '#DC2626' : '#4F46E5'}
+                />
+              </View>
+              <View>
+                <Text
+                  style={{
+                    fontSize: 13.5,
+                    fontWeight: '700',
+                    color: isDark ? '#FFFFFF' : '#0F172A',
+                  }}
                 >
-                  <Text
-                    className={`text-xs font-bold ${
-                      isSelected ? 'text-white' : 'text-slate-700 dark:text-slate-300'
-                    }`}
+                  {role}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#64748B', marginTop: 1 }}>
+                  {ROLE_DESCRIPTIONS[role] || 'System role access level'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 6,
+                  backgroundColor: isDark ? '#334155' : '#F1F5F9',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: isDark ? '#94A3B8' : '#64748B',
+                  }}
+                >
+                  Select
+                </Text>
+              </View>
+              {roleDropdownOpen ? (
+                <ChevronUp size={16} color="#64748B" />
+              ) : (
+                <ChevronDown size={16} color="#64748B" />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Dropdown Menu Options */}
+          {roleDropdownOpen && (
+            <View
+              style={{
+                marginTop: 6,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: isDark ? '#334155' : '#CBD5E1',
+                backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                overflow: 'hidden',
+                elevation: 6,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+              }}
+            >
+              {ROLES.map((r, index) => {
+                const isSelected = role === r;
+                return (
+                  <TouchableOpacity
+                    key={r}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setRole(r);
+                      setRoleDropdownOpen(false);
+                      if (r === 'Admin') {
+                        setHasInspectionAccess(true);
+                        setCanCreateUser(true);
+                      }
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderBottomWidth: index === ROLES.length - 1 ? 0 : 1,
+                      borderBottomColor: isDark ? '#1E293B' : '#F1F5F9',
+                      backgroundColor: isSelected
+                        ? isDark
+                          ? 'rgba(79, 70, 229, 0.15)'
+                          : '#EEF2FF'
+                        : 'transparent',
+                    }}
                   >
-                    {r}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          backgroundColor:
+                            r === 'Admin'
+                              ? 'rgba(239, 68, 68, 0.12)'
+                              : 'rgba(79, 70, 229, 0.12)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Shield
+                          size={14}
+                          color={r === 'Admin' ? '#DC2626' : '#4F46E5'}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: isSelected ? '800' : '600',
+                            color: isSelected
+                              ? '#4F46E5'
+                              : isDark
+                              ? '#FFFFFF'
+                              : '#0F172A',
+                          }}
+                        >
+                          {r}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: '#64748B' }}>
+                          {ROLE_DESCRIPTIONS[r]}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected && (
+                      <View
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          backgroundColor: '#4F46E5',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
 
-        {/* Page Access Permissions */}
-        <View className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-          <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-            <View className="flex-row items-center gap-1.5">
+        {/* Page Access Permissions - Structured 2-Column Grid */}
+        <View
+          style={{
+            marginBottom: 16,
+            padding: 12,
+            borderRadius: 16,
+            backgroundColor: isDark ? 'rgba(30, 41, 59, 0.6)' : '#F8FAFC',
+            borderWidth: 1,
+            borderColor: isDark ? '#334155' : '#E2E8F0',
+          }}
+        >
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+              paddingBottom: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? '#334155' : '#E2E8F0',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Shield size={14} color="#4F46E5" />
-              <Text className="text-xs font-bold text-slate-900 dark:text-white">
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                }}
+              >
                 Allowed Pages ({allowedPages.length}/{AVAILABLE_PAGES.length})
               </Text>
             </View>
-            <TouchableOpacity onPress={handleSelectAllPages}>
-              <Text className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+            <TouchableOpacity onPress={handleSelectAllPages} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
                 {allowedPages.length === AVAILABLE_PAGES.length ? 'Deselect All' : 'Select All'}
               </Text>
             </TouchableOpacity>
           </View>
 
-          <View className="flex-row flex-wrap gap-1.5">
+          {/* 2-Column Balanced Grid */}
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              rowGap: 8,
+            }}
+          >
             {AVAILABLE_PAGES.map((pg) => {
               const hasAccess = allowedPages.includes(pg.path);
               return (
@@ -350,23 +564,59 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                   key={pg.path}
                   activeOpacity={0.7}
                   onPress={() => togglePagePermission(pg.path)}
-                  className={`flex-row items-center gap-1 px-2.5 py-1.5 rounded-lg border ${
-                    hasAccess
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800'
-                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                  }`}
+                  style={{
+                    width: '48.5%',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 9,
+                    paddingVertical: 9,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: hasAccess
+                      ? isDark
+                        ? '#059669'
+                        : '#A7F3D0'
+                      : isDark
+                      ? '#334155'
+                      : '#E2E8F0',
+                    backgroundColor: hasAccess
+                      ? isDark
+                        ? 'rgba(5, 150, 105, 0.15)'
+                        : '#ECFDF5'
+                      : isDark
+                      ? '#1E293B'
+                      : '#FFFFFF',
+                  }}
                 >
                   <View
-                    className={`w-3.5 h-3.5 rounded items-center justify-center ${
-                      hasAccess ? 'bg-emerald-600' : 'border border-slate-400'
-                    }`}
+                    style={{
+                      width: 17,
+                      height: 17,
+                      borderRadius: 4,
+                      borderWidth: hasAccess ? 0 : 1.5,
+                      borderColor: isDark ? '#64748B' : '#94A3B8',
+                      backgroundColor: hasAccess ? '#059669' : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
                   >
-                    {hasAccess && <Check size={10} color="#FFFFFF" />}
+                    {hasAccess && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
                   </View>
                   <Text
-                    className={`text-[11px] font-semibold ${
-                      hasAccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'
-                    }`}
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: hasAccess ? '700' : '500',
+                      color: hasAccess
+                        ? isDark
+                          ? '#6EE7B7'
+                          : '#065F46'
+                        : isDark
+                        ? '#CBD5E1'
+                        : '#475569',
+                      flex: 1,
+                    }}
+                    numberOfLines={1}
                   >
                     {pg.label}
                   </Text>

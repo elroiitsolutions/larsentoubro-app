@@ -8,6 +8,8 @@ export interface UserProfile {
   user_id: string;
   phonenumber?: string;
   allowedPages?: string[];
+  canCreateUser?: boolean;
+  hasInspectionAccess?: boolean;
   projects?: any[];
   stores?: any[];
   createdAt?: string;

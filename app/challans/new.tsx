@@ -562,24 +562,57 @@ export default function NewChallanScreen() {
             </Text>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 12, marginBottom: 10 }}>
+          {/* Coordinated Labels Row */}
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 6, alignItems: "flex-end" }}>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  color: isDark ? "#CBD5E1" : "#334155",
+                  letterSpacing: 0.4,
+                }}
+                numberOfLines={1}
+              >
+                Challan Issue Date *
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  color: isDark ? "#CBD5E1" : "#334155",
+                  letterSpacing: 0.4,
+                }}
+                numberOfLines={1}
+              >
+                Expected Return Date
+              </Text>
+            </View>
+          </View>
+
+          {/* Coordinated Inputs Row */}
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
             <View style={{ flex: 1 }}>
               <Input
-                label="Challan Issue Date *"
                 placeholder="YYYY-MM-DD"
                 value={challanDate}
                 onChangeText={setChallanDate}
+                containerStyle={{ marginBottom: 0 }}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Input
-                label="Expected Delivery / Return Date"
                 placeholder="YYYY-MM-DD"
                 value={deliveryDate}
                 onChangeText={(txt) => {
                   setDeliveryDate(txt);
                   setSelectedPreset(null);
                 }}
+                containerStyle={{ marginBottom: 0 }}
               />
             </View>
           </View>

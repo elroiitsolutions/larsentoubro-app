@@ -124,6 +124,8 @@ export const SidebarDrawer: React.FC = () => {
     if (isVendor) {
       return item.route.includes("stores") || item.route.includes("challans");
     }
+    // Users item is visible to user if they have canCreateUser permission
+    if (item.route === "/users" && canManageSubusers) return true;
     // For standard users, verify against allowedPages
     if (!item.requiredPage) return true;
     return userAllowedPages.includes(item.requiredPage);
@@ -141,7 +143,15 @@ export const SidebarDrawer: React.FC = () => {
     return MENU_SECTIONS
       .map((section) => ({
         ...section,
-        items: section.items.filter(isItemVisible),
+        title: section.title === "Administration" && !isAdmin && canManageSubusers ? "Team Management" : section.title,
+        items: section.items
+          .filter(isItemVisible)
+          .map((item) => {
+            if (item.route === "/users" && !isAdmin && canManageSubusers) {
+              return { ...item, label: "Subuser Team" };
+            }
+            return item;
+          }),
       }))
       .filter((sec) => sec.items.length > 0);
   }, [isGuest, isAdmin, isVendor, userAllowedPages, canManageSubusers]);
