@@ -30,6 +30,8 @@ import {
   Sun,
   Moon,
   Menu,
+  Users,
+  UserCheck,
 } from "lucide-react-native";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
@@ -233,6 +235,37 @@ export default function ProfileScreen() {
             </View>
           </View>
         </Card>
+
+        {/* Subuser Team Delegation Card for Users with canCreateUser */}
+        {Boolean(user?.canCreateUser || (userDetails as any)?.canCreateUser || user?.role === "Admin") && (
+          <Card className="p-4 mb-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center gap-2">
+                <Users size={18} color="#4F46E5" />
+                <Text className="text-sm font-bold text-slate-900 dark:text-white">
+                  Subuser Team Management
+                </Text>
+              </View>
+              <Badge label="Active Scope" variant="success" size="sm" />
+            </View>
+            <Text className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              You are authorized to delegate and manage subuser accounts under your team.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push("/users" as any)}
+              className="flex-row items-center justify-between p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900"
+            >
+              <View className="flex-row items-center gap-2.5">
+                <UserCheck size={16} color="#4F46E5" />
+                <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  Manage & Add Subusers
+                </Text>
+              </View>
+              <ChevronRight size={16} color="#4F46E5" />
+            </TouchableOpacity>
+          </Card>
+        )}
 
         {/* System & API Environment Settings */}
         <Card className="p-4 mb-4">

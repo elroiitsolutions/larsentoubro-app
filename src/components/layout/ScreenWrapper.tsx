@@ -61,12 +61,15 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
 
   const shouldShowBack = Boolean(showBack || showBackButton);
 
+  const canManageSubusers = Boolean(user?.role === "Admin" || (user as any)?.canCreateUser);
+
   const isRestricted = Boolean(
     (adminOnly && user && user.role !== "Admin") ||
     (requiredPage &&
       user &&
       user.role !== "Admin" &&
       user.role !== "Vendor" &&
+      !(requiredPage === "/users" && canManageSubusers) &&
       (!user.allowedPages || !user.allowedPages.includes(requiredPage)))
   );
 

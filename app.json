@@ -38,15 +38,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "512451e5-1b06-4223-8a26-ab1859facd11"
-      }
-    },
-    "owner": "elroi_it"
+    }
+   
   }
 }

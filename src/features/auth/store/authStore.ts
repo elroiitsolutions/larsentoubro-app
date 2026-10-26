@@ -54,15 +54,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (token: string, user: UserProfile) => {
     try {
+      const normalizedUser: UserProfile = {
+        ...user,
+        canCreateUser: Boolean(user.role === "Admin" || (user as any).canCreateUser),
+        hasInspectionAccess: Boolean(user.role === "Admin" || (user as any).hasInspectionAccess),
+      };
       await secureStorage.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
-      await secureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      await secureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(normalizedUser));
 
       set({
         token,
-        user,
+        user: normalizedUser,
         isAuthenticated: true,
         isLoading: false,
       });
+
+      if (normalizedUser.role !== "Guest") {
+        get().refreshProfile();
+      }
     } catch (error) {
       console.error("Failed to store auth token securely:", error);
     }
@@ -88,10 +97,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authService.getCurrentUser();
       if (res.success && res.data) {
+        const raw = res.data as any;
         const updatedUser: UserProfile = {
-          ...res.data,
-          id: res.data._id || res.data.id,
-          allowedPages: res.data.allowedPages || ["/dashboard", "/projects", "/stores"],
+          ...raw,
+          id: raw._id || raw.id,
+          allowedPages: raw.allowedPages || ["/dashboard", "/projects", "/stores"],
+          canCreateUser: Boolean(raw.role === "Admin" || raw.canCreateUser),
+          hasInspectionAccess: Boolean(raw.role === "Admin" || raw.hasInspectionAccess),
         };
 
         await secureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
