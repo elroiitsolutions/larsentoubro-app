@@ -24,10 +24,10 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities = [] }) =
     return (
       <View
         style={{
-          backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+          backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
           borderRadius: 16,
           borderWidth: 1,
-          borderColor: isDark ? "#334155" : "#E2E8F0",
+          borderColor: isDark ? "#2E2E33" : "#E2E8F0",
           padding: 16,
           marginBottom: 30,
           alignItems: "center",
@@ -118,10 +118,10 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities = [] }) =
   return (
     <View
       style={{
-        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+        backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: isDark ? "#334155" : "#E2E8F0",
+        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
         padding: 14,
         marginBottom: 30,
         ...Platform.select({
@@ -211,7 +211,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities = [] }) =
                     style={{
                       width: 2,
                       flex: 1,
-                      backgroundColor: isDark ? "#334155" : "#E2E8F0",
+                      backgroundColor: isDark ? "#2E2E33" : "#E2E8F0",
                       marginVertical: 2,
                     }}
                   />

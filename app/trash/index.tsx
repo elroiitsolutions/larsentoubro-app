@@ -217,7 +217,7 @@ export default function TrashScreen() {
           paddingVertical: 10,
           borderBottomWidth: 1,
           borderColor: theme.border,
-          backgroundColor: isDark ? '#111827' : '#FFFFFF',
+          backgroundColor: isDark ? '#181818' : '#FFFFFF',
         }}
       >
         <SearchBar
@@ -236,7 +236,7 @@ export default function TrashScreen() {
             justifyContent: 'space-between',
             paddingHorizontal: 16,
             paddingVertical: 10,
-            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            backgroundColor: isDark ? '#262626' : '#F8FAFC',
             borderBottomWidth: 1,
             borderColor: theme.border,
           }}
@@ -322,7 +322,7 @@ export default function TrashScreen() {
                       ? 'rgba(79, 70, 229, 0.08)'
                       : '#EEF2FF'
                     : isDark
-                      ? '#1E293B'
+                      ? '#262626'
                       : '#FFFFFF',
                 }}
               >
@@ -439,7 +439,7 @@ export default function TrashScreen() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         gap: 5,
-                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        backgroundColor: isDark ? '#262626' : '#F1F5F9',
                         borderWidth: 1,
                         borderColor: theme.border,
                         paddingHorizontal: 12,
@@ -496,7 +496,7 @@ export default function TrashScreen() {
             bottom: 0,
             left: 0,
             right: 0,
-            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
             borderTopWidth: 1,
             borderColor: theme.border,
             paddingHorizontal: 16,

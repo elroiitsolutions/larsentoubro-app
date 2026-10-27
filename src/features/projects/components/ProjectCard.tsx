@@ -72,11 +72,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   return (
     <View
       style={{
-        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+        backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
         borderRadius: 16,
         marginBottom: 14,
         borderWidth: 1,
-        borderColor: isDark ? "#334155" : "#E2E8F0",
+        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
         position: "relative",
         overflow: "hidden",
         ...Platform.select({
@@ -132,7 +132,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
                 <View
                   style={{
-                    backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                    backgroundColor: isDark ? "#262626" : "#F1F5F9",
                     paddingHorizontal: 5,
                     paddingVertical: 1,
                     borderRadius: 4,
@@ -236,11 +236,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     width: 32,
                     height: 32,
                     borderRadius: 9,
-                    backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                    backgroundColor: isDark ? "#262626" : "#F1F5F9",
                     alignItems: "center",
                     justifyContent: "center",
                     borderWidth: 1,
-                    borderColor: isDark ? "#334155" : "#E2E8F0",
+                    borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   }}
                   accessibilityLabel="Edit Project"
                 >

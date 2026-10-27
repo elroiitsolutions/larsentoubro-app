@@ -28,10 +28,10 @@ export const AlertsSection: React.FC<AlertsSectionProps> = ({
     return (
       <View
         style={{
-          backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+          backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
           borderRadius: 16,
           borderWidth: 1,
-          borderColor: isDark ? "#334155" : "#E2E8F0",
+          borderColor: isDark ? "#2E2E33" : "#E2E8F0",
           padding: 14,
           marginBottom: 16,
           flexDirection: "row",
@@ -92,7 +92,7 @@ export const AlertsSection: React.FC<AlertsSectionProps> = ({
           color: "#DC2626",
           badgeBg: isDark ? "rgba(220, 38, 38, 0.2)" : "#FEE2E2",
           badgeText: isDark ? "#F87171" : "#991B1B",
-          cardBg: isDark ? "rgba(30, 41, 59, 0.6)" : "#FEF2F2",
+          cardBg: isDark ? "rgba(38, 38, 38, 0.85)" : "#FEF2F2",
           borderColor: isDark ? "#7F1D1D" : "#FECACA",
           label: "CRITICAL",
         };
@@ -102,7 +102,7 @@ export const AlertsSection: React.FC<AlertsSectionProps> = ({
           color: "#D97706",
           badgeBg: isDark ? "rgba(217, 119, 6, 0.2)" : "#FEF3C7",
           badgeText: isDark ? "#FBBF24" : "#92400E",
-          cardBg: isDark ? "rgba(30, 41, 59, 0.6)" : "#FFFBEB",
+          cardBg: isDark ? "rgba(38, 38, 38, 0.85)" : "#FFFBEB",
           borderColor: isDark ? "#78350F" : "#FDE68A",
           label: "ATTENTION",
         };
@@ -113,7 +113,7 @@ export const AlertsSection: React.FC<AlertsSectionProps> = ({
           color: "#2563EB",
           badgeBg: isDark ? "rgba(37, 99, 235, 0.2)" : "#DBEAFE",
           badgeText: isDark ? "#60A5FA" : "#1E40AF",
-          cardBg: isDark ? "rgba(30, 41, 59, 0.6)" : "#EFF6FF",
+          cardBg: isDark ? "rgba(38, 38, 38, 0.85)" : "#EFF6FF",
           borderColor: isDark ? "#1E3A8A" : "#BFDBFE",
           label: "NOTICE",
         };
@@ -123,10 +123,10 @@ export const AlertsSection: React.FC<AlertsSectionProps> = ({
   return (
     <View
       style={{
-        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+        backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: isDark ? "#334155" : "#E2E8F0",
+        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
         padding: 14,
         marginBottom: 16,
         ...Platform.select({

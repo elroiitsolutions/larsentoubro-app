@@ -337,8 +337,8 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           style={[
             styles.cardSection,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              borderColor: isDark ? '#2E2E33' : '#E2E8F0',
             },
           ]}
         >
@@ -403,8 +403,8 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           style={[
             styles.cardSection,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              borderColor: isDark ? '#2E2E33' : '#E2E8F0',
             },
           ]}
         >
@@ -428,7 +428,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
                 style={[
                   styles.miniActionBtn,
                   {
-                    backgroundColor: isDark ? '#334155' : '#F1F5F9',
+                    backgroundColor: isDark ? '#262626' : '#F1F5F9',
                     borderColor: theme.border,
                   },
                 ]}
@@ -441,7 +441,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           </View>
 
           {parentAllowedPages.length === 0 ? (
-            <View style={[styles.emptyBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+            <View style={[styles.emptyBox, { backgroundColor: isDark ? '#262626' : '#F8FAFC' }]}>
               <Text style={{ fontSize: 12, color: theme.textSecondary, textAlign: 'center' }}>
                 No authorized pages found on parent account.
               </Text>
@@ -510,8 +510,8 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           style={[
             styles.cardSection,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              borderColor: isDark ? '#2E2E33' : '#E2E8F0',
             },
           ]}
         >
@@ -531,7 +531,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
                     ? 'rgba(16, 185, 129, 0.12)'
                     : '#ECFDF5'
                   : isDark
-                  ? '#0F172A'
+                  ? '#262626'
                   : '#F8FAFC',
                 borderColor: hasInspectionAccess && parentHasInspection
                   ? '#10B981'
@@ -545,7 +545,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
                 style={[
                   styles.smallIconBox,
                   {
-                    backgroundColor: hasInspectionAccess && parentHasInspection ? '#D1FAE5' : isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: hasInspectionAccess && parentHasInspection ? '#D1FAE5' : isDark ? '#2E2E33' : '#E2E8F0',
                   },
                 ]}
               >
@@ -591,8 +591,8 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           style={[
             styles.cardSection,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              borderColor: isDark ? '#2E2E33' : '#E2E8F0',
             },
           ]}
         >
@@ -625,7 +625,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
                         backgroundColor: isSel
                           ? '#4F46E5'
                           : isDark
-                          ? '#0F172A'
+                          ? '#262626'
                           : '#F8FAFC',
                         borderColor: isSel ? '#4F46E5' : theme.border,
                       },
@@ -655,7 +655,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
           </View>
 
           {/* Assigned Stores Scope */}
-          <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: isDark ? '#334155' : '#F1F5F9' }}>
+          <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderColor: isDark ? '#2E2E33' : '#F1F5F9' }}>
             <Text style={[styles.subScopeTitle, { color: theme.text }]}>
               Assigned Stores ({selectedStores.length} of {parentAllowedStores.length} Selected)
             </Text>
@@ -673,7 +673,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
                         backgroundColor: isSel
                           ? '#059669'
                           : isDark
-                          ? '#0F172A'
+                          ? '#262626'
                           : '#F8FAFC',
                         borderColor: isSel ? '#059669' : theme.border,
                       },

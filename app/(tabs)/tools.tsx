@@ -339,7 +339,7 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "All" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "All" ? (isDark ? "#312E81" : "#EEF2FF") : (isDark ? "#1E293B" : "#F8FAFC"),
+            backgroundColor: filters.status === "All" ? (isDark ? "#312E81" : "#EEF2FF") : (isDark ? "#262626" : "#F8FAFC"),
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -361,7 +361,7 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "Available" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "Available" ? (isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (isDark ? "#1E293B" : "#F8FAFC"),
+            backgroundColor: filters.status === "Available" ? (isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (isDark ? "#262626" : "#F8FAFC"),
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -383,7 +383,7 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "In Transit" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "In Transit" ? (isDark ? "rgba(2, 132, 199, 0.25)" : "#F0F9FF") : (isDark ? "#1E293B" : "#F8FAFC"),
+            backgroundColor: filters.status === "In Transit" ? (isDark ? "rgba(2, 132, 199, 0.25)" : "#F0F9FF") : (isDark ? "#262626" : "#F8FAFC"),
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -405,7 +405,7 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "Under Repair" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "Under Repair" ? (isDark ? "rgba(217, 119, 6, 0.25)" : "#FFFBEB") : (isDark ? "#1E293B" : "#F8FAFC"),
+            backgroundColor: filters.status === "Under Repair" ? (isDark ? "rgba(217, 119, 6, 0.25)" : "#FFFBEB") : (isDark ? "#262626" : "#F8FAFC"),
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -428,7 +428,7 @@ export default function ToolsCatalogScreen() {
         style={{
           paddingHorizontal: 16,
           paddingVertical: 10,
-          backgroundColor: isDark ? "#111827" : "#FFFFFF",
+          backgroundColor: isDark ? "#181818" : "#FFFFFF",
           borderBottomWidth: 1,
           borderColor: theme.border,
         }}
@@ -452,7 +452,7 @@ export default function ToolsCatalogScreen() {
               paddingHorizontal: 12,
               height: 42,
               borderRadius: 12,
-              backgroundColor: activeFilterCount > 0 ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
+              backgroundColor: activeFilterCount > 0 ? theme.primary : isDark ? "#262626" : "#F1F5F9",
               borderWidth: 1,
               borderColor: activeFilterCount > 0 ? theme.primary : theme.border,
               gap: 6,
@@ -508,7 +508,7 @@ export default function ToolsCatalogScreen() {
                   paddingVertical: 5.5,
                   borderRadius: 10,
                   marginRight: 6,
-                  backgroundColor: isSelected ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
+                  backgroundColor: isSelected ? theme.primary : isDark ? "#262626" : "#F1F5F9",
                   borderWidth: 1,
                   borderColor: isSelected ? theme.primary : theme.border,
                 }}
@@ -524,7 +524,7 @@ export default function ToolsCatalogScreen() {
                 </Text>
                 <View
                   style={{
-                    backgroundColor: isSelected ? "rgba(255, 255, 255, 0.25)" : isDark ? "#334155" : "#E2E8F0",
+                    backgroundColor: isSelected ? "rgba(255, 255, 255, 0.25)" : isDark ? "#2E2E33" : "#E2E8F0",
                     paddingHorizontal: 5,
                     paddingVertical: 1,
                     borderRadius: 6,
@@ -555,7 +555,7 @@ export default function ToolsCatalogScreen() {
             gap: 6,
             paddingHorizontal: 16,
             paddingVertical: 8,
-            backgroundColor: isDark ? "#0D131F" : "#F8FAFC",
+            backgroundColor: isDark ? "#181818" : "#F8FAFC",
             borderBottomWidth: 1,
             borderColor: theme.border,
           }}
@@ -582,7 +582,7 @@ export default function ToolsCatalogScreen() {
           {filters.status !== "All" && (
             <View
               style={{
-                backgroundColor: isDark ? "#1E293B" : "#E2E8F0",
+                backgroundColor: isDark ? "#262626" : "#E2E8F0",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 8,
@@ -597,7 +597,7 @@ export default function ToolsCatalogScreen() {
           {filters.category !== "All" && (
             <View
               style={{
-                backgroundColor: isDark ? "#1E293B" : "#E2E8F0",
+                backgroundColor: isDark ? "#262626" : "#E2E8F0",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 8,
@@ -616,7 +616,7 @@ export default function ToolsCatalogScreen() {
                 alignItems: "center",
                 backgroundColor: filters.printStatus === "Printed"
                   ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#ECFDF5")
-                  : (isDark ? "#334155" : "#F1F5F9"),
+                  : (isDark ? "#262626" : "#F1F5F9"),
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 8,
@@ -640,7 +640,7 @@ export default function ToolsCatalogScreen() {
           {filters.makeYear !== "All" && (
             <View
               style={{
-                backgroundColor: isDark ? "#1E293B" : "#E2E8F0",
+                backgroundColor: isDark ? "#262626" : "#E2E8F0",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 8,
@@ -736,9 +736,9 @@ export default function ToolsCatalogScreen() {
                 style={{
                   marginBottom: 14,
                   borderRadius: 16,
-                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   overflow: "hidden",
                   ...Platform.select({
                     ios: {
@@ -780,12 +780,12 @@ export default function ToolsCatalogScreen() {
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
-                        backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                        backgroundColor: isDark ? "#262626" : "#F8FAFC",
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
                         borderWidth: 1,
-                        borderColor: isDark ? "#334155" : "#E2E8F0",
+                        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                       }}
                     >
                       <Text
@@ -867,7 +867,7 @@ export default function ToolsCatalogScreen() {
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
-                        backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                        backgroundColor: isDark ? "#262626" : "#F1F5F9",
                         paddingHorizontal: 8,
                         paddingVertical: 4,
                         borderRadius: 6,
@@ -886,7 +886,7 @@ export default function ToolsCatalogScreen() {
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
-                          backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                          backgroundColor: isDark ? "#262626" : "#F1F5F9",
                           paddingHorizontal: 8,
                           paddingVertical: 4,
                           borderRadius: 6,
@@ -908,7 +908,7 @@ export default function ToolsCatalogScreen() {
                     {(item.capacity || item.safeWorkingLoad) && (
                       <View
                         style={{
-                          backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                          backgroundColor: isDark ? "#262626" : "#F1F5F9",
                           paddingHorizontal: 8,
                           paddingVertical: 4,
                           borderRadius: 6,
@@ -955,7 +955,7 @@ export default function ToolsCatalogScreen() {
                       justifyContent: "space-between",
                       paddingTop: 11,
                       borderTopWidth: 1,
-                      borderColor: isDark ? "#334155" : "#F1F5F9",
+                      borderColor: isDark ? "#2E2E33" : "#F1F5F9",
                     }}
                   >
                     <TouchableOpacity
@@ -965,12 +965,12 @@ export default function ToolsCatalogScreen() {
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 5,
-                        backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                        backgroundColor: isDark ? "#262626" : "#F8FAFC",
                         paddingHorizontal: 10,
                         paddingVertical: 6,
                         borderRadius: 8,
                         borderWidth: 1,
-                        borderColor: isDark ? "#334155" : "#E2E8F0",
+                        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                       }}
                     >
                       <Eye size={12} color={theme.textSecondary} />
@@ -995,9 +995,9 @@ export default function ToolsCatalogScreen() {
                               width: 32,
                               height: 32,
                               borderRadius: 8,
-                              backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+                              backgroundColor: isDark ? "#262626" : "#F1F5F9",
                               borderWidth: 1,
-                              borderColor: isDark ? "#334155" : "#E2E8F0",
+                              borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                               alignItems: "center",
                               justifyContent: "center",
                             }}

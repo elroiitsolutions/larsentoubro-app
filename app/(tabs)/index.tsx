@@ -109,7 +109,7 @@ export default function DashboardScreen() {
           justifyContent: "space-between",
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+          backgroundColor: theme.headerBg,
           borderBottomWidth: 1,
           borderColor: theme.border,
           ...Platform.select({
@@ -127,11 +127,11 @@ export default function DashboardScreen() {
               width: 36,
               height: 36,
               borderRadius: 10,
-              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+              backgroundColor: isDark ? "#262626" : "#F1F5F9",
               alignItems: "center",
               justifyContent: "center",
               borderWidth: 1,
-              borderColor: isDark ? "#334155" : "#E2E8F0",
+              borderColor: isDark ? "#2E2E33" : "#E2E8F0",
             }}
             accessibilityLabel="Open navigation drawer"
           >
@@ -187,11 +187,11 @@ export default function DashboardScreen() {
               width: 36,
               height: 36,
               borderRadius: 10,
-              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+              backgroundColor: isDark ? "#262626" : "#F1F5F9",
               alignItems: "center",
               justifyContent: "center",
               borderWidth: 1,
-              borderColor: isDark ? "#334155" : "#E2E8F0",
+              borderColor: isDark ? "#2E2E33" : "#E2E8F0",
             }}
             accessibilityLabel="Toggle Theme"
           >
@@ -298,7 +298,7 @@ export default function DashboardScreen() {
                   width: 24,
                   height: 24,
                   borderRadius: 6,
-                  backgroundColor: isDark ? "#1E293B" : "#EEF2FF",
+                  backgroundColor: isDark ? "#262626" : "#EEF2FF",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
@@ -324,13 +324,13 @@ export default function DashboardScreen() {
                 onPress={() => router.push("/scanner" as any)}
                 style={{
                   flex: 1,
-                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
                   borderRadius: 14,
                   paddingVertical: 10,
                   paddingHorizontal: 2,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   ...Platform.select({
                     web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
                     default: { elevation: 1 },
@@ -380,13 +380,13 @@ export default function DashboardScreen() {
                 onPress={() => router.push("/challans" as any)}
                 style={{
                   flex: 1,
-                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
                   borderRadius: 14,
                   paddingVertical: 10,
                   paddingHorizontal: 2,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   ...Platform.select({
                     web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
                     default: { elevation: 1 },
@@ -436,13 +436,13 @@ export default function DashboardScreen() {
                 onPress={() => router.push("/projects" as any)}
                 style={{
                   flex: 1,
-                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
                   borderRadius: 14,
                   paddingVertical: 10,
                   paddingHorizontal: 2,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   ...Platform.select({
                     web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
                     default: { elevation: 1 },
@@ -492,13 +492,13 @@ export default function DashboardScreen() {
                 onPress={() => router.push("/settings/reports" as any)}
                 style={{
                   flex: 1,
-                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
                   borderRadius: 14,
                   paddingVertical: 10,
                   paddingHorizontal: 2,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   ...Platform.select({
                     web: { boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)" },
                     default: { elevation: 1 },

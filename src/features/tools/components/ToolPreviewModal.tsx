@@ -493,8 +493,8 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
           style={[
             styles.dialogCard,
             {
-              backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
-              borderColor: isDark ? '#1E293B' : '#E2E8F0',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              borderColor: isDark ? '#2E2E33' : '#E2E8F0',
             },
           ]}
         >
@@ -625,8 +625,8 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
                       style={[
                         styles.sharePopover,
                         {
-                          backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                          borderColor: isDark ? '#334155' : '#CBD5E1',
+                          backgroundColor: isDark ? '#262626' : '#FFFFFF',
+                          borderColor: isDark ? '#2E2E33' : '#CBD5E1',
                         },
                       ]}
                     >
@@ -742,8 +742,8 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
                       style={[
                         styles.validityBadge,
                         {
-                          backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                          borderColor: isDark ? '#334155' : '#E2E8F0',
+                          backgroundColor: isDark ? '#262626' : '#FFFFFF',
+                          borderColor: isDark ? '#2E2E33' : '#E2E8F0',
                         },
                       ]}
                     >
@@ -788,8 +788,8 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
                 style={[
                   styles.specsCard,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: isDark ? '#262626' : '#F8FAFC',
+                    borderColor: isDark ? '#2E2E33' : '#E2E8F0',
                   },
                 ]}
               >
@@ -903,7 +903,7 @@ export const ToolPreviewModal: React.FC<ToolPreviewModalProps> = ({
               <View
                 style={[
                   styles.divider,
-                  { backgroundColor: isDark ? '#334155' : '#E2E8F0' },
+                  { backgroundColor: isDark ? '#2E2E33' : '#E2E8F0' },
                 ]}
               />
 

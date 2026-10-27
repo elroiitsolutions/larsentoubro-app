@@ -334,9 +334,9 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               borderColor: roleDropdownOpen
                 ? '#4F46E5'
                 : isDark
-                ? '#334155'
+                ? '#2E2E33'
                 : '#E2E8F0',
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -380,7 +380,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                   paddingHorizontal: 8,
                   paddingVertical: 2,
                   borderRadius: 6,
-                  backgroundColor: isDark ? '#334155' : '#F1F5F9',
+                  backgroundColor: isDark ? '#262626' : '#F1F5F9',
                 }}
               >
                 <Text
@@ -408,8 +408,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                 marginTop: 6,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: isDark ? '#334155' : '#CBD5E1',
-                backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                borderColor: isDark ? '#2E2E33' : '#CBD5E1',
+                backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
                 overflow: 'hidden',
                 elevation: 6,
                 shadowColor: '#000',
@@ -439,7 +439,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                       paddingHorizontal: 14,
                       paddingVertical: 10,
                       borderBottomWidth: index === ROLES.length - 1 ? 0 : 1,
-                      borderBottomColor: isDark ? '#1E293B' : '#F1F5F9',
+                      borderBottomColor: isDark ? '#2E2E33' : '#F1F5F9',
                       backgroundColor: isSelected
                         ? isDark
                           ? 'rgba(79, 70, 229, 0.15)'
@@ -512,9 +512,9 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
             marginBottom: 16,
             padding: 12,
             borderRadius: 16,
-            backgroundColor: isDark ? 'rgba(30, 41, 59, 0.6)' : '#F8FAFC',
+            backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
             borderWidth: 1,
-            borderColor: isDark ? '#334155' : '#E2E8F0',
+            borderColor: isDark ? '#2E2E33' : '#E2E8F0',
           }}
         >
           {/* Header */}
@@ -526,7 +526,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               marginBottom: 10,
               paddingBottom: 8,
               borderBottomWidth: 1,
-              borderBottomColor: isDark ? '#334155' : '#E2E8F0',
+              borderBottomColor: isDark ? '#2E2E33' : '#E2E8F0',
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

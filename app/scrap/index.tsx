@@ -216,7 +216,7 @@ export default function ScrapScreen() {
         style={[
           styles.tabBar,
           {
-            backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
+            backgroundColor: isDark ? '#1E1E1E' : '#F1F5F9',
             borderColor: theme.border,
           },
         ]}
@@ -649,7 +649,7 @@ export default function ScrapScreen() {
           edges={['bottom']}
           style={[
             styles.floatingBar,
-            { backgroundColor: isDark ? '#0F172A' : '#1E293B' },
+            { backgroundColor: isDark ? '#1E1E1E' : '#1E293B' },
           ]}
         >
           <View style={styles.floatingBarHeader}>

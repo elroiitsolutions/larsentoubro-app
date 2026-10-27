@@ -108,7 +108,11 @@ export default function DeliveryChallanPreviewScreen() {
   );
   const [vehicleNo, setVehicleNo] = useState(previewState?.vehicleNo || "-");
   const [lrNo, setLrNo] = useState(previewState?.lrNo || "-");
-  const [freightStatus, setFreightStatus] = useState(previewState?.freightStatus || "NOT APPLICABLE");
+  const [freightStatus, setFreightStatus] = useState(
+    previewState?.freightStatus && previewState.freightStatus !== "NOT APPLICABLE"
+      ? previewState.freightStatus
+      : "-"
+  );
 
   // Receiver Details (Matching web details)
   const [receiverName, setReceiverName] = useState(previewState?.receiverName || "");
