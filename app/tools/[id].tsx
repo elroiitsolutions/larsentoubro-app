@@ -31,6 +31,7 @@ import {
   CalendarCheck,
   Menu,
   ClipboardCheck,
+  Trash2,
 } from "lucide-react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { toolService } from "@/features/tools/services/toolService";
@@ -65,13 +66,57 @@ export default function ToolDetailsScreen() {
   const [extendModalVisible, setExtendModalVisible] = useState(false);
   const [inspectModalVisible, setInspectModalVisible] = useState(false);
 
+  const isAdmin = user?.role === "Admin";
   const canManage = user?.role === "Admin" || user?.role === "Manager";
   const canInspect = user?.role === "Admin" || (user as any)?.hasInspectionAccess;
+  const isMoving = (tool?.status || "").trim().toLowerCase() === "moving";
+  const isMissing = (tool?.status || "").trim().toLowerCase() === "missing";
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteMissingTool = () => {
+    if (!isAdmin) {
+      Alert.alert("Access Restricted", "Only administrators can delete equipment.");
+      return;
+    }
+    Alert.alert(
+      "Delete Missing Equipment",
+      `Are you sure you want to delete this missing equipment "${tool?.name || primaryToolId}"? It will be moved to Trash.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!tool?._id) return;
+            try {
+              setDeleting(true);
+              const res = await toolService.deleteTool(tool._id);
+              if (res.success) {
+                Alert.alert("Success", res.message || "Equipment deleted successfully.", [
+                  { text: "OK", onPress: () => router.back() }
+                ]);
+              } else {
+                Alert.alert("Error", res.message || "Failed to delete equipment.");
+              }
+            } catch (err: any) {
+              Alert.alert(
+                "Error",
+                err?.response?.data?.message || err?.message || "Failed to delete equipment."
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const isInspectable =
     tool &&
     !tool.isScrapped &&
     !tool.isDisposed &&
-    !["moving", "in transit", "transit", "repair"].includes((tool.status || "").toLowerCase());
+    !["moving", "in transit", "transit", "repair", "missing"].includes((tool.status || "").toLowerCase());
 
   const fetchTool = useCallback(async () => {
     if (!id) return;
@@ -171,7 +216,7 @@ export default function ToolDetailsScreen() {
           </View>
         </View>
 
-        {canManage && (
+        {canManage && !isMoving && !isMissing && (
           <TouchableOpacity
             activeOpacity={0.75}
             onPress={() =>
@@ -229,8 +274,8 @@ export default function ToolDetailsScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Life Extension Action if Inspection Due or Expired */}
-          {(tool.status?.toLowerCase().includes("inspection") ||
+          {/* Life Extension Action if Inspection Due or Expired (Hidden if Moving or Missing) */}
+          {!isMoving && !isMissing && (tool.status?.toLowerCase().includes("inspection") ||
             tool.status?.toLowerCase().includes("expired")) && (
             <View className="w-full mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <Button
@@ -242,7 +287,8 @@ export default function ToolDetailsScreen() {
             </View>
           )}
 
-          {canInspect && isInspectable && (
+          {/* Quality Inspection Action (Hidden if Moving or Missing) */}
+          {!isMoving && !isMissing && canInspect && isInspectable && (
             <View className="w-full mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <Button
                 title="Inspect Equipment (Quality Check)"
@@ -250,6 +296,20 @@ export default function ToolDetailsScreen() {
                 variant="outline"
                 onPress={() => setInspectModalVisible(true)}
                 icon={<ClipboardCheck size={14} color="#059669" />}
+              />
+            </View>
+          )}
+
+          {/* Missing Tool: ONLY Delete Option is Shown to the user */}
+          {isMissing && isAdmin && (
+            <View className="w-full mt-4 pt-4 border-t border-rose-100 dark:border-rose-950">
+              <Button
+                title={deleting ? "Deleting..." : "Delete Missing Equipment"}
+                size="sm"
+                variant="destructive"
+                disabled={deleting}
+                onPress={handleDeleteMissingTool}
+                icon={<Trash2 size={14} color="#FFFFFF" />}
               />
             </View>
           )}

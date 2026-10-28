@@ -9,13 +9,29 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = "md" }) => {
   const getVariant = (st: string) => {
     const s = st.toLowerCase();
-    if (s.includes("active") || s.includes("available") || s.includes("approved") || s.includes("completed")) {
+    if (s.includes("active") || s.includes("available") || s.includes("approved") || s.includes("completed") || s.includes("ready")) {
       return "success";
     }
-    if (s.includes("pending") || s.includes("in progress") || s.includes("in transit") || s.includes("issued")) {
+    if (
+      s.includes("pending") ||
+      s.includes("in progress") ||
+      s.includes("in transit") ||
+      s.includes("transit") ||
+      s.includes("issued") ||
+      s.includes("moving") ||
+      s.includes("assigned")
+    ) {
       return "warning";
     }
-    if (s.includes("inactive") || s.includes("rejected") || s.includes("damaged") || s.includes("lost") || s.includes("expired")) {
+    if (
+      s.includes("inactive") ||
+      s.includes("rejected") ||
+      s.includes("damaged") ||
+      s.includes("lost") ||
+      s.includes("expired") ||
+      s.includes("missing") ||
+      s.includes("scrap")
+    ) {
       return "destructive";
     }
     return "neutral";
@@ -23,3 +39,4 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = "md" })
 
   return <Badge label={status} variant={getVariant(status)} size={size} />;
 };
+

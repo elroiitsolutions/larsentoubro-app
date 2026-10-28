@@ -206,50 +206,6 @@ export default function NewChallanScreen() {
     setSelectedPreset(type);
   };
 
-  // Quick Add Subcontractor Profile State
-  const [showQuickAddProfile, setShowQuickAddProfile] = useState(false);
-  const [newProfile, setNewProfile] = useState({
-    name: "",
-    code: "",
-    contactPerson: "",
-    contactPhone: "",
-    address: "",
-    gstNumber: "",
-  });
-  const [creatingProfile, setCreatingProfile] = useState(false);
-
-  const handleQuickAddProfile = async () => {
-    if (!newProfile.name.trim()) {
-      toast.error("Subcontractor / Firm Name is required.");
-      return;
-    }
-    try {
-      setCreatingProfile(true);
-      const res = await profileService.createProfile({
-        ...newProfile,
-        profileType: isScrapDC ? "ScrapDealer" : "Subcontractor",
-      });
-      if (res?.data) {
-        const created = res.data;
-        setProfiles((prev) => [created, ...prev]);
-        handleSelectProfile(created);
-        setShowQuickAddProfile(false);
-        setNewProfile({
-          name: "",
-          code: "",
-          contactPerson: "",
-          contactPhone: "",
-          address: "",
-          gstNumber: "",
-        });
-        toast.success(`${isScrapDC ? "Scrap Dealer" : "Subcontractor"} "${created.name}" registered and selected.`);
-      }
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || "Could not register profile.");
-    } finally {
-      setCreatingProfile(false);
-    }
-  };
 
   // Check unprinted tools
   const unprintedTools = selectedTools.filter((t) => !t.isPrinted);
@@ -662,126 +618,12 @@ export default function NewChallanScreen() {
 
         {/* Vendor & Recipient Card */}
         <Card style={{ padding: 16, marginBottom: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Building2 size={18} color={theme.primary} />
-              <Text style={{ fontSize: 14, fontWeight: "700", color: theme.text }}>
-                {isScrapDC ? "Certified Scrap Dealer" : "Consignee / Subcontractor"}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <TouchableOpacity
-                onPress={() => setShowQuickAddProfile(!showQuickAddProfile)}
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                  backgroundColor: showQuickAddProfile ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
-                  borderWidth: 1,
-                  borderColor: showQuickAddProfile ? theme.primary : theme.border,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "700",
-                    color: showQuickAddProfile ? "#FFFFFF" : theme.primary,
-                  }}
-                >
-                  {showQuickAddProfile ? "Cancel" : "+ Quick Add"}
-                </Text>
-              </TouchableOpacity>
-
-              {profiles.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => setShowProfileSelector(!showProfileSelector)}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 4,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor: isDark ? "#1E293B" : "#EEF2FF",
-                  }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: theme.primary }}>
-                    {showProfileSelector ? "Close" : "Pick Saved"}
-                  </Text>
-                  {showProfileSelector ? <ChevronUp size={12} color={theme.primary} /> : <ChevronDown size={12} color={theme.primary} />}
-                </TouchableOpacity>
-              )}
-            </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Building2 size={18} color={theme.primary} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: theme.text }}>
+              {isScrapDC ? "Certified Scrap Dealer" : "Consignee / Subcontractor"}
+            </Text>
           </View>
-
-          {/* Quick Add Subcontractor Profile Form */}
-          {showQuickAddProfile && (
-            <View
-              style={{
-                padding: 12,
-                borderRadius: 10,
-                backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-                borderWidth: 1,
-                borderColor: theme.border,
-                marginBottom: 14,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.text, marginBottom: 8 }}>
-                Register New {isScrapDC ? "Scrap Dealer" : "Subcontractor Profile"}
-              </Text>
-              <Input
-                label="Firm / Subcontractor Name *"
-                placeholder="e.g. Skyline Structural Engineering"
-                value={newProfile.name}
-                onChangeText={(txt) => setNewProfile((p) => ({ ...p, name: txt }))}
-              />
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Input
-                    label="Code"
-                    placeholder="e.g. SUB-401"
-                    value={newProfile.code}
-                    onChangeText={(txt) => setNewProfile((p) => ({ ...p, code: txt }))}
-                    autoCapitalize="characters"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Input
-                    label="Contact Phone"
-                    placeholder="+91 98..."
-                    value={newProfile.contactPhone}
-                    onChangeText={(txt) => setNewProfile((p) => ({ ...p, contactPhone: txt }))}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </View>
-              <Input
-                label="Contact Person"
-                placeholder="e.g. Vikram Sharma"
-                value={newProfile.contactPerson}
-                onChangeText={(txt) => setNewProfile((p) => ({ ...p, contactPerson: txt }))}
-              />
-              <Input
-                label="Address / Depot"
-                placeholder="e.g. Site Camp 3, Sector 12"
-                value={newProfile.address}
-                onChangeText={(txt) => setNewProfile((p) => ({ ...p, address: txt }))}
-              />
-              <Input
-                label="GST Number"
-                placeholder="e.g. 27AAACL1234F1Z5"
-                value={newProfile.gstNumber}
-                onChangeText={(txt) => setNewProfile((p) => ({ ...p, gstNumber: txt }))}
-                autoCapitalize="characters"
-              />
-              <Button
-                title={creatingProfile ? "Registering..." : "Save & Use Profile"}
-                loading={creatingProfile}
-                onPress={handleQuickAddProfile}
-              />
-            </View>
-          )}
 
           {/* Quick Profile Selection Dropdown List */}
           {showProfileSelector && (
@@ -936,7 +778,7 @@ export default function NewChallanScreen() {
             </View>
           ) : !loadingStore ? (
             <TouchableOpacity
-              onPress={() => setShowProfileSelector(true)}
+              onPress={() => setShowProfileSelector(!showProfileSelector)}
               style={{
                 borderWidth: 1,
                 borderStyle: "dashed",
@@ -948,7 +790,9 @@ export default function NewChallanScreen() {
               }}
             >
               <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                Please select a recipient profile from "Pick Saved" above.
+                {profiles.length === 0
+                  ? "No recipient profiles available."
+                  : "Tap to select a recipient profile"}
               </Text>
             </TouchableOpacity>
           ) : null}

@@ -31,8 +31,6 @@ import {
   Recycle,
   Edit3,
   Truck,
-  QrCode,
-  QrCode as QrIcon,
   X,
   ClipboardCheck,
   FileSpreadsheet,
@@ -297,6 +295,17 @@ export default function StoreInventoryScreen() {
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedToolIds);
     if (ids.length === 0) return;
+    const nonDeletable = selectedTools.filter((t) => {
+      const s = (t.status || "").trim().toLowerCase();
+      return s !== "available" && s !== "missing";
+    });
+    if (nonDeletable.length > 0) {
+      Alert.alert(
+        "Action Blocked",
+        "Cannot delete equipment that is Moving. Only Available and Missing tools can be moved to Trash."
+      );
+      return;
+    }
     try {
       const res = await toolService.bulkDeleteTools(id, ids);
       Alert.alert("Success", res.message || `Moved ${ids.length} tools to Trash.`);
@@ -728,7 +737,7 @@ export default function StoreInventoryScreen() {
   return (
     <SafeAreaView
       edges={["top", "left", "right"]}
-      style={{ flex: 1, backgroundColor: isDark ? "#020617" : "#F8FAFC" }}
+      style={{ flex: 1, backgroundColor: isDark ? "#121212" : "#F8FAFC" }}
     >
       <StatusBar style="auto" />
 
@@ -742,9 +751,9 @@ export default function StoreInventoryScreen() {
             justifyContent: "space-between",
             paddingHorizontal: 12,
             paddingVertical: 10,
-            backgroundColor: "#4F46E5",
+            backgroundColor: isDark ? "#1E3A8A" : "#2563EB",
             borderBottomWidth: 1,
-            borderBottomColor: "#4338CA",
+            borderBottomColor: isDark ? "#1E40AF" : "#1D4ED8",
           }}
         >
           {/* Left Side: Count Badge & Clear */}
@@ -859,13 +868,13 @@ export default function StoreInventoryScreen() {
                 width: 36,
                 height: 36,
                 borderRadius: 12,
-                backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                backgroundColor: isDark ? "#262626" : "#F1F5F9",
                 alignItems: "center",
                 justifyContent: "center",
                 marginRight: 10,
               }}
             >
-              <ArrowLeft size={18} color="#475569" />
+              <ArrowLeft size={18} color={isDark ? "#E2E8F0" : "#475569"} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text
@@ -891,15 +900,15 @@ export default function StoreInventoryScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 4,
-                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  backgroundColor: isDark ? "#262626" : "#F1F5F9",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   paddingHorizontal: 8,
                   paddingVertical: 7,
                   borderRadius: 12,
                 }}
               >
-                <CheckSquare size={13} color="#475569" />
+                <CheckSquare size={13} color={isDark ? "#94A3B8" : "#475569"} />
                 <Text
                   style={{
                     fontSize: 11.5,
@@ -920,15 +929,15 @@ export default function StoreInventoryScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 4,
-                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  backgroundColor: isDark ? "#262626" : "#F1F5F9",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   paddingHorizontal: 8,
                   paddingVertical: 7,
                   borderRadius: 12,
                 }}
               >
-                <FileSpreadsheet size={13} color="#4F46E5" />
+                <FileSpreadsheet size={13} color={isDark ? "#94A3B8" : "#2563EB"} />
                 <Text
                   style={{
                     fontSize: 11.5,
@@ -950,9 +959,9 @@ export default function StoreInventoryScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 4,
-                  backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                  backgroundColor: isDark ? "#262626" : "#F1F5F9",
                   borderWidth: 1,
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
+                  borderColor: isDark ? "#2E2E33" : "#E2E8F0",
                   paddingHorizontal: 8,
                   paddingVertical: 7,
                   borderRadius: 12,
@@ -988,7 +997,7 @@ export default function StoreInventoryScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 4,
-                  backgroundColor: "#4F46E5",
+                  backgroundColor: "#2563EB",
                   paddingHorizontal: 10,
                   paddingVertical: 7,
                   borderRadius: 12,
@@ -1026,34 +1035,6 @@ export default function StoreInventoryScreen() {
             />
           </View>
 
-          {/* Scan Tool QR Code in this Store */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() =>
-              router.push({
-                pathname: "/scanner",
-                params: {
-                  storeId: id,
-                  storeName: store?.name || "This Store",
-                },
-              } as any)
-            }
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              backgroundColor: isDark ? "#1E293B" : "#EFF6FF",
-              borderWidth: 1,
-              borderColor: isDark ? "#334155" : "#BFDBFE",
-            }}
-            accessibilityLabel="Scan tool QR code in this store"
-          >
-            <QrCode size={19} color="#2563EB" />
-          </TouchableOpacity>
-
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => setFilterModalVisible(true)}
@@ -1063,9 +1044,9 @@ export default function StoreInventoryScreen() {
               paddingHorizontal: 12,
               height: 42,
               borderRadius: 12,
-              backgroundColor: activeFilterCount > 0 ? "#4F46E5" : isDark ? "#1E293B" : "#F1F5F9",
+              backgroundColor: activeFilterCount > 0 ? "#2563EB" : isDark ? "#262626" : "#F1F5F9",
               borderWidth: 1,
-              borderColor: activeFilterCount > 0 ? "#4F46E5" : isDark ? "#334155" : "#CBD5E1",
+              borderColor: activeFilterCount > 0 ? "#2563EB" : isDark ? "#2E2E33" : "#CBD5E1",
             }}
           >
             <Filter
@@ -1074,7 +1055,7 @@ export default function StoreInventoryScreen() {
             />
             {activeFilterCount > 0 && (
               <View className="ml-1.5 bg-white rounded-full w-4 h-4 items-center justify-center">
-                <Text className="text-[10px] font-bold text-indigo-600">
+                <Text className="text-[10px] font-bold text-blue-600">
                   {activeFilterCount}
                 </Text>
               </View>
@@ -1147,14 +1128,14 @@ export default function StoreInventoryScreen() {
                   borderRadius: 9999,
                   borderWidth: 1,
                   borderColor: isActive
-                    ? "#4F46E5"
+                    ? (isDark ? "#3B82F6" : "#2563EB")
                     : isDark
-                    ? "#334155"
+                    ? "#2E2E33"
                     : "#E2E8F0",
                   backgroundColor: isActive
-                    ? "#4F46E5"
+                    ? (isDark ? "#1E3A8A" : "#2563EB")
                     : isDark
-                    ? "#1E293B"
+                    ? "#262626"
                     : "#F1F5F9",
                 }}
               >
@@ -1175,7 +1156,7 @@ export default function StoreInventoryScreen() {
                     color: isActive
                       ? "#FFFFFF"
                       : isDark
-                      ? "#CBD5E1"
+                      ? "#E2E8F0"
                       : "#334155",
                   }}
                 >
@@ -1211,16 +1192,16 @@ export default function StoreInventoryScreen() {
             )}
 
             {filters.category !== "All" && (
-              <View className="flex-row items-center bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-lg gap-1">
-                <Tag size={10} color="#4F46E5" />
-                <Text className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-200">
+              <View className="flex-row items-center bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg gap-1">
+                <Tag size={10} color="#2563EB" />
+                <Text className="text-[11px] font-semibold text-blue-900 dark:text-blue-200">
                   {filters.category}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setFilters((prev) => ({ ...prev, category: "All" }))}
                   className="ml-0.5"
                 >
-                  <X size={12} color="#4F46E5" />
+                  <X size={12} color="#2563EB" />
                 </TouchableOpacity>
               </View>
             )}
@@ -1320,8 +1301,8 @@ export default function StoreInventoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={["#4F46E5"]}
-            tintColor="#4F46E5"
+            colors={[theme.primary]}
+            tintColor={theme.primary}
           />
         }
         renderItem={({ item }) => {
@@ -1332,8 +1313,8 @@ export default function StoreInventoryScreen() {
             <Card
               className={`mb-3 ${
                 isSelected
-                  ? "border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950"
-                  : "border-slate-100 dark:border-slate-800"
+                  ? "border-2 border-blue-500 bg-blue-50/20 dark:bg-blue-950/20"
+                  : "border-slate-100 dark:border-[#2E2E33]"
               }`}
             >
               <TouchableOpacity
@@ -1362,15 +1343,15 @@ export default function StoreInventoryScreen() {
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         {isSelected ? (
-                          <CheckSquare size={22} color="#4F46E5" />
+                          <CheckSquare size={22} color="#2563EB" />
                         ) : (
                           <Square size={22} color="#94A3B8" />
                         )}
                       </TouchableOpacity>
                     )}
 
-                    <View className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 items-center justify-center mr-3 border border-indigo-100 dark:border-indigo-900">
-                      <Wrench size={18} color="#4F46E5" />
+                    <View className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#262626] items-center justify-center mr-3 border border-slate-200 dark:border-[#2E2E33]">
+                      <Wrench size={18} color={isDark ? "#94A3B8" : "#64748B"} />
                     </View>
                     <View className="flex-1">
                       <Text
@@ -1388,17 +1369,17 @@ export default function StoreInventoryScreen() {
                   <View className="items-end gap-1">
                     <StatusBadge status={item.status || "Available"} size="sm" />
                     <View
-                      className={`px-1.5 py-0.5 rounded ${
+                      className={`px-1.5 py-0.5 rounded border ${
                         item.isPrinted
-                          ? "bg-emerald-100 dark:bg-emerald-950"
-                          : "bg-slate-100 dark:bg-slate-800"
+                          ? "bg-emerald-100 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800/60"
+                          : "bg-slate-100 dark:bg-[#262626] border-slate-200 dark:border-[#2E2E33]"
                       }`}
                     >
                       <Text
                         className={`text-[9px] font-bold ${
                           item.isPrinted
-                            ? "text-emerald-700 dark:text-emerald-400"
-                            : "text-slate-500 dark:text-slate-400"
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-slate-500 dark:text-slate-300"
                         }`}
                       >
                         {item.isPrinted ? "✓ Printed" : "Not Printed"}
@@ -1408,9 +1389,9 @@ export default function StoreInventoryScreen() {
                 </View>
 
                 {/* Specs Row */}
-                <View className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2.5 my-1 flex-row flex-wrap items-center justify-between border border-slate-100 dark:border-slate-800 gap-1.5">
+                <View className="bg-slate-50 dark:bg-[#181818] rounded-xl p-2.5 my-1 flex-row flex-wrap items-center justify-between border border-slate-100 dark:border-[#262626] gap-1.5">
                   <View className="flex-row items-center gap-1.5">
-                    <Tag size={12} color="#64748B" />
+                    <Tag size={12} color={isDark ? "#94A3B8" : "#64748B"} />
                     <Text className="text-xs text-slate-500 dark:text-slate-400">
                       Category:{" "}
                       <Text className="font-semibold text-slate-800 dark:text-slate-200">
@@ -1420,19 +1401,22 @@ export default function StoreInventoryScreen() {
                   </View>
 
                   {validationVal !== "-" && (
-                    <View className="flex-row items-center gap-1 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800/60">
-                      <Clock size={10} color="#D97706" />
-                      <Text className="text-[10px] font-bold text-amber-800 dark:text-amber-200">
-                        Validation: {validationVal}
+                    <View className="flex-row items-center gap-1.5">
+                      <Clock size={12} color={isDark ? "#94A3B8" : "#64748B"} />
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        Validation:{" "}
+                        <Text className="font-semibold text-slate-800 dark:text-slate-200">
+                          {validationVal}
+                        </Text>
                       </Text>
                     </View>
                   )}
                 </View>
 
                 {/* Card Action Row */}
-                <View className="flex-row items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/80 mt-1.5">
+                <View className="flex-row items-center justify-between pt-2.5 border-t border-slate-100 dark:border-[#262626] mt-1.5">
                   <View className="flex-row items-center gap-1.5">
-                    <Eye size={13} color="#64748B" />
+                    <Eye size={13} color={isDark ? "#94A3B8" : "#64748B"} />
                     <Text className="text-xs text-slate-500 dark:text-slate-400">
                       Tap for Quick View
                     </Text>
@@ -1444,12 +1428,12 @@ export default function StoreInventoryScreen() {
                       e.stopPropagation();
                       router.push(`/tools/${item._id}` as any);
                     }}
-                    className="flex-row items-center gap-1 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/50"
+                    className="flex-row items-center gap-1 bg-slate-100 dark:bg-[#262626] px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#2E2E33]"
                   >
-                    <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    <Text className="text-xs font-bold text-slate-700 dark:text-slate-200">
                       Full Details
                     </Text>
-                    <ChevronRight size={13} color="#4F46E5" />
+                    <ChevronRight size={13} color={isDark ? "#94A3B8" : "#64748B"} />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -1516,8 +1500,8 @@ export default function StoreInventoryScreen() {
         >
           <View
             style={{
-              backgroundColor: "#0F172A",
-              borderColor: "#334155",
+              backgroundColor: isDark ? "#1E1E1E" : "#0F172A",
+              borderColor: isDark ? "#2E2E33" : "#334155",
               borderWidth: 1,
             }}
             className="rounded-2xl p-2.5 px-3.5 flex-row items-center justify-between"
@@ -1528,7 +1512,7 @@ export default function StoreInventoryScreen() {
               onPress={() => setSelectedToolsModalOpen(true)}
               className="flex-row items-center gap-2.5 flex-1 mr-2"
             >
-              <View className="bg-indigo-600 px-2.5 py-1 rounded-full">
+              <View className="bg-blue-600 px-2.5 py-1 rounded-full">
                 <Text className="text-xs font-bold text-white">
                   {selectedToolIds.size.toLocaleString()} Selected
                 </Text>
@@ -1543,7 +1527,7 @@ export default function StoreInventoryScreen() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setSelectedToolsModalOpen(true)}
-                className="bg-indigo-600 px-3.5 py-2 rounded-xl flex-row items-center gap-1.5"
+                className="bg-blue-600 px-3.5 py-2 rounded-xl flex-row items-center gap-1.5"
               >
                 <Sparkles size={14} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white">Options</Text>
@@ -1552,7 +1536,7 @@ export default function StoreInventoryScreen() {
               <TouchableOpacity
                 onPress={handleClearSelection}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                className="p-2 rounded-xl bg-slate-800 border border-slate-700"
+                className="p-2 rounded-xl bg-slate-200 dark:bg-[#262626] border border-slate-300 dark:border-[#2E2E33]"
               >
                 <X size={14} color="#94A3B8" />
               </TouchableOpacity>
@@ -1571,6 +1555,7 @@ export default function StoreInventoryScreen() {
         onSelectAction={handleBatchAction}
         canInspect={canInspect}
         isInspectionRestricted={isInspectionRestricted}
+        isAdmin={isAdmin}
         onToolsUpdated={reloadTools}
       />
 

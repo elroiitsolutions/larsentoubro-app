@@ -24,7 +24,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <View
       style={style}
-      className={`flex-row items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 h-11 ${className}`}
+      className={`flex-row items-center bg-white dark:bg-[#1E1E1E] border border-slate-200 dark:border-[#2E2E33] rounded-xl px-3 h-11 ${className}`}
     >
       <Search size={18} color="#94A3B8" className="mr-2.5" />
       <TextInput
@@ -35,14 +35,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         className="flex-1 text-sm text-slate-900 dark:text-white font-medium h-full"
       />
       {loading ? (
-        <ActivityIndicator size="small" color="#4F46E5" style={{ marginLeft: 6 }} />
+        <ActivityIndicator size="small" color="#2563EB" style={{ marginLeft: 6 }} />
       ) : value.length > 0 ? (
         <TouchableOpacity
           onPress={() => {
             onChangeText("");
             onClear?.();
           }}
-          className="p-1 rounded-full bg-slate-100 dark:bg-slate-800"
+          className="p-1 rounded-full bg-slate-100 dark:bg-[#262626]"
         >
           <X size={14} color="#64748B" />
         </TouchableOpacity>

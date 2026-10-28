@@ -14,11 +14,12 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   return (
     <View
-      className={`bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm ${className}`}
+      className={`bg-white dark:bg-[#1E1E1E] border border-slate-100 dark:border-[#2E2E33] rounded-2xl p-4 shadow-sm ${className}`}
       style={style}
       {...props}
     >
       {children}
     </View>
+
   );
 };

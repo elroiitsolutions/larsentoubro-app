@@ -3,7 +3,6 @@ import {
   View,
   Modal,
   Text,
-  Image,
   TouchableOpacity,
   ScrollView,
   Pressable,

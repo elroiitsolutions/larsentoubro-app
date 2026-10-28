@@ -122,6 +122,25 @@ export default function DeliveryChallanPreviewScreen() {
     previewState?.receiptDate || new Date().toISOString().split("T")[0]
   );
 
+  const [previewDcNumber, setPreviewDcNumber] = useState<string>(
+    isScrapDC ? "SDC-26-001" : "DC-26-001"
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    challanService
+      .getNextChallanNumber(isScrapDC ? "Scrap" : "Delivery")
+      .then((num) => {
+        if (isMounted && num) {
+          setPreviewDcNumber(num);
+        }
+      })
+      .catch((err) => console.error("Error fetching next challan number:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, [isScrapDC]);
+
   // Items State - exact mapping as web: toolId is QR serial code, materialCode is Material code
   const [items, setItems] = useState<any[]>(() => {
     return initialTools.map((t: any) => {
@@ -213,6 +232,7 @@ export default function DeliveryChallanPreviewScreen() {
   }, [previewState]);
 
   const [creating, setCreating] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [isGrouped, setIsGrouped] = useState(false);
 
   // Group items with the same description
@@ -336,20 +356,27 @@ export default function DeliveryChallanPreviewScreen() {
     };
   };
 
-  const handleDownloadDraft = async () => {
+  const handleDownloadPdf = async () => {
+    if (downloading) return;
+    setDownloading(true);
     try {
       const draftData = {
-        challanNumber: isScrapDC ? "SDC-26-001" : "DC-26-001",
+        challanNumber: previewDcNumber,
         ...getChallanPayload(true),
         indentNo: indentNo?.trim() || "-",
       };
-      await downloadOrShareChallanPdf(draftData as any, {
-        share: true,
+      const savedUri = await downloadOrShareChallanPdf(draftData as any, {
+        share: false,
+        directDownload: true,
       });
-      toast.success("Draft PDF prepared successfully");
+      if (savedUri) {
+        toast.success(`Delivery Challan ${previewDcNumber} downloaded successfully!`);
+      }
     } catch (err: any) {
-      console.error("PDF draft error:", err);
-      toast.error(err.message || "Failed to generate Draft PDF");
+      console.error("PDF download error:", err);
+      toast.error(err.message || "Failed to download PDF");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -701,7 +728,7 @@ export default function DeliveryChallanPreviewScreen() {
                 <View style={{ flex: 1, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000" }}>
                   <Text style={{ fontSize: 8.5, fontWeight: "800", color: "#000000" }}>DC NO.</Text>
                   <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#334155", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace", marginTop: 3 }}>
-                    {isScrapDC ? "SDC-26-001" : "DC-26-001"}
+                    {previewDcNumber}
                   </Text>
                 </View>
 
@@ -973,8 +1000,8 @@ export default function DeliveryChallanPreviewScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Row 3: Items Table (Exact 3-column table from screenshot, 100% width, ZERO horizontal scroll) */}
-            <View style={{ width: "100%" }}>
+            {/* Row 3: Items Table (Responsive 6-column table matching Web: SL. NO., MATERIAL CODE, DESCRIPTION & QR, QTY, UNIT, RATE RS.) */}
+            <View style={{ width: "100%", backgroundColor: "#FFFFFF" }}>
               {/* Table Header */}
               <View
                 style={{
@@ -984,14 +1011,23 @@ export default function DeliveryChallanPreviewScreen() {
                   borderBottomColor: "#000000",
                 }}
               >
-                <View style={{ width: 44, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>SL. NO.</Text>
+                <View style={{ width: 28, paddingVertical: 4, paddingHorizontal: 1, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>SL.{"\n"}NO.</Text>
                 </View>
-                <View style={{ width: 130, padding: 5, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>MATERIAL CODE</Text>
+                <View style={{ width: 84, paddingVertical: 4, paddingHorizontal: 2, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>MATERIAL{"\n"}CODE</Text>
                 </View>
-                <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
-                  <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#000000" }}>DESCRIPTION & QR</Text>
+                <View style={{ flex: 1, minWidth: 80, paddingVertical: 4, paddingHorizontal: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>DESCRIPTION & QR</Text>
+                </View>
+                <View style={{ width: 40, paddingVertical: 4, paddingHorizontal: 1, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>QTY</Text>
+                </View>
+                <View style={{ width: 38, paddingVertical: 4, paddingHorizontal: 1, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>UNIT</Text>
+                </View>
+                <View style={{ width: 44, paddingVertical: 4, paddingHorizontal: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, fontWeight: "900", color: "#000000", textAlign: "center", lineHeight: 8.5 }}>RATE{"\n"}(RS)</Text>
                 </View>
               </View>
 
@@ -1008,12 +1044,12 @@ export default function DeliveryChallanPreviewScreen() {
                       }}
                     >
                       {/* SL. NO. */}
-                      <View style={{ width: 44, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
+                      <View style={{ width: 28, paddingVertical: 4, paddingHorizontal: 1, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
                       </View>
 
                       {/* MATERIAL CODE */}
-                      <View style={{ width: 130, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                      <View style={{ width: 84, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
                         <TextInput
                           value={group.materialCode}
                           onChangeText={(val) => handleGroupedItemChange(group, "materialCode", val)}
@@ -1023,15 +1059,15 @@ export default function DeliveryChallanPreviewScreen() {
                             ...baseCanvasInputStyle,
                             fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                             textAlign: "center",
-                            fontSize: 9.5,
-                            paddingHorizontal: 2,
-                            height: 32,
+                            fontSize: 8,
+                            paddingHorizontal: 1,
+                            height: 28,
                           }}
                         />
                       </View>
 
                       {/* DESCRIPTION & QR */}
-                      <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
+                      <View style={{ flex: 1, minWidth: 80, padding: 3, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
                         <TextInput
                           value={group.description}
                           onChangeText={(val) => handleGroupedItemChange(group, "description", val)}
@@ -1039,14 +1075,16 @@ export default function DeliveryChallanPreviewScreen() {
                           placeholderTextColor="#94A3B8"
                           style={{
                             ...baseCanvasInputStyle,
-                            marginBottom: 4,
-                            height: 30,
-                            fontSize: 10.5,
+                            marginBottom: 2,
+                            height: 26,
+                            fontSize: 9.5,
+                            fontWeight: "700",
+                            paddingHorizontal: 3,
                           }}
                         />
                         {/* QR Code Text in Blue (Interactive Click to Open Tool Preview) */}
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-                          <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 2 }}>
+                          <Text style={{ fontSize: 7.5, fontWeight: "900", color: "#475569" }}>QR:</Text>
                           {group.qrs.map((qr, qIdx) => (
                             <TouchableOpacity
                               key={qIdx}
@@ -1056,7 +1094,7 @@ export default function DeliveryChallanPreviewScreen() {
                             >
                               <Text
                                 style={{
-                                  fontSize: 9,
+                                  fontSize: 8,
                                   fontWeight: "800",
                                   color: "#1D4ED8",
                                   fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
@@ -1069,6 +1107,62 @@ export default function DeliveryChallanPreviewScreen() {
                             </TouchableOpacity>
                           ))}
                         </View>
+                      </View>
+
+                      {/* QUANTITY */}
+                      <View style={{ width: 40, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={String(group.quantity || 1)}
+                          editable={false}
+                          style={{
+                            ...baseCanvasInputStyle,
+                            textAlign: "center",
+                            fontSize: 9,
+                            fontWeight: "800",
+                            backgroundColor: "#F1F5F9",
+                            color: "#1E293B",
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
+                      </View>
+
+                      {/* UNIT */}
+                      <View style={{ width: 38, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={group.unit || "NOS"}
+                          onChangeText={(val) => handleGroupedItemChange(group, "unit", val)}
+                          placeholder="NOS"
+                          placeholderTextColor="#94A3B8"
+                          autoCapitalize="characters"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            textAlign: "center",
+                            fontSize: 8.5,
+                            fontWeight: "800",
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
+                      </View>
+
+                      {/* RATE RS. */}
+                      <View style={{ width: 44, padding: 2, justifyContent: "center" }}>
+                        <TextInput
+                          value={String(group.rate ?? 0)}
+                          onChangeText={(val) => handleGroupedItemChange(group, "rate", Number(val) || 0)}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                            textAlign: "center",
+                            fontSize: 8.5,
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
                       </View>
                     </View>
                   ))
@@ -1083,12 +1177,12 @@ export default function DeliveryChallanPreviewScreen() {
                       }}
                     >
                       {/* SL. NO. */}
-                      <View style={{ width: 44, padding: 6, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
+                      <View style={{ width: 28, paddingVertical: 4, paddingHorizontal: 1, borderRightWidth: 1.5, borderRightColor: "#000000", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: "#000000" }}>{idx + 1}</Text>
                       </View>
 
                       {/* MATERIAL CODE */}
-                      <View style={{ width: 130, padding: 4, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                      <View style={{ width: 84, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
                         <TextInput
                           value={item.materialCode}
                           onChangeText={(val) => handleItemChange(idx, "materialCode", val)}
@@ -1098,15 +1192,15 @@ export default function DeliveryChallanPreviewScreen() {
                             ...baseCanvasInputStyle,
                             fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
                             textAlign: "center",
-                            fontSize: 9.5,
-                            paddingHorizontal: 2,
-                            height: 32,
+                            fontSize: 8,
+                            paddingHorizontal: 1,
+                            height: 28,
                           }}
                         />
                       </View>
 
                       {/* DESCRIPTION & QR */}
-                      <View style={{ flex: 1, padding: 5, justifyContent: "center" }}>
+                      <View style={{ flex: 1, minWidth: 80, padding: 3, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
                         <TextInput
                           value={item.description}
                           onChangeText={(val) => handleItemChange(idx, "description", val)}
@@ -1114,14 +1208,16 @@ export default function DeliveryChallanPreviewScreen() {
                           placeholderTextColor="#94A3B8"
                           style={{
                             ...baseCanvasInputStyle,
-                            marginBottom: 4,
-                            height: 30,
-                            fontSize: 10.5,
+                            marginBottom: 2,
+                            height: 26,
+                            fontSize: 9.5,
+                            fontWeight: "700",
+                            paddingHorizontal: 3,
                           }}
                         />
                         {/* QR Code Text in Blue (Interactive Click to Open Tool Preview) */}
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3 }}>
-                          <Text style={{ fontSize: 8.5, fontWeight: "900", color: "#475569" }}>QR :</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 2 }}>
+                          <Text style={{ fontSize: 7.5, fontWeight: "900", color: "#475569" }}>QR:</Text>
                           <TouchableOpacity
                             activeOpacity={0.7}
                             onPress={() => handleOpenToolPreview(item.toolId || item.toolCode || item.tool)}
@@ -1129,7 +1225,7 @@ export default function DeliveryChallanPreviewScreen() {
                           >
                             <Text
                               style={{
-                                fontSize: 9,
+                                fontSize: 8,
                                 fontWeight: "800",
                                 color: "#1D4ED8",
                                 fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
@@ -1141,6 +1237,61 @@ export default function DeliveryChallanPreviewScreen() {
                             </Text>
                           </TouchableOpacity>
                         </View>
+                      </View>
+
+                      {/* QUANTITY */}
+                      <View style={{ width: 40, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={String(item.quantity || 1)}
+                          onChangeText={(val) => handleItemChange(idx, "quantity", Number(val) || 1)}
+                          keyboardType="numeric"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            textAlign: "center",
+                            fontSize: 9,
+                            fontWeight: "800",
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
+                      </View>
+
+                      {/* UNIT */}
+                      <View style={{ width: 38, padding: 2, borderRightWidth: 1.5, borderRightColor: "#000000", justifyContent: "center" }}>
+                        <TextInput
+                          value={item.unit || "NOS"}
+                          onChangeText={(val) => handleItemChange(idx, "unit", val)}
+                          placeholder="NOS"
+                          placeholderTextColor="#94A3B8"
+                          autoCapitalize="characters"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            textAlign: "center",
+                            fontSize: 8.5,
+                            fontWeight: "800",
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
+                      </View>
+
+                      {/* RATE RS. */}
+                      <View style={{ width: 44, padding: 2, justifyContent: "center" }}>
+                        <TextInput
+                          value={String(item.rate ?? 0)}
+                          onChangeText={(val) => handleItemChange(idx, "rate", Number(val) || 0)}
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#94A3B8"
+                          style={{
+                            ...baseCanvasInputStyle,
+                            fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+                            textAlign: "center",
+                            fontSize: 8.5,
+                            paddingHorizontal: 1,
+                            height: 28,
+                          }}
+                        />
                       </View>
                     </View>
                   ))}
@@ -1485,8 +1636,8 @@ export default function DeliveryChallanPreviewScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleDownloadDraft}
-            disabled={creating}
+            onPress={handleDownloadPdf}
+            disabled={creating || downloading}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -1497,10 +1648,17 @@ export default function DeliveryChallanPreviewScreen() {
               borderWidth: 1,
               borderColor: theme.border,
               backgroundColor: theme.card,
+              opacity: downloading ? 0.8 : 1,
             }}
           >
-            <Download size={16} color={theme.primary} />
-            <Text style={{ fontSize: 12.5, fontWeight: "700", color: theme.primary }}>Download PDF Draft Document</Text>
+            {downloading ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Download size={16} color={theme.primary} />
+            )}
+            <Text style={{ fontSize: 13, fontWeight: "700", color: theme.primary }}>
+              {downloading ? "Downloading PDF..." : "Download PDF"}
+            </Text>
           </TouchableOpacity>
         </View>
 
