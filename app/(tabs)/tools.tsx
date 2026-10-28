@@ -114,8 +114,21 @@ export default function ToolsCatalogScreen() {
     fetchTools();
   };
 
+  const isToolDeletable = (status?: string): boolean => {
+    const s = (status || "").trim().toLowerCase();
+    return s === "available" || s === "missing";
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deletingTool) return;
+    if (!isToolDeletable(deletingTool.status)) {
+      Alert.alert(
+        "Action Blocked",
+        `Cannot delete equipment with status "${deletingTool.status}". Only Available and Missing tools can be moved to Trash.`
+      );
+      setDeletingTool(null);
+      return;
+    }
     try {
       setDeleteLoading(true);
       await toolService.deleteTool(deletingTool._id);
@@ -1007,20 +1020,31 @@ export default function ToolsCatalogScreen() {
 
                           <TouchableOpacity
                             activeOpacity={0.7}
+                            disabled={!isToolDeletable(item.status)}
                             onPress={(e) => {
                               e.stopPropagation();
+                              if (!isToolDeletable(item.status)) {
+                                Alert.alert(
+                                  "Action Blocked",
+                                  `Cannot delete equipment with status "${item.status}". Only Available and Missing tools can be moved to Trash.`
+                                );
+                                return;
+                              }
                               setDeletingTool(item);
                             }}
                             style={{
                               width: 32,
                               height: 32,
                               borderRadius: 8,
-                              backgroundColor: isDark ? "#31181E" : "#FEE2E2",
+                              backgroundColor: isToolDeletable(item.status)
+                                ? (isDark ? "#31181E" : "#FEE2E2")
+                                : (isDark ? "#262626" : "#F1F5F9"),
+                              opacity: isToolDeletable(item.status) ? 1 : 0.35,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
                           >
-                            <Trash2 size={13} color="#EF4444" />
+                            <Trash2 size={13} color={isToolDeletable(item.status) ? "#EF4444" : "#94A3B8"} />
                           </TouchableOpacity>
                         </>
                       )}

@@ -8,6 +8,7 @@ import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
 
 export interface GenerateChallanPdfOptions {
   share?: boolean;
+  directDownload?: boolean;
 }
 
 /**
@@ -682,6 +683,9 @@ export function buildChallanHtml(challan: ChallanRecord): string {
   `;
 }
 
+// Session cache for user-selected download directory
+let cachedDirectoryUri: string | null = null;
+
 /**
  * Generates and automatically downloads (on Web) or shares/saves (on Mobile) the official L&T Challan PDF
  * with exact 1:1 scale matching the web application PDF.
@@ -737,7 +741,7 @@ export async function downloadOrShareChallanPdf(
     },
   });
 
-  // Preserve the official challan filename (e.g. DC-26-040.pdf) in cache before sharing
+  // Preserve the official challan filename (e.g. DC-26-040.pdf) in cache before sharing/saving
   let finalUri = uri;
   try {
     const targetUri = `${FileSystem.cacheDirectory}${filename}`;
@@ -751,18 +755,77 @@ export async function downloadOrShareChallanPdf(
     console.warn("Could not copy to named cache file, using temp uri:", err);
   }
 
-  if (options.share) {
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (isAvailable) {
-      await Sharing.shareAsync(finalUri, {
-        UTI: ".pdf",
-        mimeType: "application/pdf",
-        dialogTitle: `Share ${challan.challanNumber || "Challan"} PDF`,
-      });
+  // Direct download to device storage on Android using StorageAccessFramework
+  if (Platform.OS === "android" && options.directDownload) {
+  let targetDirUri = cachedDirectoryUri;
+
+  if (!targetDirUri) {
+    try {
+      const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (permissions.granted) {
+        targetDirUri = permissions.directoryUri;
+        cachedDirectoryUri = targetDirUri;
+      } else {
+        return "";
+      }
+    } catch (safPickerErr) {
+      console.warn("StorageAccessFramework picker error:", safPickerErr);
     }
   }
 
-  return finalUri;
+  if (targetDirUri) {
+    try {
+      const base64Data = await FileSystem.readAsStringAsync(finalUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const createdFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        targetDirUri,
+        safeNumber,
+        "application/pdf"
+      );
+      await FileSystem.writeAsStringAsync(createdFileUri, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return createdFileUri;
+    } catch (writeErr) {
+      console.warn("Failed writing to directory, prompting folder selection again:", writeErr);
+      cachedDirectoryUri = null;
+      try {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          cachedDirectoryUri = permissions.directoryUri;
+          const base64Data = await FileSystem.readAsStringAsync(finalUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const createdFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            safeNumber,
+            "application/pdf"
+          );
+          await FileSystem.writeAsStringAsync(createdFileUri, base64Data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          return createdFileUri;
+        }
+      } catch (retryErr) {
+        console.warn("Direct download retry failed:", retryErr);
+      }
+    }
+  }
+}
+
+if (options.share || (options.directDownload && Platform.OS === "ios")) {
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (isAvailable) {
+    await Sharing.shareAsync(finalUri, {
+      UTI: ".pdf",
+      mimeType: "application/pdf",
+      dialogTitle: `Download ${challan.challanNumber || "Challan"} PDF`,
+    });
+  }
+}
+
+return finalUri;
 }
 
 /**

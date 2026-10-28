@@ -42,6 +42,7 @@ interface SelectedToolsModalProps {
   onSelectAction: (action: BatchActionType) => void;
   canInspect?: boolean;
   isInspectionRestricted?: boolean;
+  isAdmin?: boolean;
   onToolsUpdated?: () => void;
 }
 
@@ -53,6 +54,7 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
   onSelectAction,
   canInspect = false,
   isInspectionRestricted = false,
+  isAdmin = false,
   onToolsUpdated,
 }) => {
   const { theme, isDark } = useAppTheme();
@@ -69,8 +71,14 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
     [selectedTools]
   );
 
-  const canMarkAsPrinted = totalSelected > 0 && unprintedCount > 0;
-  const canUnprint = totalSelected > 0 && printedCount > 0;
+  // Exact Web Parity from StoreToolsPage.tsx:
+  // "Mark as Printed" is only clickable if ALL selected tools are NOT printed (0 are printed)
+  const canMarkAsPrinted = totalSelected > 0 && printedCount === 0 && unprintedCount === totalSelected;
+
+  // "Unprint" is only clickable if ALL selected tools are PRINTED (0 are unprinted)
+  const canUnprint = totalSelected > 0 && unprintedCount === 0 && printedCount === totalSelected;
+
+  // Subcontractor DC, Transfer, and Scrap flows require ALL selected tools to be marked as Printed
   const areAllSelectedPrinted =
     totalSelected > 0 && unprintedCount === 0 && printedCount === totalSelected;
 
@@ -82,6 +90,101 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
     () => selectedTools.some((t) => (t.status || "").toLowerCase() === "moving"),
     [selectedTools]
   );
+  const hasMissingTool = useMemo(
+    () => selectedTools.some((t) => (t.status || "").toLowerCase() === "missing"),
+    [selectedTools]
+  );
+
+  const isToolDeletable = (status?: string): boolean => {
+    const s = (status || "").trim().toLowerCase();
+    return s === "available" || s === "missing";
+  };
+
+  const hasNonDeletableTool = useMemo(
+    () => selectedTools.some((t) => !isToolDeletable(t.status)),
+    [selectedTools]
+  );
+
+  // Primary Sub Contractor / Delivery Challan Button State (Exact Web Parity)
+  const challanState = useMemo(() => {
+    if (hasMovingTool) {
+      return {
+        label: "Already Moving",
+        disabled: true,
+        reason: "Cannot create Delivery Challan: Selected tool(s) are already Moving",
+      };
+    }
+    if (hasMissingTool) {
+      return {
+        label: "Tool is Missing",
+        disabled: true,
+        reason: "Cannot create Delivery Challan: Selected tool(s) are marked as Missing",
+      };
+    }
+    if (hasRepairTool) {
+      return {
+        label: "Tool Under Repair",
+        disabled: true,
+        reason: "Cannot create Delivery Challan: Selected tool(s) are under Repair",
+      };
+    }
+    if (!areAllSelectedPrinted) {
+      return {
+        label: "Sub Contractor",
+        disabled: true,
+        reason: "Disabled: All selected tools must be marked as Printed before creating a Delivery Challan",
+      };
+    }
+    return {
+      label: "Sub Contractor",
+      disabled: false,
+      reason: "",
+    };
+  }, [hasMovingTool, hasMissingTool, hasRepairTool, areAllSelectedPrinted]);
+
+  // Quality Inspection State (Exact Web Parity)
+  const inspectDisabled = hasRepairTool || hasMovingTool;
+  const inspectReason = hasRepairTool
+    ? "Inspection blocked: Selected tool(s) are already under Repair"
+    : hasMovingTool
+    ? "Inspection blocked: Selected tool(s) are currently Moving"
+    : "";
+
+  // Transfer State (Exact Web Parity)
+  const transferDisabled = !areAllSelectedPrinted || hasRepairTool || hasMovingTool;
+  const transferReason = hasMovingTool
+    ? "Disabled: Selected tool(s) are currently Moving on a Delivery Challan"
+    : hasRepairTool
+    ? "Disabled: Selected tool(s) are under Repair and cannot be transferred"
+    : !areAllSelectedPrinted
+    ? "Disabled: All selected tools must be marked as Printed before performing an inter-store Transfer"
+    : "";
+
+  // Scrap State (Exact Web Parity)
+  const scrapDisabled = !areAllSelectedPrinted || hasRepairTool || hasMovingTool;
+  const scrapReason = hasMovingTool
+    ? "Disabled: Selected tool(s) are currently Moving and cannot be moved to Scrap"
+    : hasRepairTool
+    ? "Disabled: Selected tool(s) are already under Repair and cannot be moved to Scrap"
+    : !areAllSelectedPrinted
+    ? "Disabled: All selected tools must be marked as Printed before moving to Scrap"
+    : "";
+
+  // Mark Printed Reason
+  const markPrintedReason =
+    printedCount > 0 && unprintedCount > 0
+      ? "Disabled: Selection contains mixed printed and not printed tools"
+      : printedCount > 0
+      ? "Disabled: All selected tools are already printed"
+      : "Select not printed tools to mark as printed";
+
+  // Unprint Reason
+  const unprintReason =
+    printedCount > 0 && unprintedCount > 0
+      ? "Disabled: Selection contains mixed printed and not printed tools"
+      : unprintedCount > 0
+      ? "Disabled: Selected tools are already not printed"
+      : "Select printed tools to unprint";
 
   const executeMarkPrinted = async (ids: string[]) => {
     onClose();
@@ -100,6 +203,10 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
   const handleMarkPrinted = () => {
     if (isInspectionRestricted) {
       Alert.alert("Access Restricted", "Users with Inspection access cannot mark tools as printed.");
+      return;
+    }
+    if (!canMarkAsPrinted) {
+      Alert.alert("Action Blocked", markPrintedReason);
       return;
     }
     const ids = selectedTools.filter((t) => !t.isPrinted).map((t) => t._id);
@@ -137,6 +244,10 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
       Alert.alert("Access Restricted", "Users with Inspection access cannot unmark tools as printed.");
       return;
     }
+    if (!canUnprint) {
+      Alert.alert("Action Blocked", unprintReason);
+      return;
+    }
     const ids = selectedTools.filter((t) => t.isPrinted).map((t) => t._id);
     if (ids.length === 0) return;
 
@@ -155,8 +266,15 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
   };
 
   const handleDeleteClick = () => {
-    if (isInspectionRestricted) {
-      Alert.alert("Access Restricted", "Users with Inspection access cannot delete equipment.");
+    if (!isAdmin) {
+      Alert.alert("Access Restricted", "Only administrators can delete equipment.");
+      return;
+    }
+    if (hasNonDeletableTool) {
+      Alert.alert(
+        "Action Blocked",
+        "Disabled: Selected tool(s) include Moving or non-deletable equipment. Only Available and Missing tools can be deleted."
+      );
       return;
     }
     Alert.alert(
@@ -174,73 +292,44 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
   };
 
   const handleActionClick = (actionId: BatchActionType) => {
-    // 1. Quality Inspection
-    if (actionId === "inspect") {
-      if (hasRepairTool) {
-        Alert.alert("Notice", "Inspection blocked: Selected tool(s) are already under Repair.");
+    // 1. Delivery Challan
+    if (actionId === "challan") {
+      if (challanState.disabled) {
+        Alert.alert("Action Blocked", challanState.reason);
         return;
       }
-      if (hasMovingTool) {
-        Alert.alert("Notice", "Inspection blocked: Selected tool(s) are currently Moving.");
+      onSelectAction("challan");
+      return;
+    }
+
+    // 2. Quality Inspection
+    if (actionId === "inspect") {
+      if (inspectDisabled) {
+        Alert.alert("Action Blocked", inspectReason);
         return;
       }
       onSelectAction("inspect");
       return;
     }
 
-    // 2. Actions requiring all tools to be printed (Challan, Transfer, Scrap)
-    if (["challan", "transfer", "scrap"].includes(actionId)) {
-      if (hasRepairTool && (actionId === "transfer" || actionId === "scrap" || actionId === "challan")) {
-        Alert.alert(
-          "Action Blocked",
-          `Cannot ${actionId === "scrap" ? "scrap" : actionId === "transfer" ? "transfer" : "create DC for"} tool(s) under Repair.`
-        );
+    // 3. Transfer
+    if (actionId === "transfer") {
+      if (transferDisabled) {
+        Alert.alert("Action Blocked", transferReason);
         return;
       }
+      onSelectAction("transfer");
+      return;
+    }
 
-      if (hasMovingTool && (actionId === "transfer" || actionId === "scrap" || actionId === "challan")) {
-        const movingCount = selectedTools.filter(
-          (t) => (t.status || "").toLowerCase() === "moving"
-        ).length;
-        Alert.alert(
-          "Action Blocked",
-          `Cannot ${
-            actionId === "challan"
-              ? "create Delivery Challan for"
-              : actionId === "transfer"
-              ? "transfer"
-              : "scrap"
-          } ${movingCount} selected tool(s) that are already Moving (dispatched on an active Delivery Challan). Tools must first be returned via a Return Challan (RC).`
-        );
+    // 4. Scrap
+    if (actionId === "scrap") {
+      if (scrapDisabled) {
+        Alert.alert("Action Blocked", scrapReason);
         return;
       }
-
-      if (!areAllSelectedPrinted) {
-        Alert.alert(
-          "QR Label Required",
-          `All selected equipment must be marked as Printed before ${
-            actionId === "challan"
-              ? "creating a Delivery Challan"
-              : actionId === "transfer"
-              ? "transferring stores"
-              : "moving to scrap"
-          }. Would you like to mark them as printed now?`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Mark Printed & Proceed",
-              onPress: async () => {
-                const unprintedIds = selectedTools.filter((t) => !t.isPrinted).map((t) => t._id);
-                if (unprintedIds.length > 0) {
-                  await executeMarkPrinted(unprintedIds);
-                }
-                onSelectAction(actionId);
-              },
-            },
-          ]
-        );
-        return;
-      }
+      onSelectAction("scrap");
+      return;
     }
 
     onSelectAction(actionId);
@@ -252,7 +341,7 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 4 }}
       >
-        {/* Header matching Image 2 */}
+        {/* Header matching Web */}
         <View className="flex-row items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800">
           <View className="flex-row items-center gap-2.5 min-w-0 flex-1">
             {/* Circular badge with count */}
@@ -303,172 +392,289 @@ export const SelectedToolsModal: React.FC<SelectedToolsModalProps> = ({
           </View>
         </View>
 
-        {/* Buttons List matching Image 2 */}
+        {/* Buttons List matching Web Parity */}
         <View className="gap-2.5">
-          {/* 1. Sub Contractor - Solid royal blue button */}
-          {!isInspectionRestricted && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleActionClick("challan")}
-              className={`w-full h-12 rounded-2xl flex-row items-center justify-center gap-2.5 shadow-sm ${
-                hasMovingTool ? "bg-slate-200 dark:bg-slate-800" : ""
-              }`}
-              style={
-                !hasMovingTool
-                  ? { backgroundColor: "#3742FA" }
-                  : undefined
-              }
-            >
-              <Truck
-                size={18}
-                color={hasMovingTool ? "#94A3B8" : "#FFFFFF"}
-                strokeWidth={2.2}
-              />
-              <Text
-                className={`text-sm font-bold ${
-                  hasMovingTool
-                    ? "text-slate-500 dark:text-slate-400"
-                    : "text-white"
-                }`}
-              >
-                {hasMovingTool ? "Already Moving" : "Sub Contractor"}
+          {hasMovingTool ? (
+            <View className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 items-center justify-center">
+              <View className="flex-row items-center gap-1.5 mb-1.5">
+                <Truck size={16} color="#D97706" />
+                <Text className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                  Already Moving
+                </Text>
+              </View>
+              <Text className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                Selected tool(s) are currently Moving on a Delivery Challan. No actions are available until returned via Return Challan (RC).
               </Text>
-            </TouchableOpacity>
-          )}
+            </View>
+          ) : hasMissingTool ? (
+            <View className="gap-2.5">
+              <View className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 items-center justify-center">
+                <Text className="text-xs font-bold text-rose-700 dark:text-rose-400 mb-0.5">
+                  Selected tool(s) are marked as Missing
+                </Text>
+                <Text className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                  Only deletion is available for missing equipment.
+                </Text>
+              </View>
 
-          {/* 2. Quality Inspection - Solid dark teal button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => handleActionClick("inspect")}
-            className="w-full h-12 rounded-2xl flex-row items-center justify-center gap-2.5 shadow-sm"
-            style={{ backgroundColor: "#00796B" }}
-          >
-            <ClipboardCheck size={18} color="#FFFFFF" strokeWidth={2.2} />
-            <Text className="text-sm font-bold text-white">
-              Quality Inspection ({totalSelected})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Row: Mark as Printed & Unprint */}
-          {!isInspectionRestricted && (
-            <View className="flex-row items-center gap-2.5">
-              {/* 3. Mark as Printed */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                disabled={markingPrinted || !canMarkAsPrinted}
-                onPress={handleMarkPrinted}
-                className={`flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border px-2 ${
-                  canMarkAsPrinted
-                    ? "border-emerald-500 bg-white dark:bg-slate-900"
-                    : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 opacity-60"
-                }`}
-              >
-                {markingPrinted ? (
-                  <ActivityIndicator size="small" color="#059669" />
-                ) : (
-                  <Printer
-                    size={15}
-                    color={canMarkAsPrinted ? "#059669" : "#94A3B8"}
-                    strokeWidth={2}
-                  />
-                )}
-                <Text
-                  numberOfLines={1}
-                  className={`text-xs font-semibold ${
-                    canMarkAsPrinted
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : "text-slate-400 dark:text-slate-500"
+              {isAdmin && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleDeleteClick}
+                  className="w-full h-11 rounded-2xl flex-row items-center justify-center gap-2 border border-rose-300 dark:border-rose-900 bg-rose-50/20 dark:bg-rose-950/20"
+                >
+                  <Trash2 size={16} color="#E11D48" strokeWidth={2} />
+                  <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                    Delete Selected ({totalSelected})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <>
+              {/* 1. Sub Contractor / Delivery Challan (Hidden for Inspection-Restricted Users) */}
+              {!isInspectionRestricted && (
+                <TouchableOpacity
+                  activeOpacity={challanState.disabled ? 0.9 : 0.8}
+                  onPress={() => handleActionClick("challan")}
+                  className={`w-full h-12 rounded-2xl flex-row items-center justify-center gap-2.5 shadow-sm ${
+                    challanState.disabled
+                      ? "bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 opacity-70"
+                      : ""
                   }`}
+                  style={
+                    !challanState.disabled
+                      ? { backgroundColor: "#3742FA" }
+                      : undefined
+                  }
                 >
-                  Mark as Printed ({totalSelected})
-                </Text>
-              </TouchableOpacity>
+                  <Truck
+                    size={18}
+                    color={challanState.disabled ? "#94A3B8" : "#FFFFFF"}
+                    strokeWidth={2.2}
+                  />
+                  <Text
+                    className={`text-sm font-bold ${
+                      challanState.disabled
+                        ? "text-slate-500 dark:text-slate-400"
+                        : "text-white"
+                    }`}
+                  >
+                    {challanState.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-              {/* 4. Unprint */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                disabled={unmarkingPrinted || !canUnprint}
-                onPress={handleUnmarkPrinted}
-                className={`flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border px-2 border-amber-400 dark:border-amber-500 bg-white dark:bg-slate-900 ${
-                  !canUnprint ? "opacity-60" : ""
-                }`}
-              >
-                {unmarkingPrinted ? (
-                  <ActivityIndicator size="small" color="#D97706" />
-                ) : (
-                  <RotateCcw size={15} color="#D97706" strokeWidth={2} />
-                )}
-                <Text
-                  numberOfLines={1}
-                  className="text-xs font-semibold text-amber-600 dark:text-amber-400"
+              {/* 2. Quality Inspection (Authorized users only: canInspect) */}
+              {canInspect && (
+                <TouchableOpacity
+                  activeOpacity={inspectDisabled ? 0.9 : 0.8}
+                  onPress={() => handleActionClick("inspect")}
+                  className={`w-full h-12 rounded-2xl flex-row items-center justify-center gap-2.5 shadow-sm ${
+                    inspectDisabled
+                      ? "bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 opacity-60"
+                      : ""
+                  }`}
+                  style={
+                    !inspectDisabled
+                      ? { backgroundColor: "#00796B" }
+                      : undefined
+                  }
                 >
-                  Unprint ({totalSelected})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                  <ClipboardCheck
+                    size={18}
+                    color={inspectDisabled ? "#94A3B8" : "#FFFFFF"}
+                    strokeWidth={2.2}
+                  />
+                  <Text
+                    className={`text-sm font-bold ${
+                      inspectDisabled
+                        ? "text-slate-500 dark:text-slate-400"
+                        : "text-white"
+                    }`}
+                  >
+                    Quality Inspection ({totalSelected})
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-          {/* Row: Transfer & Bulk Edit */}
-          {!isInspectionRestricted && (
-            <View className="flex-row items-center gap-2.5">
-              {/* 5. Transfer */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => handleActionClick("transfer")}
-                className="flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900 px-2"
-              >
-                <ArrowRightLeft size={15} color="#4F46E5" strokeWidth={2} />
-                <Text
-                  numberOfLines={1}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400"
-                >
-                  Transfer ({totalSelected})
-                </Text>
-              </TouchableOpacity>
+              {/* Grid of Action Buttons (Hidden for Inspection Users, Visible for Admin & Regular Users) */}
+              {(!isInspectionRestricted || isAdmin) && (
+                <>
+                  {/* Row: Mark as Printed & Unprint */}
+                  {!isInspectionRestricted && (
+                    <View className="flex-row items-center gap-2.5">
+                      {/* 3. Mark as Printed */}
+                      <TouchableOpacity
+                        activeOpacity={!canMarkAsPrinted ? 0.9 : 0.7}
+                        onPress={handleMarkPrinted}
+                        className={`flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border px-2 ${
+                          canMarkAsPrinted
+                            ? "border-emerald-500 bg-white dark:bg-slate-900"
+                            : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 opacity-50"
+                        }`}
+                      >
+                        {markingPrinted ? (
+                          <ActivityIndicator size="small" color="#059669" />
+                        ) : (
+                          <Printer
+                            size={15}
+                            color={canMarkAsPrinted ? "#059669" : "#94A3B8"}
+                            strokeWidth={2}
+                          />
+                        )}
+                        <Text
+                          numberOfLines={1}
+                          className={`text-xs font-semibold ${
+                            canMarkAsPrinted
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-slate-400 dark:text-slate-500"
+                          }`}
+                        >
+                          Mark as Printed ({totalSelected})
+                        </Text>
+                      </TouchableOpacity>
 
-              {/* 6. Bulk Edit */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => onSelectAction("edit")}
-                className="flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border border-indigo-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2"
-              >
-                <Edit3 size={15} color="#4F46E5" strokeWidth={2} />
-                <Text
-                  numberOfLines={1}
-                  className="text-xs font-semibold text-slate-800 dark:text-slate-200"
-                >
-                  Bulk Edit ({totalSelected})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                      {/* 4. Unprint */}
+                      <TouchableOpacity
+                        activeOpacity={!canUnprint ? 0.9 : 0.7}
+                        onPress={handleUnmarkPrinted}
+                        className={`flex-1 h-11 rounded-xl flex-row items-center justify-center gap-1.5 border px-2 ${
+                          canUnprint
+                            ? "border-amber-400 dark:border-amber-500 bg-white dark:bg-slate-900"
+                            : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 opacity-50"
+                        }`}
+                      >
+                        {unmarkingPrinted ? (
+                          <ActivityIndicator size="small" color="#D97706" />
+                        ) : (
+                          <RotateCcw
+                            size={15}
+                            color={canUnprint ? "#D97706" : "#94A3B8"}
+                            strokeWidth={2}
+                          />
+                        )}
+                        <Text
+                          numberOfLines={1}
+                          className={`text-xs font-semibold ${
+                            canUnprint
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-slate-400 dark:text-slate-500"
+                          }`}
+                        >
+                          Unprint ({totalSelected})
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-          {/* 7. Scrap Selected - Amber outline button */}
-          {!isInspectionRestricted && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => handleActionClick("scrap")}
-              className="w-full h-11 rounded-2xl flex-row items-center justify-center gap-2 border border-amber-400 dark:border-amber-500 bg-white dark:bg-slate-900"
-            >
-              <Archive size={16} color="#D97706" strokeWidth={2} />
-              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                Scrap Selected ({totalSelected})
-              </Text>
-            </TouchableOpacity>
-          )}
+                  {/* Row: Transfer & Bulk Edit (or Transfer alone if not admin) */}
+                  <View className="flex-row items-center gap-2.5">
+                    {/* 5. Transfer (Hidden for Inspection-Restricted Users) */}
+                    {!isInspectionRestricted && (
+                      <TouchableOpacity
+                        activeOpacity={transferDisabled ? 0.9 : 0.7}
+                        onPress={() => handleActionClick("transfer")}
+                        className={`${isAdmin ? "flex-1" : "w-full"} h-11 rounded-xl flex-row items-center justify-center gap-1.5 border px-2 ${
+                          !transferDisabled
+                            ? "border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900"
+                            : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 opacity-50"
+                        }`}
+                      >
+                        <ArrowRightLeft
+                          size={15}
+                          color={!transferDisabled ? "#4F46E5" : "#94A3B8"}
+                          strokeWidth={2}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          className={`text-xs font-semibold ${
+                            !transferDisabled
+                              ? "text-indigo-600 dark:text-indigo-400"
+                              : "text-slate-400 dark:text-slate-500"
+                          }`}
+                        >
+                          Transfer ({totalSelected})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
-          {/* 8. Delete Selected - Rose outline button */}
-          {!isInspectionRestricted && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={handleDeleteClick}
-              className="w-full h-11 rounded-2xl flex-row items-center justify-center gap-2 border border-rose-300 dark:border-rose-900 bg-rose-50/20 dark:bg-rose-950/20"
-            >
-              <Trash2 size={16} color="#E11D48" strokeWidth={2} />
-              <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                Delete Selected ({totalSelected})
-              </Text>
-            </TouchableOpacity>
+                    {/* 6. Bulk Edit (Admin Only) */}
+                    {isAdmin && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => onSelectAction("edit")}
+                        className={`${!isInspectionRestricted ? "flex-1" : "w-full"} h-11 rounded-xl flex-row items-center justify-center gap-1.5 border border-indigo-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2`}
+                      >
+                        <Edit3 size={15} color="#4F46E5" strokeWidth={2} />
+                        <Text
+                          numberOfLines={1}
+                          className="text-xs font-semibold text-slate-800 dark:text-slate-200"
+                        >
+                          Bulk Edit ({totalSelected})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* 7. Scrap Selected (Hidden for Inspection-Restricted Users) */}
+                  {!isInspectionRestricted && (
+                    <TouchableOpacity
+                      activeOpacity={scrapDisabled ? 0.9 : 0.7}
+                      onPress={() => handleActionClick("scrap")}
+                      className={`w-full h-11 rounded-2xl flex-row items-center justify-center gap-2 border ${
+                        !scrapDisabled
+                          ? "border-amber-400 dark:border-amber-500 bg-white dark:bg-slate-900"
+                          : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 opacity-50"
+                      }`}
+                    >
+                      <Archive
+                        size={16}
+                        color={!scrapDisabled ? "#D97706" : "#94A3B8"}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        className={`text-xs font-bold ${
+                          !scrapDisabled
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-400 dark:text-slate-500"
+                        }`}
+                      >
+                        Scrap Selected ({totalSelected})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* 8. Delete Selected (Admin Only) */}
+                  {isAdmin && (
+                    <TouchableOpacity
+                      activeOpacity={hasNonDeletableTool ? 0.9 : 0.7}
+                      onPress={handleDeleteClick}
+                      className={`w-full h-11 rounded-2xl flex-row items-center justify-center gap-2 border ${
+                        hasNonDeletableTool
+                          ? "border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-[#1E1E1E] opacity-40"
+                          : "border-rose-300 dark:border-rose-900 bg-rose-50/20 dark:bg-rose-950/20"
+                      }`}
+                    >
+                      <Trash2
+                        size={16}
+                        color={hasNonDeletableTool ? "#94A3B8" : "#E11D48"}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        className={`text-xs font-bold ${
+                          hasNonDeletableTool
+                            ? "text-slate-400 dark:text-slate-500"
+                            : "text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        Delete Selected ({totalSelected})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </>
           )}
         </View>
       </ScrollView>

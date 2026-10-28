@@ -135,6 +135,21 @@ export const challanService = {
       return { success: false };
     }
   },
+
+  /**
+   * Peeks the upcoming sequential Challan number (e.g. DC-26-043)
+   */
+  getNextChallanNumber: async (type: string = "Delivery"): Promise<string> => {
+    try {
+      const response = await api.get<{ success: boolean; data: { challanNumber: string } }>(
+        "/api/challans/next-number",
+        { params: { type } }
+      );
+      return response.data?.data?.challanNumber || (type === "Scrap" ? "SDC-26-001" : "DC-26-001");
+    } catch {
+      return type === "Scrap" ? "SDC-26-001" : "DC-26-001";
+    }
+  },
 };
 
 export default challanService;
