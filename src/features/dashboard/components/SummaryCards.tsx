@@ -40,12 +40,11 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       filterVal: "All",
       textColor: isDark ? "#60A5FA" : "#3B82F6",
       borderColor: isDark ? "rgba(59, 130, 246, 0.35)" : "rgba(59, 130, 246, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.1)",
-      badgeBg: isDark ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.1)",
       badgeText: "Enterprise Total",
     },
     {
@@ -54,14 +53,13 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       count: available,
       icon: CheckCircle2,
       filterVal: "Available",
-      textColor: isDark ? "#34D399" : "#10B981",
+      textColor: isDark ? "#65b399ff" : "#65b399ff",
       borderColor: isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(5, 150, 105, 0.15) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(5, 150, 105, 0.15) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, rgba(16, 185, 129, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.1)",
-      badgeBg: isDark ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.1)",
       badgeText: "Ready for Deployment",
     },
     {
@@ -70,14 +68,13 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       count: moving,
       icon: Truck,
       filterVal: "Moving",
-      textColor: isDark ? "#22D3EE" : "#06B6D4",
-      borderColor: isDark ? "rgba(6, 182, 212, 0.35)" : "rgba(6, 182, 212, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      textColor: isDark ? "#598dafff" : "#598dafff",
+      borderColor: isDark ? "rgba(106, 182, 193, 0.35)" : "rgba(54, 169, 189, 0.28)",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(8, 145, 178, 0.15) 0%, rgba(6, 182, 212, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(8, 145, 178, 0.15) 0%, rgba(6, 182, 212, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(8, 145, 178, 0.08) 0%, rgba(6, 182, 212, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(6, 182, 212, 0.2)" : "rgba(6, 182, 212, 0.1)",
-      badgeBg: isDark ? "rgba(6, 182, 212, 0.2)" : "rgba(6, 182, 212, 0.1)",
       badgeText: "Store/HUB Movement",
     },
     {
@@ -88,12 +85,11 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       filterVal: "Repair",
       textColor: isDark ? "#FB923C" : "#EA580C",
       borderColor: isDark ? "rgba(234, 88, 12, 0.35)" : "rgba(234, 88, 12, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(234, 88, 12, 0.15) 0%, rgba(249, 115, 22, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(234, 88, 12, 0.15) 0%, rgba(249, 115, 22, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(234, 88, 12, 0.08) 0%, rgba(249, 115, 22, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(249, 115, 22, 0.2)" : "rgba(249, 115, 22, 0.1)",
-      badgeBg: isDark ? "rgba(249, 115, 22, 0.2)" : "rgba(249, 115, 22, 0.1)",
       badgeText: "Under Repair",
     },
     {
@@ -104,12 +100,11 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       filterVal: "Missing",
       textColor: isDark ? "#F87171" : "#DC2626",
       borderColor: isDark ? "rgba(220, 38, 38, 0.35)" : "rgba(220, 38, 38, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(239, 68, 68, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(239, 68, 68, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(239, 68, 68, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(220, 38, 38, 0.2)" : "rgba(220, 38, 38, 0.1)",
-      badgeBg: isDark ? "rgba(220, 38, 38, 0.2)" : "rgba(220, 38, 38, 0.1)",
       badgeText: "Investigation Flag",
     },
     {
@@ -120,12 +115,11 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       filterVal: "Scrap",
       textColor: isDark ? "#FBBF24" : "#D97706",
       borderColor: isDark ? "rgba(217, 119, 6, 0.35)" : "rgba(217, 119, 6, 0.28)",
-      cardBg: isDark ? "#1E293B" : "#FFFFFF",
+      cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
       webGradient: isDark
-        ? "linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, rgba(245, 158, 11, 0.05) 50%, rgba(30, 41, 59, 0.8) 100%)"
+        ? "linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, rgba(245, 158, 11, 0.05) 50%, rgba(30, 30, 30, 0.95) 100%)"
         : "linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(245, 158, 11, 0.03) 50%, #FFFFFF 100%)",
       iconBg: isDark ? "rgba(245, 158, 11, 0.2)" : "rgba(245, 158, 11, 0.1)",
-      badgeBg: isDark ? "rgba(245, 158, 11, 0.2)" : "rgba(245, 158, 11, 0.1)",
       badgeText: "Decommissioned / Scrapped",
     },
   ];
@@ -238,7 +232,6 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                       paddingHorizontal: 6,
                       paddingVertical: 2,
                       borderRadius: 5,
-                      backgroundColor: card.badgeBg,
                       maxWidth: "100%",
                     }}
                   >

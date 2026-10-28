@@ -147,7 +147,7 @@ export default function ProfilesScreen() {
       <View
         style={{
           flexDirection: "row",
-          backgroundColor: isDark ? "#111827" : "#FFFFFF",
+          backgroundColor: isDark ? "#181818" : "#FFFFFF",
           paddingHorizontal: 12,
           paddingVertical: 8,
           borderBottomWidth: 1,
@@ -170,7 +170,7 @@ export default function ProfilesScreen() {
                 justifyContent: "center",
                 paddingVertical: 9,
                 borderRadius: 12,
-                backgroundColor: isActive ? theme.primary : isDark ? "#1E293B" : "#F1F5F9",
+                backgroundColor: isActive ? theme.primary : isDark ? "#262626" : "#F1F5F9",
                 borderWidth: 1,
                 borderColor: isActive ? theme.primary : theme.border,
                 gap: 6,
@@ -199,7 +199,7 @@ export default function ProfilesScreen() {
         style={{
           paddingHorizontal: 16,
           paddingVertical: 10,
-          backgroundColor: isDark ? "#111827" : "#FFFFFF",
+          backgroundColor: isDark ? "#181818" : "#FFFFFF",
           borderBottomWidth: 1,
           borderColor: theme.border,
         }}
@@ -274,7 +274,7 @@ export default function ProfilesScreen() {
                 {(item.contactPerson || item.contactPhone || item.contactEmail) && (
                   <View
                     style={{
-                      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                      backgroundColor: isDark ? "#262626" : "#F8FAFC",
                       borderRadius: 10,
                       padding: 10,
                       marginVertical: 6,
@@ -337,7 +337,7 @@ export default function ProfilesScreen() {
                   {item.gstNumber ? (
                     <View
                       style={{
-                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        backgroundColor: isDark ? "#262626" : "#F1F5F9",
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -352,7 +352,7 @@ export default function ProfilesScreen() {
                   {item.panNumber ? (
                     <View
                       style={{
-                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        backgroundColor: isDark ? "#262626" : "#F1F5F9",
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -367,7 +367,7 @@ export default function ProfilesScreen() {
                   {item.licenseNumber ? (
                     <View
                       style={{
-                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        backgroundColor: isDark ? "#262626" : "#F1F5F9",
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -438,7 +438,7 @@ export default function ProfilesScreen() {
                         paddingHorizontal: 10,
                         paddingVertical: 5,
                         borderRadius: 8,
-                        backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                        backgroundColor: isDark ? "#262626" : "#F1F5F9",
                       }}
                     >
                       <Edit2 size={12} color={theme.textSecondary} />

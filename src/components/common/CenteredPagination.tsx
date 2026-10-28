@@ -106,7 +106,7 @@ export const CenteredPagination: React.FC<CenteredPaginationProps> = ({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: isDark ? '#111827' : '#FFFFFF',
+          backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
           borderRadius: 14,
           paddingHorizontal: 8,
           paddingVertical: 6,
@@ -131,7 +131,7 @@ export const CenteredPagination: React.FC<CenteredPaginationProps> = ({
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            backgroundColor: isDark ? '#262626' : '#F8FAFC',
             opacity: currentPage <= 1 ? 0.35 : 1,
           }}
         >
@@ -149,7 +149,7 @@ export const CenteredPagination: React.FC<CenteredPaginationProps> = ({
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            backgroundColor: isDark ? '#262626' : '#F8FAFC',
             opacity: currentPage <= 1 ? 0.35 : 1,
           }}
         >
@@ -218,7 +218,7 @@ export const CenteredPagination: React.FC<CenteredPaginationProps> = ({
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            backgroundColor: isDark ? '#262626' : '#F8FAFC',
             opacity: currentPage >= totalPages ? 0.35 : 1,
           }}
         >
@@ -236,7 +236,7 @@ export const CenteredPagination: React.FC<CenteredPaginationProps> = ({
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+            backgroundColor: isDark ? '#262626' : '#F8FAFC',
             opacity: currentPage >= totalPages ? 0.35 : 1,
           }}
         >

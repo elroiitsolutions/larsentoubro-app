@@ -124,10 +124,10 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
 
   const containerStyle = cardStyle
     ? {
-        backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+        backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: isDark ? "#334155" : "#E2E8F0",
+        borderColor: isDark ? "#2E2E33" : "#E2E8F0",
         padding: 16,
         marginBottom: 14,
         ...Platform.select({
@@ -218,13 +218,13 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                         backgroundColor: isSelected
                           ? theme.primary
                           : isDark
-                          ? "#0F172A"
+                          ? "#262626"
                           : "#F1F5F9",
                         borderWidth: 1,
                         borderColor: isSelected
                           ? theme.primary
                           : isDark
-                          ? "#334155"
+                          ? "#2E2E33"
                           : "#E2E8F0",
                       }}
                     >
@@ -286,7 +286,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                 justifyContent: "space-between",
                 paddingVertical: 10,
                 borderTopWidth: 1,
-                borderColor: isDark ? "#334155" : "#F1F5F9",
+                borderColor: isDark ? "#2E2E33" : "#F1F5F9",
                 marginBottom: 10,
               }}
             >
@@ -316,7 +316,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                 value={switchVal}
                 onValueChange={(val) => onChange(fieldKey, val)}
                 trackColor={{
-                  false: isDark ? "#334155" : "#E2E8F0",
+                  false: isDark ? "#3A3A40" : "#E2E8F0",
                   true: theme.primary,
                 }}
               />

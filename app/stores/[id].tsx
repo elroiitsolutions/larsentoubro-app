@@ -841,9 +841,9 @@ export default function StoreInventoryScreen() {
             justifyContent: "space-between",
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+            backgroundColor: theme.headerBg,
             borderBottomWidth: 1,
-            borderBottomColor: isDark ? "#1E293B" : "#F1F5F9",
+            borderBottomColor: theme.border,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 }}>
@@ -1010,9 +1010,9 @@ export default function StoreInventoryScreen() {
           paddingTop: 12,
           paddingHorizontal: 16,
           paddingBottom: 8,
-          backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+          backgroundColor: theme.headerBg,
           borderBottomWidth: 1,
-          borderBottomColor: isDark ? "#1E293B" : "#F1F5F9",
+          borderBottomColor: theme.border,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>

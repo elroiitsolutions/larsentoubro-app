@@ -91,12 +91,12 @@ export const NoAccessState: React.FC<NoAccessStateProps> = ({
       {requiredPermission && (
         <View
           style={{
-            backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
+            backgroundColor: isDark ? "#262626" : "#F1F5F9",
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 8,
             borderWidth: 1,
-            borderColor: isDark ? "#334155" : "#E2E8F0",
+            borderColor: isDark ? "#2E2E33" : "#E2E8F0",
             marginBottom: 24,
           }}
         >

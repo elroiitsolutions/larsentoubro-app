@@ -213,7 +213,7 @@ export default function FormsManagementScreen() {
               <View
                 style={{
                   alignSelf: "flex-start",
-                  backgroundColor: theme.isDark ? "#0F172A" : "#F1F5F9",
+                  backgroundColor: theme.isDark ? "#262626" : "#F1F5F9",
                   paddingHorizontal: 6,
                   paddingVertical: 2,
                   borderRadius: 6,
@@ -252,7 +252,7 @@ export default function FormsManagementScreen() {
                 justifyContent: "space-between",
                 paddingHorizontal: 16,
                 paddingVertical: 10,
-                backgroundColor: theme.isDark ? "#111827" : "#F8FAFC",
+                backgroundColor: theme.isDark ? "#181818" : "#F8FAFC",
                 borderTopWidth: 1,
                 borderColor: theme.border,
               }}

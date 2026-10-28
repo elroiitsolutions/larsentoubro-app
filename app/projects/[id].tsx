@@ -149,7 +149,7 @@ export default function ProjectStoresScreen() {
           paddingVertical: 10,
           borderBottomWidth: 1,
           borderColor: theme.border,
-          backgroundColor: isDark ? "#111827" : "#FFFFFF",
+          backgroundColor: isDark ? "#181818" : "#FFFFFF",
         }}
       >
         <SearchBar

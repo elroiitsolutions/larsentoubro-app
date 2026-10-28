@@ -3,116 +3,90 @@ import {
   View,
   Text,
   TouchableOpacity,
+  StyleSheet,
+  Platform,
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
   FileText,
-  Truck,
   Sliders,
   Palette,
   BarChart3,
+  ChevronRight,
   Server,
   Database,
-  ChevronRight,
   RefreshCw,
-  QrCode,
-  FolderGit2,
-  Building2,
-  Wrench,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
 import { ENV } from "@/config/environment";
 
-interface SettingModuleCardProps {
-  icon: React.ReactNode;
-  iconBg: string;
+interface SettingsCardItem {
+  id: string;
   title: string;
   description: string;
-  onPress: () => void;
-  badge?: string;
+  route: string;
+  icon: typeof FileText;
+  lightBg: string;
+  darkBg: string;
+  lightColor: string;
+  darkColor: string;
 }
 
-function SettingModuleCard({
-  icon,
-  iconBg,
-  title,
-  description,
-  onPress,
-  badge,
-}: SettingModuleCardProps) {
-  const { theme } = useAppTheme();
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={onPress}
-      style={{
-        backgroundColor: theme.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: theme.cardBorder,
-        padding: 16,
-        marginBottom: 12,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 12 }}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: iconBg,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 14,
-            }}
-          >
-            {icon}
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ fontSize: 14, fontWeight: "bold", color: theme.text }}>
-                {title}
-              </Text>
-              {badge && (
-                <View
-                  style={{
-                    backgroundColor: theme.activeBg,
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 6,
-                  }}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: theme.activeText }}>
-                    {badge}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text
-              style={{
-                fontSize: 12,
-                color: theme.textSecondary,
-                marginTop: 2,
-                lineHeight: 16,
-              }}
-            >
-              {description}
-            </Text>
-          </View>
-        </View>
-        <ChevronRight size={16} color={theme.textMuted} />
-      </View>
-    </TouchableOpacity>
-  );
-}
+const SETTINGS_MODULES: SettingsCardItem[] = [
+  {
+    id: "forms-management",
+    title: "Forms Management",
+    description: "Configure dynamic forms like Create Project, Store, and User.",
+    route: "/settings/forms",
+    icon: FileText,
+    lightBg: "#ECFDF5",
+    darkBg: "rgba(34, 197, 94, 0.18)",
+    lightColor: "#16A34A",
+    darkColor: "#4ADE80",
+  },
+  {
+    id: "tool-quick-view",
+    title: "Tool Quick View Layout",
+    description:
+      "Configure fields and visibility on the Quick Tool View (/vt) module.",
+    route: "/settings/layouts/tool-quick-view",
+    icon: Sliders,
+    lightBg: "#EFF6FF",
+    darkBg: "rgba(59, 130, 246, 0.18)",
+    lightColor: "#2563EB",
+    darkColor: "#60A5FA",
+  },
+  {
+    id: "tool-details-view",
+    title: "Tool Details Card Layout",
+    description:
+      "Configure fields and section visibility on the Full Tool Details (/tooldetails) page.",
+    route: "/settings/layouts/tool-details-view",
+    icon: Palette,
+    lightBg: "#EEF2FF",
+    darkBg: "rgba(99, 102, 241, 0.18)",
+    lightColor: "#4F46E5",
+    darkColor: "#818CF8",
+  },
+  {
+    id: "reports-audit",
+    title: "Reports & Audit",
+    description:
+      "View operational reports, inventory analytics, and loss audit registers.",
+    route: "/settings/reports",
+    icon: BarChart3,
+    lightBg: "#FAF5FF",
+    darkBg: "rgba(168, 85, 247, 0.18)",
+    lightColor: "#9333EA",
+    darkColor: "#C084FC",
+  },
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const handleClearCache = () => {
     Alert.alert(
@@ -123,153 +97,154 @@ export default function SettingsScreen() {
 
   return (
     <ScreenWrapper
-      title="Settings & Modules"
-      subtitle="Enterprise Configuration & Layout Engine"
+      title="Settings"
+      subtitle="Enterprise System & Layout Configuration"
       showBackButton={false}
+      showSidebarButton={true}
       scrollable={true}
+      requiredPage="/settings"
     >
-      {/* 1. Dynamic Modules Section */}
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: "700",
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          color: theme.textSecondary,
-          marginBottom: 10,
-          marginLeft: 2,
-        }}
-      >
-        Dynamic Schemas & Layouts
-      </Text>
+      <View style={styles.container}>
+        {SETTINGS_MODULES.map((item) => {
+          const IconComp = item.icon;
+          const iconBg = isDark ? item.darkBg : item.lightBg;
+          const iconColor = isDark ? item.darkColor : item.lightColor;
 
-      {/* Forms Management */}
-      <SettingModuleCard
-        icon={<FileText size={22} color={theme.iconColorMap.green} />}
-        iconBg={theme.iconBgMap.green}
-        title="Forms Management"
-        description="Configure dynamic schema fields and validations for Projects, Stores, and Tools."
-        onPress={() => router.push("/settings/forms" as any)}
-        badge="Live"
-      />
+          return (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              onPress={() => router.push(item.route as any)}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder || theme.border,
+                },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {
+                      backgroundColor: iconBg,
+                    },
+                  ]}
+                >
+                  <IconComp size={22} color={iconColor} strokeWidth={2} />
+                </View>
 
-      {/* Challan Register */}
-      <SettingModuleCard
-        icon={<Truck size={22} color={theme.iconColorMap.red} />}
-        iconBg={theme.iconBgMap.red}
-        title="Challan Register"
-        description="View dispatch history, delivery notes, and return challans."
-        onPress={() => router.push("/challans" as any)}
-      />
+                <View style={styles.cardHeaderContent}>
+                  <Text
+                    style={[
+                      styles.cardTitle,
+                      {
+                        color: theme.text,
+                      },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                </View>
 
-      {/* Tool Quick View Layout */}
-      <SettingModuleCard
-        icon={<Sliders size={22} color={theme.iconColorMap.blue} />}
-        iconBg={theme.iconBgMap.blue}
-        title="Tool Quick View Layout"
-        description="Configure visible equipment attributes on quick scan cards (/vt)."
-        onPress={() => router.push("/settings/layouts/tool-quick-view" as any)}
-      />
+                <ChevronRight
+                  size={18}
+                  color={theme.textMuted || theme.textSecondary}
+                />
+              </View>
 
-      {/* Tool Details Card Layout */}
-      <SettingModuleCard
-        icon={<Palette size={22} color={theme.iconColorMap.indigo} />}
-        iconBg={theme.iconBgMap.indigo}
-        title="Tool Details Card Layout"
-        description="Customize fields and section ordering on full equipment sheets."
-        onPress={() => router.push("/settings/layouts/tool-details-view" as any)}
-      />
-
-      {/* Reports & Audit */}
-      <SettingModuleCard
-        icon={<BarChart3 size={22} color={theme.iconColorMap.purple} />}
-        iconBg={theme.iconBgMap.purple}
-        title="Reports & Asset Audit"
-        description="Operational health metrics, inspection due alerts, and scrap registers."
-        onPress={() => router.push("/settings/reports" as any)}
-      />
-
-      {/* 2. System & Connectivity Section */}
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: "700",
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          color: theme.textSecondary,
-          marginTop: 12,
-          marginBottom: 10,
-          marginLeft: 2,
-        }}
-      >
-        Network & Storage Diagnostics
-      </Text>
-
-      <View
-        style={{
-          backgroundColor: theme.card,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: theme.cardBorder,
-          padding: 16,
-          marginBottom: 30,
-        }}
-      >
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => router.push("/settings/server" as any)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingVertical: 6,
-            borderBottomWidth: 1,
-            borderColor: theme.border,
-            paddingBottom: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 10 }}>
-            <Server size={18} color={theme.textSecondary} style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: "bold", color: theme.text }}>
-                API Server Host
-              </Text>
               <Text
-                style={{
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  color: theme.textMuted,
-                  marginTop: 1,
-                }}
-                numberOfLines={1}
+                style={[
+                  styles.cardDescription,
+                  {
+                    color: theme.textSecondary,
+                  },
+                ]}
               >
-                {ENV.API_BASE_URL}
+                {item.description}
               </Text>
-            </View>
-          </View>
-          <ChevronRight size={14} color={theme.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={handleClearCache}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingTop: 14,
-            paddingVertical: 6,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Database size={18} color={theme.textSecondary} style={{ marginRight: 12 }} />
-            <Text style={{ fontSize: 13, fontWeight: "500", color: theme.text }}>
-              Purge Temporary Offline Cache
-            </Text>
-          </View>
-          <RefreshCw size={14} color={theme.primary} />
-        </TouchableOpacity>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 14,
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  cardHeaderContent: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: -0.2,
+  },
+  cardDescription: {
+    fontSize: 13,
+    lineHeight: 19,
+    paddingLeft: 2,
+  },
+  systemBox: {
+    marginTop: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  systemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  systemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  systemLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  systemValue: {
+    fontSize: 11,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    marginTop: 2,
+  },
+});
