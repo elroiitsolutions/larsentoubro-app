@@ -13,13 +13,12 @@ export const LoginForm: React.FC = () => {
   
   // Steps: 'email' (Step 1) | 'otp' (Step 2)
   const [step, setStep] = useState<"email" | "otp">("email");
-  const [email, setEmail] = useState("gdking00724@gmail.com");
+  const [email, setEmail] = useState("lntqr@gmail.com");
   const [otp, setOtp] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -53,7 +52,6 @@ export const LoginForm: React.FC = () => {
         setOtp("");
         setCooldown(res.resendCooldown || 60);
         if (res.devOtp) {
-          setDevOtpHint(res.devOtp);
         }
       } else {
         throw new Error(res.message || "Failed to send verification code");
@@ -81,7 +79,6 @@ export const LoginForm: React.FC = () => {
         setCooldown(res.resendCooldown || 60);
         setOtp("");
         if (res.devOtp) {
-          setDevOtpHint(res.devOtp);
         }
       } else {
         throw new Error(res.message || "Failed to resend verification code");
@@ -186,7 +183,7 @@ export const LoginForm: React.FC = () => {
           <View>
             <Input
               label="Registered Email Address"
-              placeholder="e.g. gdking00724@gmail.com"
+              placeholder="e.g. lntqr@gmail.com"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -195,17 +192,6 @@ export const LoginForm: React.FC = () => {
               leftIcon={<Mail size={18} color="#94A3B8" />}
               editable={!loading}
             />
-
-            {email !== "gdking00724@gmail.com" && (
-              <TouchableOpacity
-                onPress={() => setEmail("gdking00724@gmail.com")}
-                className="mt-1 self-end py-1"
-              >
-                <Text className="text-[11px] font-semibold text-primary">
-                  Use dev email: gdking00724@gmail.com
-                </Text>
-              </TouchableOpacity>
-            )}
 
             <View className="mt-2">
               <Button
@@ -258,7 +244,6 @@ export const LoginForm: React.FC = () => {
                 onPress={() => {
                   setStep("email");
                   setServerError(null);
-                  setDevOtpHint(null);
                 }}
                 disabled={loading}
               >
@@ -277,24 +262,6 @@ export const LoginForm: React.FC = () => {
               leftIcon={<KeyRound size={18} color="#94A3B8" />}
               editable={!loading}
             />
-
-            {devOtpHint && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setOtp(devOtpHint)}
-                className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex-row items-center justify-between mt-1 mb-2"
-              >
-                <View className="flex-row items-center">
-                  <CheckCircle2 size={14} color="#2563EB" />
-                  <Text className="text-[11px] text-blue-700 dark:text-blue-300 ml-1.5 font-medium">
-                    Test OTP: <Text className="font-bold">{devOtpHint}</Text>
-                  </Text>
-                </View>
-                <Text className="text-[10px] font-bold text-blue-700 dark:text-blue-300 underline">
-                  Auto-fill
-                </Text>
-              </TouchableOpacity>
-            )}
 
             <View className="mt-2">
               <Button
