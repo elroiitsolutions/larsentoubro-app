@@ -2,7 +2,17 @@ import { UserProfile } from "@/types/common.types";
 
 export interface LoginCredentials {
   email: string;
-  password: string;
+  password?: string;
+  otp?: string;
+}
+
+export interface RequestOtpResponse {
+  success: boolean;
+  message: string;
+  email: string;
+  resendCooldown?: number;
+  expiresIn?: number;
+  devOtp?: string;
 }
 
 export interface LoginResponse {

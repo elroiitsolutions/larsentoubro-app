@@ -73,14 +73,9 @@ export default function LayoutConfigScreen() {
   const { theme, isDark } = useAppTheme();
 
   const currentSlug = slug || 'tool-quick-view';
-  const isQuickView = currentSlug === 'tool-quick-view';
 
-  const title = isQuickView
-    ? 'Tool Quick View Layout'
-    : 'Tool Details Layout';
-  const subtitle = isQuickView
-    ? 'Configure which fields appear on the Quick View modal'
-    : 'Configure which sections appear on the Full Tool Details page';
+  const title = 'Tool Quick View Layout';
+  const subtitle = 'Configure which fields appear on the Quick View card (/vt)';
 
   const [fields, setFields] = useState<FieldConfigItem[]>(DEFAULT_CONFIG_FIELDS);
   const [loading, setLoading] = useState(true);
@@ -219,58 +214,7 @@ export default function LayoutConfigScreen() {
         />
       }
     >
-      {/* View Switcher Segmented Control */}
-      <View
-        style={[
-          styles.viewSwitcher,
-          {
-            backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.replace('/settings/layouts/tool-quick-view' as any)}
-          style={[
-            styles.switchBtn,
-            isQuickView && [styles.switchBtnActive, { backgroundColor: theme.surface }],
-          ]}
-        >
-          <Text
-            style={[
-              styles.switchBtnText,
-              {
-                color: isQuickView ? theme.primary : theme.textSecondary,
-                fontWeight: isQuickView ? '700' : '500',
-              },
-            ]}
-          >
-            Quick View Card
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.replace('/settings/layouts/tool-details-view' as any)}
-          style={[
-            styles.switchBtn,
-            !isQuickView && [styles.switchBtnActive, { backgroundColor: theme.surface }],
-          ]}
-        >
-          <Text
-            style={[
-              styles.switchBtnText,
-              {
-                color: !isQuickView ? theme.primary : theme.textSecondary,
-                fontWeight: !isQuickView ? '700' : '500',
-              },
-            ]}
-          >
-            Full Details Page
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Control Summary Bar */}
       <View style={styles.summaryBar}>

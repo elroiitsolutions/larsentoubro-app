@@ -20,9 +20,38 @@ interface ChallanCardProps {
 }
 
 export const ChallanCard: React.FC<ChallanCardProps> = ({ challan, onPress }) => {
+  const isScrap =
+    challan.challanType?.toLowerCase() === "scrap" ||
+    challan.type?.toLowerCase() === "scrap" ||
+    challan.isScrapDC === true ||
+    challan.challanNumber?.startsWith("SDC") ||
+    challan.challanNumber?.startsWith("SC");
+
+  const isTransfer =
+    challan.challanType?.toLowerCase() === "transfer" ||
+    challan.type?.toLowerCase() === "transfer" ||
+    challan.challanNumber?.startsWith("STC") ||
+    challan.challanNumber?.startsWith("TC");
+
+  const isReturn =
+    challan.challanType?.toLowerCase() === "return" ||
+    challan.type?.toLowerCase() === "return" ||
+    challan.challanNumber?.startsWith("RC");
+
   const isDelivery =
-    challan.challanType?.toLowerCase().includes("delivery") ||
-    challan.challanNumber?.startsWith("DC");
+    !isScrap &&
+    (challan.challanType?.toLowerCase().includes("delivery") ||
+      challan.type?.toLowerCase().includes("delivery") ||
+      challan.challanNumber?.startsWith("DC"));
+
+  // Task 2: Remove badge that says "Delivery (DC)"
+  const typeBadge = isScrap
+    ? { label: "Scrap (SDC)", variant: "destructive" as const }
+    : isTransfer
+    ? { label: "Transfer (STC)", variant: "warning" as const }
+    : isReturn
+    ? { label: "Return (RC)", variant: "success" as const }
+    : null;
 
   return (
     <Card className="p-4 mb-3">
@@ -32,15 +61,23 @@ export const ChallanCard: React.FC<ChallanCardProps> = ({ challan, onPress }) =>
           <View className="flex-row items-center flex-1 mr-2">
             <View
               className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${
-                isDelivery
-                  ? "bg-blue-50 dark:bg-blue-950/60"
-                  : "bg-emerald-50 dark:bg-emerald-950/60"
+                isScrap
+                  ? "bg-red-50 dark:bg-red-950/60"
+                  : isTransfer
+                  ? "bg-amber-50 dark:bg-amber-950/60"
+                  : isReturn
+                  ? "bg-emerald-50 dark:bg-emerald-950/60"
+                  : "bg-blue-50 dark:bg-blue-950/60"
               }`}
             >
-              {isDelivery ? (
-                <Truck size={20} color="#2563EB" />
-              ) : (
+              {isScrap ? (
+                <FileText size={20} color="#DC2626" />
+              ) : isTransfer ? (
+                <Truck size={20} color="#D97706" />
+              ) : isReturn ? (
                 <RotateCcw size={20} color="#10B981" />
+              ) : (
+                <Truck size={20} color="#2563EB" />
               )}
             </View>
 
@@ -52,11 +89,13 @@ export const ChallanCard: React.FC<ChallanCardProps> = ({ challan, onPress }) =>
                 >
                   {challan.challanNumber || `CH-${challan._id.substring(0, 6)}`}
                 </Text>
-                <Badge
-                  label={isDelivery ? "Delivery (DC)" : "Return (RC)"}
-                  variant={isDelivery ? "primary" : "success"}
-                  size="sm"
-                />
+                {typeBadge && (
+                  <Badge
+                    label={typeBadge.label}
+                    variant={typeBadge.variant}
+                    size="sm"
+                  />
+                )}
               </View>
 
               <Text className="text-[11px] text-slate-400 font-mono">

@@ -240,125 +240,6 @@ export default function ProjectFormScreen() {
         </View>
       ) : (
         <View style={{ paddingBottom: 40 }}>
-          {/* Active Record Card (when editing) */}
-          {isEditing && (
-            <View
-              style={{
-                backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: isDark ? "#334155" : "#E2E8F0",
-                padding: 14,
-                marginBottom: 14,
-                position: "relative",
-                overflow: "hidden",
-                ...Platform.select({
-                  web: {
-                    boxShadow: isDark
-                      ? "0 4px 12px rgba(0,0,0,0.2)"
-                      : "0 2px 8px rgba(15,23,42,0.05)",
-                  },
-                  default: { elevation: 2 },
-                }),
-              }}
-            >
-              <View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3.5,
-                  backgroundColor: theme.primary,
-                }}
-              />
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginTop: 2,
-                }}
-              >
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                      marginBottom: 3,
-                    }}
-                  >
-                    <View
-                      style={{
-                        backgroundColor: isDark ? "#0F172A" : "#F1F5F9",
-                        paddingHorizontal: 7,
-                        paddingVertical: 2,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: isDark ? "#334155" : "#E2E8F0",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: "700",
-                          fontFamily:
-                            Platform.OS === "ios" ? "Menlo" : "monospace",
-                          color: isDark ? "#94A3B8" : "#475569",
-                        }}
-                      >
-                        #{projectCode}
-                      </Text>
-                    </View>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: "500",
-                        color: theme.textMuted,
-                      }}
-                    >
-                      Active Record
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: "700",
-                      color: theme.text,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {projectName}
-                  </Text>
-                </View>
-
-                {values.status && (
-                  <View
-                    style={{
-                      paddingHorizontal: 9,
-                      paddingVertical: 4,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? "#0F172A" : "#EEF2FF",
-                      borderWidth: 1,
-                      borderColor: isDark ? "#334155" : "#C7D2FE",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: "700",
-                        color: theme.primary,
-                      }}
-                    >
-                      {values.status}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
           {/* Form Schema Info Header */}
           <View
             style={{
@@ -369,10 +250,7 @@ export default function ProjectFormScreen() {
               paddingHorizontal: 4,
             }}
           >
-            
-            
           </View>
-
           {/* DYNAMIC FORM FIELDS (Rendered directly from Form Management schema) */}
           <DynamicFormRenderer
             fields={fields}

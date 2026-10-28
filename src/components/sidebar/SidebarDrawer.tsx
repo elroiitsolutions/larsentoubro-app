@@ -3,6 +3,7 @@ import {
   View,
   Modal,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   Pressable,
@@ -305,6 +306,55 @@ export const SidebarDrawer: React.FC = () => {
             accessibilityLabel="Close sidebar"
           />
         </Animated.View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: "#FFFFFF",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 4,
+                borderWidth: 1,
+                borderColor: isDark ? "#334155" : "#E2E8F0",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+                elevation: 2,
+              }}
+            >
+              <Image
+                source={{ uri: LNT_LOGO_BASE64 }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="contain"
+              />
+            </View>
+            <View>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  letterSpacing: -0.2,
+                }}
+              >
+                L&T Enterprise
+              </Text>
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                }}
+              >
+                Equipment Portal
+              </Text>
+            </View>
+          </View>
 
         {/* Drawer Container */}
         <Animated.View

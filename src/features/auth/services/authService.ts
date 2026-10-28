@@ -1,10 +1,26 @@
 import api from "@/services/api";
-import { LoginCredentials, LoginResponse, LoginRequestStatusResponse } from "../types";
+import { LoginCredentials, LoginResponse, LoginRequestStatusResponse, RequestOtpResponse } from "../types";
 import { UserProfile } from "@/types/common.types";
 
 export const authService = {
   /**
-   * Submits user credentials to existing login API endpoint.
+   * Request a single-use 6-digit OTP code to registered email
+   */
+  requestOtp: async (email: string): Promise<RequestOtpResponse> => {
+    const response = await api.post<RequestOtpResponse>("/api/users/request-otp", { email });
+    return response.data;
+  },
+
+  /**
+   * Verify the 6-digit OTP code and retrieve the authenticated session token
+   */
+  verifyOtp: async (email: string, otp: string): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>("/api/users/verify-otp", { email, otp });
+    return response.data;
+  },
+
+  /**
+   * Submits user credentials/OTP to login API endpoint (backward compatible).
    */
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>("/api/users/login", credentials);

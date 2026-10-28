@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
+  Image,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
@@ -36,6 +37,7 @@ import { ActivityFeed } from "@/features/dashboard/components/ActivityFeed";
 import { ToolLifeExtensionModal } from "@/features/dashboard/components/ToolLifeExtensionModal";
 import { Loader } from "@/components/ui/Loader";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -141,15 +143,27 @@ export default function DashboardScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
             <View
               style={{
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 borderRadius: 10,
-                backgroundColor: "#4F46E5",
+                backgroundColor: "#FFFFFF",
                 alignItems: "center",
                 justifyContent: "center",
+                padding: 3,
+                borderWidth: 1,
+                borderColor: isDark ? "#334155" : "#E2E8F0",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.08,
+                shadowRadius: 2,
+                elevation: 2,
               }}
             >
-              <Building2 size={18} color="#FFFFFF" />
+              <Image
+                source={{ uri: LNT_LOGO_BASE64 }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="contain"
+              />
             </View>
             <View>
               <Text

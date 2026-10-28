@@ -11,16 +11,12 @@ import { useRouter } from "expo-router";
 import {
   FileText,
   Sliders,
-  Palette,
   BarChart3,
   ChevronRight,
-  Server,
-  Database,
-  RefreshCw,
+  Palette,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
-import { ENV } from "@/config/environment";
 
 interface SettingsCardItem {
   id: string;

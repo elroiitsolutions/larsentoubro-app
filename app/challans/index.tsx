@@ -5,6 +5,7 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -69,7 +70,13 @@ export default function ChallanHistoryScreen() {
     fetchChallans();
   };
 
-  const typeOptions = ["All", "Delivery", "Return"];
+  const typeOptions = [
+    { key: "All", label: "All" },
+    { key: "Delivery", label: "Delivery" },
+    { key: "Return", label: "Return" },
+    { key: "Transfer", label: "Store Transfer" },
+    { key: "Scrap", label: "Scrap" },
+  ];
 
   const filteredChallans = useMemo(() => {
     return challans.filter((c) => {
@@ -79,9 +86,32 @@ export default function ChallanHistoryScreen() {
         c.vendor?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.storeName?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesType =
-        typeFilter === "All" ||
-        c.challanType?.toLowerCase() === typeFilter.toLowerCase();
+      let matchesType = true;
+      if (typeFilter === "Delivery") {
+        matchesType =
+          !c.isScrapDC &&
+          (c.challanType?.toLowerCase() === "delivery" ||
+            c.type?.toLowerCase() === "delivery" ||
+            (!c.challanType && c.challanNumber?.toLowerCase().startsWith("dc")));
+      } else if (typeFilter === "Return") {
+        matchesType =
+          c.challanType?.toLowerCase() === "return" ||
+          c.type?.toLowerCase() === "return" ||
+          c.challanNumber?.toLowerCase().startsWith("rc");
+      } else if (typeFilter === "Transfer") {
+        matchesType =
+          c.challanType?.toLowerCase() === "transfer" ||
+          c.type?.toLowerCase() === "transfer" ||
+          c.challanNumber?.toLowerCase().startsWith("stc") ||
+          c.challanNumber?.toLowerCase().startsWith("tc");
+      } else if (typeFilter === "Scrap") {
+        matchesType =
+          c.challanType?.toLowerCase() === "scrap" ||
+          c.type?.toLowerCase() === "scrap" ||
+          c.isScrapDC === true ||
+          c.challanNumber?.toLowerCase().startsWith("sdc") ||
+          c.challanNumber?.toLowerCase().startsWith("sc");
+      }
 
       return matchesSearch && matchesType;
     });
@@ -93,28 +123,6 @@ export default function ChallanHistoryScreen() {
       subtitle={`${challans.length} Movement Records`}
       showBackButton={true}
       requiredPage="/challans"
-      headerRight={
-        canCreate ? (
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => router.push("/challans/new" as any)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              backgroundColor: theme.primary,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: 10,
-            }}
-          >
-            <Plus size={15} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 12 }}>
-              New Challan
-            </Text>
-          </TouchableOpacity>
-        ) : undefined
-      }
     >
       {/* Search Bar & Filter Chips */}
       <View
@@ -133,14 +141,18 @@ export default function ChallanHistoryScreen() {
           style={{ marginBottom: 10 }}
         />
 
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ flexDirection: "row", gap: 8, paddingRight: 16 }}
+        >
           {typeOptions.map((t) => {
-            const isSelected = typeFilter === t;
+            const isSelected = typeFilter === t.key;
             return (
               <TouchableOpacity
-                key={t}
+                key={t.key}
                 activeOpacity={0.7}
-                onPress={() => setTypeFilter(t)}
+                onPress={() => setTypeFilter(t.key)}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 6,
@@ -157,12 +169,12 @@ export default function ChallanHistoryScreen() {
                     color: isSelected ? "#FFFFFF" : theme.textSecondary,
                   }}
                 >
-                  {t}
+                  {t.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Challans List */}

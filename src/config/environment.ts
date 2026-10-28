@@ -8,7 +8,8 @@ function getApiBaseUrl(): string {
   // 1. Explicitly configured public env variable (for native devices & web)
   const rawUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (rawUrl && typeof rawUrl === "string" && rawUrl.trim() !== "") {
-    return rawUrl.trim().replace(/\/+$/, "");
+    // Strip trailing slashes and trailing /api since endpoints are prefixed with /api
+    return rawUrl.trim().replace(/\/+$/, "").replace(/\/api$/, "");
   }
 
   // 2. Web browser: connect directly to backend on port 4000
