@@ -1,5 +1,5 @@
 import api from "@/services/api";
-import { LoginCredentials, LoginResponse, LoginRequestStatusResponse, RequestOtpResponse } from "../types";
+import { LoginCredentials, LoginResponse, LoginRequestStatusResponse, RequestOtpResponse, RequestGuestOtpResponse } from "../types";
 import { UserProfile } from "@/types/common.types";
 
 export const authService = {
@@ -30,6 +30,16 @@ export const authService = {
   /**
    * Authenticates as a Guest User with QR scanner access.
    */
+  requestGuestOtp: async (phone: string): Promise<RequestGuestOtpResponse> => {
+    const response = await api.post<RequestGuestOtpResponse>("/api/users/guest/request-otp", { phone });
+    return response.data;
+  },
+
+  verifyGuestOtp: async (phone: string, otp: string): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>("/api/users/guest/verify-otp", { phone, otp });
+    return response.data;
+  },
+
   guestLogin: async (): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>("/api/users/guest-login");
     return response.data;

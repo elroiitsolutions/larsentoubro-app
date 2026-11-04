@@ -6,6 +6,16 @@ export interface LoginCredentials {
   otp?: string;
 }
 
+export interface RequestGuestOtpResponse {
+  success: boolean;
+  message: string;
+  phone: string;
+  formattedPhone?: string;
+  resendCooldown?: number;
+  expiresIn?: number;
+  devOtp?: string;
+}
+
 export interface RequestOtpResponse {
   success: boolean;
   message: string;
