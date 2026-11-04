@@ -109,6 +109,7 @@ export default function AddFieldScreen() {
       label: label.trim(),
       type,
       required,
+      validations: required ? [{ type: "required", message: `${label.trim()} is required` }] : [],
       ...(type === "select"
         ? {
             options: finalOptions.map((opt, optIndex) => ({

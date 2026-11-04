@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, Image, TouchableOpacity, Alert } from "react-native";
 import { Mail, KeyRound, ArrowRight, ArrowLeft, RotateCw, QrCode, CheckCircle2 } from "lucide-react-native";
 import { useAuthStore } from "../store/authStore";
 import { authService } from "../services/authService";
@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
+import { validateEmail } from "@/utils/validation";
 
 export const LoginForm: React.FC = () => {
   const { login } = useAuthStore();
   
   // Steps: 'email' (Step 1) | 'otp' (Step 2)
   const [step, setStep] = useState<"email" | "otp">("email");
-  const [email, setEmail] = useState("lntqr@gmail.com");
+  const [email, setEmail] = useState("chandruravichandran1536@gmail.com");
   const [otp, setOtp] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,13 +35,9 @@ export const LoginForm: React.FC = () => {
     setServerError(null);
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanEmail) {
-      setServerError("Please enter your registered email address.");
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setServerError("Please enter a valid email format.");
+    const emailCheck = validateEmail(cleanEmail);
+    if (!emailCheck.isValid) {
+      setServerError(emailCheck.error || "Please enter a valid email address with '@' and '.'.");
       return;
     }
 
@@ -59,9 +56,11 @@ export const LoginForm: React.FC = () => {
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.message ||
         err?.message ||
         "Unable to send verification code. Please check your network.";
       setServerError(msg);
+      Alert.alert("Unable to Send Code", msg);
     } finally {
       setLoading(false);
     }
@@ -71,6 +70,16 @@ export const LoginForm: React.FC = () => {
   const handleResendOtp = async () => {
     if (cooldown > 0 || resending) return;
     setServerError(null);
+    const cleanEmail = email.trim().toLowerCase();
+
+    const emailCheck = validateEmail(cleanEmail);
+    if (!emailCheck.isValid) {
+      const err = emailCheck.error || "Please enter a valid email address with '@' and '.'.";
+      setServerError(err);
+      Alert.alert("Invalid Email", err);
+      return;
+    }
+
     setResending(true);
 
     try {
@@ -84,8 +93,13 @@ export const LoginForm: React.FC = () => {
         throw new Error(res.message || "Failed to resend verification code");
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Failed to resend code";
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.message ||
+        "Failed to resend code";
       setServerError(msg);
+      Alert.alert("Resend Failed", msg);
     } finally {
       setResending(false);
     }
@@ -96,8 +110,17 @@ export const LoginForm: React.FC = () => {
     setServerError(null);
     const cleanOtp = otp.trim();
 
+    if (!cleanOtp) {
+      const msg = "Please enter the 6-digit verification code.";
+      setServerError(msg);
+      Alert.alert("Verification Code Required", msg);
+      return;
+    }
+
     if (cleanOtp.length !== 6) {
-      setServerError("Please enter the full 6-digit verification code.");
+      const msg = "Please enter the full 6-digit verification code.";
+      setServerError(msg);
+      Alert.alert("Incomplete Code", msg);
       return;
     }
 
@@ -112,9 +135,11 @@ export const LoginForm: React.FC = () => {
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.message ||
         err?.message ||
         "Invalid or expired verification code";
       setServerError(msg);
+      Alert.alert("Verification Failed", msg);
     } finally {
       setLoading(false);
     }
@@ -133,9 +158,11 @@ export const LoginForm: React.FC = () => {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.message ||
         err?.message ||
         "Failed to log in as Guest";
       setServerError(message);
+      Alert.alert("Guest Login Failed", message);
     } finally {
       setLoading(false);
     }
@@ -258,17 +285,31 @@ export const LoginForm: React.FC = () => {
               keyboardType="number-pad"
               maxLength={6}
               value={otp}
-              onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, "").slice(0, 6))}
+              onChangeText={(text) => {
+                setServerError(null);
+                setOtp(text.replace(/[^0-9]/g, "").slice(0, 6));
+              }}
               leftIcon={<KeyRound size={18} color="#94A3B8" />}
               editable={!loading}
+              returnKeyType="done"
+              onSubmitEditing={handleVerifyOtp}
+              error={serverError || undefined}
             />
 
-            <View className="mt-2">
+            {serverError && (
+              <View className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-3 mb-3">
+                <Text className="text-xs font-semibold text-red-600 dark:text-red-400">
+                  {serverError}
+                </Text>
+              </View>
+            )}
+
+            <View className="mt-1">
               <Button
                 title={loading ? "Verifying..." : "Verify & Sign In"}
                 onPress={handleVerifyOtp}
                 loading={loading}
-                disabled={otp.trim().length !== 6 || loading}
+                disabled={loading}
                 size="lg"
               />
             </View>

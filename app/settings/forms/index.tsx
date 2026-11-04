@@ -16,6 +16,12 @@ import { FormDefinition } from "@/services/formService";
 
 const FALLBACK_FORMS: FormDefinition[] = [
   {
+    slug: "user-admin-form",
+    name: "User / Admin Form",
+    description: "Configure profile fields, RBAC role options, and validation rules for internal team member accounts.",
+    fields: [],
+  },
+  {
     slug: "create-project",
     name: "Create Project",
     description: "Dynamic schema and validation rules for creating new enterprise projects.",
@@ -25,12 +31,6 @@ const FALLBACK_FORMS: FormDefinition[] = [
     slug: "create-store",
     name: "Create Store",
     description: "Dynamic schema for site stores and regional equipment hubs.",
-    fields: [],
-  },
-  {
-    slug: "create-user",
-    name: "Create User",
-    description: "User registration schema with role assignments and site permissions.",
     fields: [],
   },
   {
@@ -71,11 +71,13 @@ export default function FormsManagementScreen() {
     try {
       const response = await api.get<{ success: boolean; data: FormDefinition[] }>("/api/forms");
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
-        const allowedSlugs = ["create-project", "create-store", "create-user", "tool-form"];
         const filtered = response.data.data.filter(
           (f: any) =>
-            allowedSlugs.includes(f.slug) ||
-            (f.slug !== "tool-quick-view" && f.slug !== "tool-details-view")
+            f.slug !== "create-user" &&
+            f.slug !== "user-form" &&
+            f.slug !== "vendor-form" &&
+            f.slug !== "tool-quick-view" &&
+            f.slug !== "tool-details-view"
         );
         if (filtered.length > 0) {
           setFormsList(filtered);

@@ -32,6 +32,7 @@ import { projectService } from '@/features/projects/services/projectService';
 import { storeService } from '@/features/stores/services/storeService';
 import { userService } from '../services/userService';
 import { UserRecord } from '../types';
+import { validateEmail } from '@/utils/validation';
 
 interface SubuserFormModalProps {
   visible: boolean;
@@ -65,8 +66,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
   const [email, setEmail] = useState('');
   const [userId, setUserId] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [allowedPages, setAllowedPages] = useState<string[]>([]);
+    const [allowedPages, setAllowedPages] = useState<string[]>([]);
   const [hasInspectionAccess, setHasInspectionAccess] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
@@ -163,8 +163,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
       setEmail(subuser.email || '');
       setUserId(subuser.user_id || '');
       setPhone(subuser.phonenumber || subuser.phone || '');
-      setPassword('');
-
+      
       const rawPages = Array.isArray(subuser.allowedPages) ? subuser.allowedPages : ['/dashboard'];
       const validPages = rawPages.filter((url) => isPageAuthorizedByParent(url));
       setAllowedPages(validPages.length > 0 ? validPages : parentAllowedPages.slice(0, 2).map((p) => p.url));
@@ -191,8 +190,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
       setEmail('');
       setUserId('');
       setPhone('');
-      setPassword('');
-      setAllowedPages(parentAllowedPages.slice(0, 3).map((p) => p.url));
+            setAllowedPages(parentAllowedPages.slice(0, 3).map((p) => p.url));
       setHasInspectionAccess(false);
       setSelectedProjects([]);
       setSelectedStores([]);
@@ -226,13 +224,20 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !email.trim() || (!isEdit && !userId.trim())) {
-      Alert.alert('Required Fields', 'Please fill in Name, Email, and User ID.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!name.trim()) {
+      Alert.alert('Required Field', 'Please enter subuser name.');
       return;
     }
 
-    if (!isEdit && (!password || password.length < 6)) {
-      Alert.alert('Password Error', 'Password must be at least 6 characters.');
+    const emailCheck = validateEmail(cleanEmail);
+    if (!emailCheck.isValid) {
+      Alert.alert('Invalid Email', emailCheck.error || "Email address must contain '@' and '.'.");
+      return;
+    }
+
+    if (!isEdit && !userId.trim()) {
+      Alert.alert('Required Field', 'Subuser ID / code is required.');
       return;
     }
 
@@ -260,10 +265,6 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
         projects: clampedProjects,
         stores: clampedStores,
       };
-
-      if (password.trim()) {
-        payload.password = password.trim();
-      }
 
       if (isEdit && subuser) {
         await userService.updateSubuser(subuser._id, payload);
@@ -388,13 +389,7 @@ export const SubuserFormModal: React.FC<SubuserFormModalProps> = ({
               autoCapitalize="none"
             />
 
-            <Input
-              label={isEdit ? 'Reset Password (leave blank to keep current)' : 'Subuser Password *'}
-              placeholder={isEdit ? 'Leave blank to keep current password' : 'At least 6 characters'}
-              value={password}
-              onChangeText={setPassword}
-              isPassword
-            />
+
           </View>
         </View>
 

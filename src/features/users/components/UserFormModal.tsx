@@ -11,27 +11,20 @@ import {
   Shield,
   Trash2,
   Check,
-  Lock,
-  User as UserIcon,
-  Mail,
-  Phone,
-  Hash,
-  ClipboardCheck,
-  FolderGit2,
-  Store,
-  UserCheck,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react-native';
-import { Switch } from 'react-native';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAppTheme } from '@/context/ThemeContext';
-import { projectService } from '@/features/projects/services/projectService';
-import { storeService } from '@/features/stores/services/storeService';
 import { UserRecord } from '../types';
+import { validateEmail } from '@/utils/validation';
 import { userService } from '../services/userService';
+import { DynamicFieldsSection } from '@/components/common/DynamicFieldsSection';
+import { formService, FormFieldDefinition } from '@/services/formService';
 
 interface UserFormModalProps {
   visible: boolean;
@@ -47,66 +40,49 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   User: 'Standard equipment & inventory',
 };
 
-const AVAILABLE_PAGES = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'Projects', path: '/projects' },
-  { label: 'Stores & HUBs', path: '/stores' },
-  { label: 'Tools Inventory', path: '/tools' },
-  { label: 'Delivery Challans', path: '/challans' },
-  { label: 'Vendors & Profiles', path: '/profiles' },
-  { label: 'Scrap Register', path: '/scrap' },
-  { label: 'Trash Bin', path: '/trash' },
-  { label: 'Users & RBAC', path: '/users' },
-  { label: 'Settings', path: '/settings' },
-];
-
 export const UserFormModal: React.FC<UserFormModalProps> = ({
   visible,
   onClose,
   user,
   onSuccess,
 }) => {
-  const { theme, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
   const isEdit = Boolean(user);
 
   const [name, setName] = useState('');
   const [userId, setUserId] = useState('');
   const [email, setEmail] = useState('');
   const [phonenumber, setPhonenumber] = useState('');
-  const [password, setPassword] = useState('');
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [role, setRole] = useState<'Admin' | 'User'>('User');
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
-  const [hasInspectionAccess, setHasInspectionAccess] = useState(false);
-  const [canCreateUser, setCanCreateUser] = useState(false);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [selectedStores, setSelectedStores] = useState<string[]>([]);
-
-  const [allProjects, setAllProjects] = useState<any[]>([]);
-  const [allStores, setAllStores] = useState<any[]>([]);
-  const [allowedPages, setAllowedPages] = useState<string[]>([
-    '/dashboard',
-    '/projects',
-    '/stores',
-    '/tools',
-  ]);
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
+  const [allFormFields, setAllFormFields] = useState<FormFieldDefinition[] | null>(null);
+  const [dynamicFieldsSchema, setDynamicFieldsSchema] = useState<FormFieldDefinition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Fetch form definition from Forms Management whenever modal opens
   useEffect(() => {
     if (!visible) return;
-    const loadScopeData = async () => {
+    let isMounted = true;
+    async function loadFormSchema() {
       try {
-        const [projRes, storeRes] = await Promise.all([
-          projectService.getProjects().catch(() => []),
-          storeService.getStores().catch(() => []),
-        ]);
-        setAllProjects(Array.isArray(projRes) ? projRes : (projRes as any)?.data || []);
-        setAllStores(Array.isArray(storeRes) ? storeRes : (storeRes as any)?.data || []);
+        const schema = await formService.getFormBySlug('user-admin-form');
+        if (isMounted && schema && Array.isArray(schema.fields)) {
+          const clean = schema.fields.filter(
+            (f) => f.name !== 'password' && f.id !== 'password'
+          );
+          setAllFormFields(clean);
+        }
       } catch (err) {
-        console.warn('Failed to load project/store options in UserFormModal:', err);
+        // Fallback silently if schema cannot be fetched
       }
+    }
+    loadFormSchema();
+    return () => {
+      isMounted = false;
     };
-    loadScopeData();
   }, [visible]);
 
   useEffect(() => {
@@ -115,93 +91,162 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setUserId(user.user_id || '');
       setEmail(user.email || '');
       setPhonenumber(user.phonenumber || user.phone || '');
-      setPassword('');
+      setStatus((user.status as any) === 'Inactive' ? 'Inactive' : 'Active');
       setRole(user.role === 'Admin' ? 'Admin' : 'User');
-      setHasInspectionAccess(Boolean(user.role === 'Admin' || user.hasInspectionAccess));
-      setCanCreateUser(Boolean(user.role === 'Admin' || user.canCreateUser));
-      setSelectedProjects(
-        (user.projects || []).map((p) => (typeof p === 'object' ? p._id : p))
-      );
-      setSelectedStores(
-        (user.stores || []).map((s) => (typeof s === 'object' ? s._id : s))
-      );
-      setAllowedPages(
-        Array.isArray(user.allowedPages) && user.allowedPages.length > 0
-          ? user.allowedPages
-          : ['/dashboard', '/projects', '/stores', '/tools']
-      );
       setRoleDropdownOpen(false);
+
+      const raw = user as any;
+      const initialCustom: Record<string, any> = { ...raw };
+      if (raw.customFields && typeof raw.customFields === 'object') {
+        Object.assign(initialCustom, raw.customFields);
+      }
+      setCustomFields(initialCustom);
     } else {
       setName('');
       setUserId('');
       setEmail('');
       setPhonenumber('');
-      setPassword('');
+      setStatus('Active');
       setRole('User');
       setRoleDropdownOpen(false);
-      setHasInspectionAccess(false);
-      setCanCreateUser(false);
-      setSelectedProjects([]);
-      setSelectedStores([]);
-      setAllowedPages(['/dashboard', '/projects', '/stores', '/tools']);
+      setCustomFields({});
     }
   }, [user, visible]);
 
-  const togglePagePermission = (path: string) => {
-    setAllowedPages((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
-    );
-  };
+  // Determine whether fields exist and whether they are required in Forms Management schema
+  const hasNameField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'name')
+    : true;
+  const nameField = allFormFields?.find((f) => f.name?.toLowerCase() === 'name');
+  const isNameRequired = nameField
+    ? Boolean(nameField.required || nameField.validations?.some((v: any) => v.type === 'required'))
+    : true;
 
-  const handleSelectAllPages = () => {
-    if (allowedPages.length === AVAILABLE_PAGES.length) {
-      setAllowedPages([]);
-    } else {
-      setAllowedPages(AVAILABLE_PAGES.map((p) => p.path));
-    }
-  };
+  const hasUserIdField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'user_id')
+    : true;
+  const userIdField = allFormFields?.find((f) => f.name?.toLowerCase() === 'user_id');
+  const isUserIdRequired = userIdField
+    ? Boolean(userIdField.required || userIdField.validations?.some((v: any) => v.type === 'required'))
+    : true;
+
+  const hasPhoneField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'phonenumber' || f.name?.toLowerCase() === 'phone')
+    : true;
+  const phoneField = allFormFields?.find(
+    (f) => f.name?.toLowerCase() === 'phonenumber' || f.name?.toLowerCase() === 'phone'
+  );
+  const isPhoneRequired = phoneField
+    ? Boolean(phoneField.required || phoneField.validations?.some((v: any) => v.type === 'required'))
+    : true;
+
+  const hasEmailField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'email')
+    : true;
+  const emailField = allFormFields?.find((f) => f.name?.toLowerCase() === 'email');
+  const isEmailRequired = emailField
+    ? Boolean(emailField.required || emailField.validations?.some((v: any) => v.type === 'required'))
+    : true;
+
+  // Account Status: Only shown if present in the Forms Management schema
+  const hasStatusField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'status' || f.id?.toLowerCase() === 'status')
+    : false;
+  const statusField = allFormFields?.find(
+    (f) => f.name?.toLowerCase() === 'status' || f.id?.toLowerCase() === 'status'
+  );
+  const isStatusRequired = statusField
+    ? Boolean(statusField.required || statusField.validations?.some((v: any) => v.type === 'required'))
+    : false;
+
+  const hasRoleField = allFormFields
+    ? allFormFields.some((f) => f.name?.toLowerCase() === 'role' || f.id?.toLowerCase() === 'role')
+    : true;
+  const roleField = allFormFields?.find(
+    (f) => f.name?.toLowerCase() === 'role' || f.id?.toLowerCase() === 'role'
+  );
+  const isRoleRequired = roleField
+    ? Boolean(roleField.required || roleField.validations?.some((v: any) => v.type === 'required'))
+    : true;
 
   const handleSubmit = async () => {
-    if (!name.trim() || !email.trim()) {
-      Alert.alert('Required Fields', 'Please enter user name and email.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (hasNameField && isNameRequired && !name.trim()) {
+      Alert.alert('Required Field', 'Please enter full name.');
       return;
     }
 
-    if (!isEdit && !userId.trim()) {
+    if (hasUserIdField && isUserIdRequired && !userId.trim()) {
       Alert.alert('Required Field', 'User ID is required for registration.');
       return;
     }
 
-    if (!isEdit && (!password || password.length < 6)) {
-      Alert.alert('Password Error', 'Password must be at least 6 characters.');
+    if (hasEmailField) {
+      if (isEmailRequired && !cleanEmail) {
+        Alert.alert('Required Field', 'Please enter email address.');
+        return;
+      }
+      if (cleanEmail) {
+        const emailCheck = validateEmail(cleanEmail);
+        if (!emailCheck.isValid) {
+          Alert.alert(
+            'Invalid Email',
+            emailCheck.error || "Email address must contain '@' and '.'."
+          );
+          return;
+        }
+      }
+    }
+
+    if (hasPhoneField && isPhoneRequired && !phonenumber.trim()) {
+      Alert.alert('Required Field', 'Please enter a valid phone number.');
       return;
+    }
+
+    // Validate any custom fields configured as required in Forms Management
+    for (const field of dynamicFieldsSchema) {
+      const isRequired = field.required || field.validations?.some((v: any) => v.type === 'required');
+      const val = customFields[field.name];
+      if (isRequired && (val === undefined || val === null || (typeof val === 'string' && val.trim() === ''))) {
+        Alert.alert('Required Field', `Please enter ${field.label}.`);
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
       const payload: any = {
+        ...customFields,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
-        phonenumber: phonenumber.trim() || 'N/A',
-        role,
-        allowedPages,
-        hasInspectionAccess: role === 'Admin' ? true : hasInspectionAccess,
-        canCreateUser: role === 'Admin' ? true : canCreateUser,
-        projects: selectedProjects,
-        stores: selectedStores,
+        user_id: userId.trim().toUpperCase(),
+        email: cleanEmail,
+        phonenumber: phonenumber.trim(),
+        role: hasRoleField ? role : 'User',
+        status: hasStatusField ? status : 'Active',
+        hasInspectionAccess: role === 'Admin' ? true : Boolean(user?.hasInspectionAccess),
+        canCreateUser: role === 'Admin' ? true : Boolean(user?.canCreateUser),
       };
 
-      if (userId.trim()) {
-        payload.user_id = userId.trim().toUpperCase();
-      }
-
-      if (password) {
-        payload.password = password;
+      if (!isEdit) {
+        payload.allowedPages =
+          role === 'Admin'
+            ? [
+                '/qr-scanner',
+                '/dashboard',
+                '/projects',
+                '/stores',
+                '/tools',
+                '/users',
+                '/settings',
+              ]
+            : ['/qr-scanner', '/dashboard', '/projects', '/stores', '/tools'];
+        payload.projects = [];
+        payload.stores = [];
       }
 
       if (isEdit && user) {
         await userService.updateUser(user._id, payload);
-        Alert.alert('Success', 'User profile and permissions updated.');
+        Alert.alert('Success', 'User profile updated successfully.');
       } else {
         await userService.createUser(payload);
         Alert.alert('Success', 'New user registered successfully.');
@@ -253,505 +298,410 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     <Modal
       visible={visible}
       onClose={onClose}
-      title={isEdit ? `Edit User: ${user?.name}` : 'Register New User'}
+      title={isEdit ? (user?.name ? `Edit User / Admin: ${user.name}` : 'Edit User / Admin') : 'Create User / Admin'}
     >
       <ScrollView className="max-h-[75vh]" showsVerticalScrollIndicator={false}>
-        {/* Basic Info */}
-        <Input
-          label="Full Name *"
-          placeholder="e.g. Suresh Kumar"
-          value={name}
-          onChangeText={setName}
-        />
+        {/* Full Name */}
+        {hasNameField && (
+          <Input
+            label={`Full Name ${isNameRequired ? '*' : ''}`}
+            placeholder="e.g. Rajesh Kumar"
+            value={name}
+            onChangeText={setName}
+          />
+        )}
 
+        {/* User ID & Phone Number */}
         <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Input
-              label="User ID *"
-              placeholder="e.g. EMP-1049"
-              value={userId}
-              onChangeText={setUserId}
-              autoCapitalize="characters"
-              editable={!isEdit}
-            />
-          </View>
-          <View className="flex-1">
-            <Input
-              label="Phone Number"
-              placeholder="+91 9876543210"
-              value={phonenumber}
-              onChangeText={setPhonenumber}
-              keyboardType="phone-pad"
-            />
-          </View>
-        </View>
-
-        <Input
-          label="Email Address *"
-          placeholder="name@larsentoubro.com"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <Input
-          label={isEdit ? 'New Password (leave blank to keep current)' : 'Password *'}
-          placeholder="Min 6 characters"
-          value={password}
-          onChangeText={setPassword}
-          isPassword
-          autoCapitalize="none"
-        />
-
-        {/* System Role Dropdown */}
-        <View style={{ marginBottom: 16 }}>
-          <Text
-            style={{
-              fontSize: 11.5,
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              color: isDark ? '#CBD5E1' : '#334155',
-              letterSpacing: 0.5,
-              marginBottom: 6,
-            }}
-          >
-            System Role *
-          </Text>
-
-          {/* Dropdown Trigger */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setRoleDropdownOpen((prev) => !prev)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 12,
-              paddingVertical: 11,
-              borderRadius: 14,
-              borderWidth: 1.5,
-              borderColor: roleDropdownOpen
-                ? '#4F46E5'
-                : isDark
-                ? '#2E2E33'
-                : '#E2E8F0',
-              backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  backgroundColor:
-                    role === 'Admin'
-                      ? 'rgba(239, 68, 68, 0.12)'
-                      : 'rgba(79, 70, 229, 0.12)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Shield
-                  size={16}
-                  color={role === 'Admin' ? '#DC2626' : '#4F46E5'}
-                />
-              </View>
-              <View>
-                <Text
-                  style={{
-                    fontSize: 13.5,
-                    fontWeight: '700',
-                    color: isDark ? '#FFFFFF' : '#0F172A',
-                  }}
-                >
-                  {role}
-                </Text>
-                <Text style={{ fontSize: 10, color: '#64748B', marginTop: 1 }}>
-                  {ROLE_DESCRIPTIONS[role] || 'System role access level'}
-                </Text>
-              </View>
+          {hasUserIdField && (
+            <View className="flex-1">
+              <Input
+                label={`User ID ${isUserIdRequired ? '*' : ''}`}
+                placeholder="e.g. EMP-1049"
+                value={userId}
+                onChangeText={setUserId}
+                autoCapitalize="characters"
+                editable={!isEdit}
+              />
             </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <View
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 6,
-                  backgroundColor: isDark ? '#262626' : '#F1F5F9',
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: '700',
-                    color: isDark ? '#94A3B8' : '#64748B',
-                  }}
-                >
-                  Select
-                </Text>
-              </View>
-              {roleDropdownOpen ? (
-                <ChevronUp size={16} color="#64748B" />
-              ) : (
-                <ChevronDown size={16} color="#64748B" />
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {/* Dropdown Menu Options */}
-          {roleDropdownOpen && (
-            <View
-              style={{
-                marginTop: 6,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: isDark ? '#2E2E33' : '#CBD5E1',
-                backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
-                overflow: 'hidden',
-                elevation: 6,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-              }}
-            >
-              {ROLES.map((r, index) => {
-                const isSelected = role === r;
-                return (
-                  <TouchableOpacity
-                    key={r}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setRole(r);
-                      setRoleDropdownOpen(false);
-                      if (r === 'Admin') {
-                        setHasInspectionAccess(true);
-                        setCanCreateUser(true);
-                      }
-                    }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderBottomWidth: index === ROLES.length - 1 ? 0 : 1,
-                      borderBottomColor: isDark ? '#2E2E33' : '#F1F5F9',
-                      backgroundColor: isSelected
-                        ? isDark
-                          ? 'rgba(79, 70, 229, 0.15)'
-                          : '#EEF2FF'
-                        : 'transparent',
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <View
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          backgroundColor:
-                            r === 'Admin'
-                              ? 'rgba(239, 68, 68, 0.12)'
-                              : 'rgba(79, 70, 229, 0.12)',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Shield
-                          size={14}
-                          color={r === 'Admin' ? '#DC2626' : '#4F46E5'}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: isSelected ? '800' : '600',
-                            color: isSelected
-                              ? '#4F46E5'
-                              : isDark
-                              ? '#FFFFFF'
-                              : '#0F172A',
-                          }}
-                        >
-                          {r}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: '#64748B' }}>
-                          {ROLE_DESCRIPTIONS[r]}
-                        </Text>
-                      </View>
-                    </View>
-                    {isSelected && (
-                      <View
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 10,
-                          backgroundColor: '#4F46E5',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+          )}
+          {hasPhoneField && (
+            <View className="flex-1">
+              <Input
+                label={`Phone Number ${isPhoneRequired ? '*' : ''}`}
+                placeholder="+91 98765 43210"
+                value={phonenumber}
+                onChangeText={setPhonenumber}
+                keyboardType="phone-pad"
+              />
             </View>
           )}
         </View>
 
-        {/* Page Access Permissions - Structured 2-Column Grid */}
-        <View
-          style={{
-            marginBottom: 16,
-            padding: 12,
-            borderRadius: 16,
-            backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
-            borderWidth: 1,
-            borderColor: isDark ? '#2E2E33' : '#E2E8F0',
-          }}
-        >
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 10,
-              paddingBottom: 8,
-              borderBottomWidth: 1,
-              borderBottomColor: isDark ? '#2E2E33' : '#E2E8F0',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Shield size={14} color="#4F46E5" />
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '800',
-                  color: isDark ? '#FFFFFF' : '#0F172A',
-                }}
-              >
-                Allowed Pages ({allowedPages.length}/{AVAILABLE_PAGES.length})
-              </Text>
-            </View>
-            <TouchableOpacity onPress={handleSelectAllPages} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
-                {allowedPages.length === AVAILABLE_PAGES.length ? 'Deselect All' : 'Select All'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Email Address */}
+        {hasEmailField && (
+          <Input
+            label={`Email Address ${isEmailRequired ? '*' : ''}`}
+            placeholder="name@larsentoubro.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        )}
 
-          {/* 2-Column Balanced Grid */}
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              rowGap: 8,
-            }}
-          >
-            {AVAILABLE_PAGES.map((pg) => {
-              const hasAccess = allowedPages.includes(pg.path);
-              return (
-                <TouchableOpacity
-                  key={pg.path}
-                  activeOpacity={0.7}
-                  onPress={() => togglePagePermission(pg.path)}
-                  style={{
-                    width: '48.5%',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                    paddingHorizontal: 9,
-                    paddingVertical: 9,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: hasAccess
-                      ? isDark
-                        ? '#059669'
-                        : '#A7F3D0'
+        {/* Account Status Selector (only displayed if configured in Forms Management) */}
+        {hasStatusField && (
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontSize: 11.5,
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                color: isDark ? '#CBD5E1' : '#334155',
+                letterSpacing: 0.5,
+                marginBottom: 6,
+              }}
+            >
+              Account Status {isStatusRequired ? '*' : ''}
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* Active option */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setStatus('Active')}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 11,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor:
+                    status === 'Active'
+                      ? '#10B981'
                       : isDark
-                      ? '#334155'
+                      ? '#2E2E33'
                       : '#E2E8F0',
-                    backgroundColor: hasAccess
+                  backgroundColor:
+                    status === 'Active'
                       ? isDark
-                        ? 'rgba(5, 150, 105, 0.15)'
+                        ? 'rgba(16, 185, 129, 0.15)'
                         : '#ECFDF5'
                       : isDark
-                      ? '#1E293B'
+                      ? '#1E1E1E'
                       : '#FFFFFF',
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 17,
-                      height: 17,
-                      borderRadius: 4,
-                      borderWidth: hasAccess ? 0 : 1.5,
-                      borderColor: isDark ? '#64748B' : '#94A3B8',
-                      backgroundColor: hasAccess ? '#059669' : 'transparent',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {hasAccess && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: hasAccess ? '700' : '500',
-                      color: hasAccess
+                }}
+              >
+                <CheckCircle2
+                  size={16}
+                  color={status === 'Active' ? '#10B981' : '#94A3B8'}
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: status === 'Active' ? '700' : '500',
+                    color:
+                      status === 'Active'
                         ? isDark
-                          ? '#6EE7B7'
+                          ? '#A7F3D0'
                           : '#065F46'
                         : isDark
-                        ? '#CBD5E1'
-                        : '#475569',
-                      flex: 1,
+                        ? '#94A3B8'
+                        : '#64748B',
+                  }}
+                >
+                  Active
+                </Text>
+              </TouchableOpacity>
+
+              {/* Inactive option */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setStatus('Inactive')}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 11,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor:
+                    status === 'Inactive'
+                      ? '#F43F5E'
+                      : isDark
+                      ? '#2E2E33'
+                      : '#E2E8F0',
+                  backgroundColor:
+                    status === 'Inactive'
+                      ? isDark
+                        ? 'rgba(244, 63, 94, 0.15)'
+                        : '#FFF1F2'
+                      : isDark
+                      ? '#1E1E1E'
+                      : '#FFFFFF',
+                }}
+              >
+                <XCircle
+                  size={16}
+                  color={status === 'Inactive' ? '#F43F5E' : '#94A3B8'}
+                />
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: status === 'Inactive' ? '700' : '500',
+                    color:
+                      status === 'Inactive'
+                        ? isDark
+                          ? '#FDA4AF'
+                          : '#9F1239'
+                        : isDark
+                        ? '#94A3B8'
+                        : '#64748B',
+                  }}
+                >
+                  Inactive
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* System Role Dropdown */}
+        {hasRoleField && (
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontSize: 11.5,
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                color: isDark ? '#CBD5E1' : '#334155',
+                letterSpacing: 0.5,
+                marginBottom: 6,
+              }}
+            >
+              System Role (RBAC) {isRoleRequired ? '*' : ''}
+            </Text>
+
+            {/* Dropdown Trigger */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setRoleDropdownOpen((prev) => !prev)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 12,
+                paddingVertical: 11,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: roleDropdownOpen
+                  ? '#4F46E5'
+                  : isDark
+                  ? '#2E2E33'
+                  : '#E2E8F0',
+                backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    backgroundColor: isDark
+                      ? 'rgba(79, 70, 229, 0.2)'
+                      : '#EEF2FF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Shield size={16} color="#4F46E5" />
+                </View>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '700',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
                     }}
-                    numberOfLines={1}
                   >
-                    {pg.label}
+                    {role}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Quality Inspection & Subuser Delegation Permissions */}
-        <View className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 gap-3">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2 flex-1 mr-2">
-              <ClipboardCheck size={16} color="#059669" />
-              <View className="flex-1">
-                <Text className="text-xs font-bold text-slate-900 dark:text-white">
-                  Quality Inspection Access
-                </Text>
-                <Text className="text-[10px] text-slate-500">
-                  Perform inspections, renew validations, or route failed equipment.
-                </Text>
+                  <Text style={{ fontSize: 11, color: '#64748B' }}>
+                    {ROLE_DESCRIPTIONS[role]}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Switch
-              value={role === 'Admin' || hasInspectionAccess}
-              disabled={role === 'Admin'}
-              onValueChange={setHasInspectionAccess}
-              trackColor={{ false: '#94A3B8', true: '#10B981' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
 
-          <View className="flex-row items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-            <View className="flex-row items-center gap-2 flex-1 mr-2">
-              <UserCheck size={16} color="#4F46E5" />
-              <View className="flex-1">
-                <Text className="text-xs font-bold text-slate-900 dark:text-white">
-                  Can Create Subusers
-                </Text>
-                <Text className="text-[10px] text-slate-500">
-                  Allow delegating scoped subuser team accounts.
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={role === 'Admin' || canCreateUser}
-              disabled={role === 'Admin'}
-              onValueChange={setCanCreateUser}
-              trackColor={{ false: '#94A3B8', true: '#4F46E5' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-
-        {/* Project Scope Assignment */}
-        {allProjects.length > 0 && (
-          <View className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <View className="flex-row items-center gap-1.5 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-              <FolderGit2 size={14} color="#4F46E5" />
-              <Text className="text-xs font-bold text-slate-900 dark:text-white">
-                Project Scopes ({selectedProjects.length} Selected)
-              </Text>
-            </View>
-            <View className="flex-row flex-wrap gap-1.5">
-              {allProjects.map((p) => {
-                const isSelected = selectedProjects.includes(p._id);
-                return (
-                  <TouchableOpacity
-                    key={p._id}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      setSelectedProjects((prev) =>
-                        prev.includes(p._id) ? prev.filter((id) => id !== p._id) : [...prev, p._id]
-                      )
-                    }
-                    className={`px-2.5 py-1.5 rounded-lg border ${
-                      isSelected
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                    }`}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    backgroundColor: isDark ? '#2E2E33' : '#F1F5F9',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                    }}
                   >
-                    <Text
-                      className={`text-[11px] font-semibold ${
-                        isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'
-                      }`}
+                    Select
+                  </Text>
+                </View>
+                {roleDropdownOpen ? (
+                  <ChevronUp size={16} color="#64748B" />
+                ) : (
+                  <ChevronDown size={16} color="#64748B" />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Dropdown Menu Options */}
+            {roleDropdownOpen && (
+              <View
+                style={{
+                  marginTop: 6,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#2E2E33' : '#CBD5E1',
+                  backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+                  overflow: 'hidden',
+                  elevation: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                }}
+              >
+                {ROLES.map((r, index) => {
+                  const isSelected = role === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setRole(r);
+                        setRoleDropdownOpen(false);
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderBottomWidth: index === ROLES.length - 1 ? 0 : 1,
+                        borderBottomColor: isDark ? '#2E2E33' : '#F1F5F9',
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? 'rgba(79, 70, 229, 0.15)'
+                            : '#EEF2FF'
+                          : 'transparent',
+                      }}
                     >
-                      {p.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
+                        }}
+                      >
+                        <View>
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: isSelected ? '700' : '500',
+                              color: isSelected
+                                ? '#4F46E5'
+                                : isDark
+                                ? '#FFFFFF'
+                                : '#0F172A',
+                            }}
+                          >
+                            {r}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: '#64748B' }}>
+                            {ROLE_DESCRIPTIONS[r]}
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected && (
+                        <View
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            backgroundColor: '#4F46E5',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Role Description Note */}
+            <View
+              style={{
+                marginTop: 8,
+                padding: 10,
+                borderRadius: 10,
+                backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
+                borderWidth: 1,
+                borderColor: isDark ? '#2E2E33' : '#E2E8F0',
+              }}
+            >
+              {role === 'Admin' ? (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '500',
+                    color: isDark ? '#60A5FA' : '#2563EB',
+                  }}
+                >
+                  <Text style={{ fontWeight: '700' }}>Admin: </Text>
+                  Unrestricted access across all Projects, Stores, Tools, Reports, and System Settings.
+                </Text>
+              ) : (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '500',
+                    color: isDark ? '#94A3B8' : '#64748B',
+                  }}
+                >
+                  <Text style={{ fontWeight: '700' }}>User: </Text>
+                  Standard access scope governed by assigned Projects, Stores, and Page Permissions.
+                </Text>
+              )}
             </View>
           </View>
         )}
 
-        {/* Store Scope Assignment */}
-        {allStores.length > 0 && (
-          <View className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <View className="flex-row items-center gap-1.5 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-              <Store size={14} color="#D97706" />
-              <Text className="text-xs font-bold text-slate-900 dark:text-white">
-                Store / Warehouse Scopes ({selectedStores.length} Selected)
-              </Text>
-            </View>
-            <View className="flex-row flex-wrap gap-1.5">
-              {allStores.map((s) => {
-                const isSelected = selectedStores.includes(s._id);
-                return (
-                  <TouchableOpacity
-                    key={s._id}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      setSelectedStores((prev) =>
-                        prev.includes(s._id) ? prev.filter((id) => id !== s._id) : [...prev, s._id]
-                      )
-                    }
-                    className={`px-2.5 py-1.5 rounded-lg border ${
-                      isSelected
-                        ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    <Text
-                      className={`text-[11px] font-semibold ${
-                        isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {s.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        {/* Dynamic Custom Fields configured in Forms Management (seamlessly inline, no box, no header) */}
+        <DynamicFieldsSection
+          slug="user-admin-form"
+          values={customFields}
+          onChange={(key, val) => setCustomFields((prev) => ({ ...prev, [key]: val }))}
+          onFieldsLoaded={setDynamicFieldsSchema}
+          excludeFieldNames={['name', 'user_id', 'email', 'phonenumber', 'phone', 'role', 'status', 'password']}
+        />
 
         {/* Delete button if editing */}
         {isEdit && (
@@ -781,7 +731,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
         </View>
         <View className="flex-1">
           <Button
-            title={isEdit ? 'Update User' : 'Create User'}
+            title={isEdit ? 'Update User / Admin' : 'Create User / Admin'}
             onPress={handleSubmit}
             loading={submitting}
           />
@@ -790,3 +740,5 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     </Modal>
   );
 };
+
+export default UserFormModal;

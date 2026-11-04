@@ -54,18 +54,18 @@ const SETTINGS_MODULES: SettingsCardItem[] = [
     lightColor: "#2563EB",
     darkColor: "#60A5FA",
   },
-  {
-    id: "tool-details-view",
-    title: "Tool Details Card Layout",
-    description:
-      "Configure fields and section visibility on the Full Tool Details (/tooldetails) page.",
-    route: "/settings/layouts/tool-details-view",
-    icon: Palette,
-    lightBg: "#EEF2FF",
-    darkBg: "rgba(99, 102, 241, 0.18)",
-    lightColor: "#4F46E5",
-    darkColor: "#818CF8",
-  },
+  // {
+  //   id: "tool-details-view",
+  //   title: "Tool Details Card Layout",
+  //   description:
+  //     "Configure fields and section visibility on the Full Tool Details (/tooldetails) page.",
+  //   route: "/settings/layouts/tool-details-view",
+  //   icon: Palette,
+  //   lightBg: "#EEF2FF",
+  //   darkBg: "rgba(99, 102, 241, 0.18)",
+  //   lightColor: "#4F46E5",
+  //   darkColor: "#818CF8",
+  // },
   {
     id: "reports-audit",
     title: "Reports & Audit",
