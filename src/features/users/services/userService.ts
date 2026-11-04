@@ -2,8 +2,8 @@ import api from "@/services/api";
 import { UserRecord, PendingLoginRequest } from "../types";
 
 export const userService = {
-  getUsers: async (): Promise<UserRecord[]> => {
-    const res = await api.get<{ success: boolean; data: UserRecord[] }>("/api/users");
+  getUsers: async (params?: Record<string, any>): Promise<UserRecord[]> => {
+    const res = await api.get<{ success: boolean; data: UserRecord[] }>("/api/users", { params });
     return res.data?.data || [];
   },
 

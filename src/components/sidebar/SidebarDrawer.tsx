@@ -33,7 +33,7 @@ import {
   Sun,
   Moon,
   LogOut,
-  ChevronRight,
+  ChevronsUpDown,
   LucideIcon,
 } from "lucide-react-native";
 import { useSidebarStore } from "@/store/sidebarStore";
@@ -42,7 +42,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 330);
+const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.88, 250);
 
 interface NavItem {
   title: string;
@@ -104,12 +104,7 @@ const NAV_MAIN_ITEMS: NavItem[] = [
     icon: Users,
     requiredPage: "/users",
   },
-  {
-    title: "Login Approvals",
-    url: "/admin/approvals",
-    icon: ShieldCheck,
-  },
-  {
+    {
     title: "Settings",
     url: "/(tabs)/settings",
     icon: Settings2,
@@ -124,6 +119,7 @@ export const SidebarDrawer: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false);
 
   const isAdmin = user?.role === "Admin";
   const isGuest = user?.role === "Guest";
@@ -163,13 +159,6 @@ export const SidebarDrawer: React.FC = () => {
         if (item.url === "/users") {
           return Boolean(canManageSubusers);
         }
-        if (item.url === "/admin/approvals") {
-          return (
-            user?.role === "Admin" ||
-            user?.role === "User" ||
-            Boolean(canManageSubusers)
-          );
-        }
         if (item.url === "/scanner") return true;
         if (item.url === "/(tabs)") return allowed.includes("/dashboard");
         if (item.url === "/(tabs)/projects") return allowed.includes("/projects");
@@ -201,12 +190,14 @@ export const SidebarDrawer: React.FC = () => {
 
   useEffect(() => {
     if (isOpen) {
+      setUserMenuOpen(false);
       animProgress.value = 0;
       animProgress.value = withTiming(1, {
         duration: 220,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       });
     } else {
+      setUserMenuOpen(false);
       animProgress.value = 0;
     }
   }, [isOpen]);
@@ -237,7 +228,6 @@ export const SidebarDrawer: React.FC = () => {
     if (url === "/profiles") return pathname.startsWith("/profiles");
     if (url === "/trash") return pathname.startsWith("/trash");
     if (url === "/users") return pathname.startsWith("/users");
-    if (url === "/admin/approvals") return pathname.startsWith("/admin/approvals");
     if (url === "/(tabs)/settings" || url === "/settings")
       return pathname.startsWith("/(tabs)/settings") || pathname.startsWith("/settings");
     return pathname === url;
@@ -249,10 +239,11 @@ export const SidebarDrawer: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure you want to end your session?", [
+    setUserMenuOpen(false);
+    Alert.alert("Log out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Sign Out",
+        text: "Log out",
         style: "destructive",
         onPress: async () => {
           closeSidebar();
@@ -301,66 +292,23 @@ export const SidebarDrawer: React.FC = () => {
         >
           <Pressable
             style={{ flex: 1 }}
-            onPress={closeSidebar}
+            onPress={() => {
+              setUserMenuOpen(false);
+              closeSidebar();
+            }}
             accessibilityLabel="Close sidebar"
           />
         </Animated.View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                backgroundColor: "#FFFFFF",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 4,
-                borderWidth: 1,
-                borderColor: isDark ? "#334155" : "#E2E8F0",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 3,
-                elevation: 2,
-              }}
-            >
-              <Image
-                source={{ uri: LNT_LOGO_BASE64 }}
-                style={{ width: "100%", height: "100%" }}
-                resizeMode="contain"
-              />
-            </View>
-            <View>
-              <Text
-                style={{
-                  color: theme.text,
-                  fontWeight: "bold",
-                  fontSize: 16,
-                  letterSpacing: -0.2,
-                }}
-              >
-                L&T Enterprise
-              </Text>
-              <Text
-                style={{
-                  color: theme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: "600",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                }}
-              >
-                Equipment Portal
-              </Text>
-            </View>
-          </View>
 
         {/* Drawer Container */}
         <Animated.View
           style={[
             {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              bottom: 0,
               width: DRAWER_WIDTH,
-              height: "100%",
               backgroundColor: theme.drawerBg,
               paddingTop: insets.top,
               paddingBottom: insets.bottom + 8,
@@ -459,6 +407,9 @@ export const SidebarDrawer: React.FC = () => {
             contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 10 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onTouchStart={() => {
+              if (userMenuOpen) setUserMenuOpen(false);
+            }}
           >
             <View style={{ marginBottom: 4 }}>
               <Text
@@ -542,27 +493,143 @@ export const SidebarDrawer: React.FC = () => {
           {/* Footer - Profile & Logout matching Web User tile */}
           <View
             style={{
-              paddingHorizontal: 12,
+              paddingHorizontal: 10,
               paddingTop: 10,
               borderTopWidth: 1,
               borderColor: theme.border,
+              position: "relative",
             }}
           >
-            {/* User Info Tile */}
+            {/* Popover Menu matching web NavUser DropdownMenu */}
+            {userMenuOpen && (
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: "100%",
+                  left: 10,
+                  right: 10,
+                  marginBottom: 8,
+                  backgroundColor: isDark ? "#18181B" : "#FFFFFF",
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: isDark ? "#27272A" : "#E2E8F0",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: -4 },
+                  shadowOpacity: isDark ? 0.35 : 0.12,
+                  shadowRadius: 10,
+                  elevation: 12,
+                  overflow: "hidden",
+                  zIndex: 99,
+                }}
+              >
+                {/* 1. User Header */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    gap: 10,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: isGuest ? "#059669" : theme.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 12 }}>
+                      {isGuest ? "G" : initials}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: theme.text,
+                        fontWeight: "700",
+                        fontSize: 13,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {isGuest ? "Guest User" : user?.name || user?.username || "L&T Operator"}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {isGuest ? "QR Scanner Access" : user?.email || "user@landt.com"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Separator */}
+                <View style={{ height: 1, backgroundColor: isDark ? "#27272A" : "#F1F5F9" }} />
+
+                {/* 2. Role Label */}
+                <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "700",
+                      color: isDark ? "#94A3B8" : "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    ROLE: {isGuest ? "GUEST" : (user?.role || "USER").toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Separator */}
+                <View style={{ height: 1, backgroundColor: isDark ? "#27272A" : "#F1F5F9" }} />
+
+                {/* 3. Log out Action */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleLogout}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <LogOut size={15} color="#EF4444" strokeWidth={2} />
+                  <Text
+                    style={{
+                      color: "#EF4444",
+                      fontWeight: "600",
+                      fontSize: 13,
+                    }}
+                  >
+                    Log out
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* User Info Tile Trigger */}
             <TouchableOpacity
-              activeOpacity={isGuest ? 1 : 0.8}
-              onPress={() => {
-                if (!isGuest) handleNavigate("/(tabs)/profile");
-              }}
+              activeOpacity={0.7}
+              onPress={() => setUserMenuOpen((prev) => !prev)}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 padding: 9,
                 borderRadius: 12,
-                backgroundColor: isDark ? "#1E1E1E" : "#F8FAFC",
+                backgroundColor: userMenuOpen
+                  ? (isDark ? "#26262B" : "#EEF2F6")
+                  : (isDark ? "#1E1E1E" : "#F8FAFC"),
                 borderWidth: 1,
-                borderColor: theme.border,
-                marginBottom: 8,
+                borderColor: userMenuOpen ? theme.primary : theme.border,
               }}
             >
               <View
@@ -601,35 +668,7 @@ export const SidebarDrawer: React.FC = () => {
                   {isGuest ? "QR Scanner Access" : user?.email || user?.role || "user@landt.com"}
                 </Text>
               </View>
-              {!isGuest && <ChevronRight size={16} color={theme.textMuted} />}
-            </TouchableOpacity>
-
-            {/* Sign Out Button */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={handleLogout}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 9,
-                borderRadius: 10,
-                backgroundColor: isDark ? "#2A0B0B" : "#FEF2F2",
-                borderWidth: 1,
-                borderColor: isDark ? "#501B1B" : "#FEE2E2",
-                gap: 8,
-              }}
-            >
-              <LogOut size={14} color="#EF4444" strokeWidth={2.2} />
-              <Text
-                style={{
-                  color: "#EF4444",
-                  fontWeight: "700",
-                  fontSize: 12,
-                }}
-              >
-                Sign Out
-              </Text>
+              <ChevronsUpDown size={15} color={theme.textMuted} />
             </TouchableOpacity>
           </View>
         </Animated.View>

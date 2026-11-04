@@ -18,6 +18,7 @@ import { profileService } from "@/features/profiles/services/profileService";
 import { ProfileType } from "@/features/profiles/types";
 import { formService, FormDefinition, FormFieldDefinition } from "@/services/formService";
 import { DynamicFormRenderer } from "@/components/common/DynamicFormRenderer";
+import { validateEmail } from "@/utils/validation";
 
 const PROFILE_TYPES: { label: string; value: ProfileType }[] = [
   { label: "Subcontractor", value: "Subcontractor" },
@@ -274,6 +275,19 @@ export default function ProfileFormScreen() {
           f.validations?.find((v: any) => v.type === "required")?.message ||
           `${f.label || f.name} is required`;
         newErrors[f.name] = reqMessage;
+      }
+    });
+
+    // 2. Validate email format for contactEmail or any field with type='email'
+    fields.forEach((f) => {
+      if (f.name === "contactEmail" || f.type === "email") {
+        const emailVal = values[f.name];
+        if (emailVal && String(emailVal).trim()) {
+          const emailCheck = validateEmail(String(emailVal).trim());
+          if (!emailCheck.isValid) {
+            newErrors[f.name] = emailCheck.error || "Email must contain '@' and '.'.";
+          }
+        }
       }
     });
 

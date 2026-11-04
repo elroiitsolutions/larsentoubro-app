@@ -77,11 +77,17 @@ export default function UsersScreen() {
       setLoading(true);
       setError(null);
       if (isAdmin && activeTab === 'users') {
-        const data = await userService.getUsers();
-        setUserList(data || []);
+        const data = await userService.getUsers({ type: 'internal' });
+        // Organization Users tab: strictly primary organization users (Admin & User)
+        const orgUsers = (data || []).filter(
+          (u) => u.role !== 'Vendor' && u.role !== 'Subuser'
+        );
+        setUserList(orgUsers);
       } else {
         const data = await userService.getSubusers();
-        setUserList(data || []);
+        // Subuser Team Accounts tab: strictly subuser accounts
+        const subusersList = (data || []).filter((u) => u.role === 'Subuser');
+        setUserList(subusersList);
       }
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Failed to load user list.');
@@ -144,7 +150,7 @@ export default function UsersScreen() {
           >
             <UserPlus size={14} color="#FFFFFF" />
             <Text className="text-xs font-bold text-white">
-              {isAdmin && activeTab === 'users' ? 'Add User' : 'Add Subuser'}
+              {isAdmin && activeTab === 'users' ? 'Add User / Admin' : 'Add Subuser'}
             </Text>
           </TouchableOpacity>
         ) : undefined

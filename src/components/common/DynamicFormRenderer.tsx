@@ -341,8 +341,9 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
             key={fieldKey}
             label={fieldLabel}
             placeholder={
-              field.placeholder ||
-              (isDate ? "YYYY-MM-DD" : `Enter ${(field.label || field.name).toLowerCase()}`)
+              (typeof field.placeholder === "string" && field.placeholder.trim())
+                ? field.placeholder.trim()
+                : (isDate ? "YYYY-MM-DD" : undefined)
             }
             value={fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : ""}
             onChangeText={(text) => {
