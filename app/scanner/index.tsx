@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { ToolPreviewModal } from "@/features/tools/components/ToolPreviewModal";
+import { GuestToolModal } from "@/features/tools/components/GuestToolModal";
 
 export default function QRScannerScreen() {
   const router = useRouter();
@@ -439,66 +440,76 @@ export default function QRScannerScreen() {
       {/* Tool Not Found Error Modal */}
       {lookupError && (
         <View className="absolute inset-0 z-50 bg-black/75 items-center justify-center p-4">
-          <View className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl items-center text-center">
-            {/* Top Logout Button for Guest */}
-            {isGuest && (
-              <View className="w-full flex-row items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <Text className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Guest Scanner
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleBack}
-                  className="flex-row items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800"
-                >
-                  <LogOut size={12} color="#EF4444" />
-                  <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                    Logout
-                  </Text>
-                </TouchableOpacity>
+          {isGuest ? (
+            <View className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl items-center text-center">
+              <View className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/30 items-center justify-center mb-3">
+                <XCircle size={32} color="#F87171" />
               </View>
-            )}
-
-            <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 items-center justify-center mb-4">
-              <XCircle size={36} color="#EF4444" />
-            </View>
-
-            <Text className="text-lg font-black text-slate-900 dark:text-white mb-2 text-center">
-              Tool ID Not Found
-            </Text>
-
-            <Text className="text-xs text-slate-600 dark:text-slate-300 font-medium text-center mb-6 leading-relaxed">
-              {lookupError}
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={resumeScanning}
-              className="w-full bg-blue-600 active:bg-blue-700 py-3.5 rounded-xl items-center justify-center shadow-sm"
-            >
-              <Text className="text-white font-bold text-sm">
-                Scan Again
+              <Text className="text-lg font-black text-rose-400 mb-1">
+                Tool Not Found
               </Text>
-            </TouchableOpacity>
-          </View>
+              <Text className="text-xs text-slate-300 font-medium text-center mb-5 px-2 leading-relaxed">
+                {lookupError}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={resumeScanning}
+                className="w-full bg-slate-800 active:bg-slate-700 py-3 rounded-xl items-center justify-center"
+              >
+                <Text className="text-white font-bold text-xs">
+                  Scan Another QR Code
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl items-center text-center">
+              <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 items-center justify-center mb-4">
+                <XCircle size={36} color="#EF4444" />
+              </View>
+
+              <Text className="text-lg font-black text-slate-900 dark:text-white mb-2 text-center">
+                Tool ID Not Found
+              </Text>
+
+              <Text className="text-xs text-slate-600 dark:text-slate-300 font-medium text-center mb-6 leading-relaxed">
+                {lookupError}
+              </Text>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={resumeScanning}
+                className="w-full bg-blue-600 active:bg-blue-700 py-3.5 rounded-xl items-center justify-center shadow-sm"
+              >
+                <Text className="text-white font-bold text-sm">
+                  Scan Again
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
-      {/* Tool Preview Popup Modal (Matching exact web modal UI) */}
-      <ToolPreviewModal
-        visible={!!scannedTool}
-        tool={scannedTool}
-        toolId={scannedTool?.toolId || scannedTool?.toolCode}
-        onClose={resumeScanning}
-        onViewFullDetails={() => {
-          if (scannedTool?._id) {
-            router.push(`/tools/${scannedTool._id}` as any);
-          }
-        }}
-      />
+      {/* Guest Tool Preview Modal (Matching exact original guest modal UI from Image 1) */}
+      {isGuest ? (
+        <GuestToolModal
+          visible={!!scannedTool}
+          tool={scannedTool}
+          onClose={resumeScanning}
+        />
+      ) : (
+        /* Authenticated Full Tool Preview Popup Modal (Completely untouched) */
+        <ToolPreviewModal
+          visible={!!scannedTool}
+          tool={scannedTool}
+          toolId={scannedTool?.toolId || scannedTool?.toolCode}
+          onClose={resumeScanning}
+          onViewFullDetails={() => {
+            if (scannedTool?._id) {
+              router.push(`/tools/${scannedTool._id}` as any);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

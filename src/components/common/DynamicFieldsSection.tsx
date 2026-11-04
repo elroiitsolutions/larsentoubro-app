@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
-import { formService, FormFieldDefinition, FormDefinition } from "@/services/formService";
+import { formService, FormFieldDefinition } from "@/services/formService";
 import { Input } from "@/components/ui/Input";
 import { useAppTheme } from "@/context/ThemeContext";
-import { Sliders } from "lucide-react-native";
 
 interface DynamicFieldsSectionProps {
   slug: string;
@@ -20,7 +19,7 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
   onFieldsLoaded,
   excludeFieldNames = [],
 }) => {
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
   const [fields, setFields] = useState<FormFieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +32,10 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
         if (isMounted && schema && Array.isArray(schema.fields)) {
           const excludedLower = excludeFieldNames.map((n) => n.toLowerCase());
           const activeFields = schema.fields.filter(
-            (f) => !excludedLower.includes(f.name.toLowerCase())
+            (f) =>
+              !excludedLower.includes(f.name.toLowerCase()) &&
+              f.name !== "password" &&
+              f.id !== "password"
           );
           setFields(activeFields);
           if (onFieldsLoaded) {
@@ -65,43 +67,13 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
   }
 
   return (
-    <View
-      style={{
-        backgroundColor: theme.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: theme.cardBorder,
-        padding: 16,
-        marginBottom: 16,
-      }}
-    >
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          marginBottom: 14,
-          paddingBottom: 10,
-          borderBottomWidth: 1,
-          borderColor: theme.divider,
-        }}
-      >
-        <Sliders size={16} color={theme.primary} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: theme.text }}>
-            Custom Dynamic Fields
-          </Text>
-          <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-            Configured in Forms Management schema (/{slug})
-          </Text>
-        </View>
-      </View>
-
-      {/* Field Items */}
+    <View style={{ width: "100%" }}>
       {fields.map((field) => {
         const fieldKey = field.name;
         const fieldValue = values[fieldKey];
+        const isRequired =
+          Boolean(field.required) ||
+          Boolean(field.validations?.some((v: any) => v.type === "required"));
 
         // 1. Select Field Type
         if (
@@ -113,15 +85,15 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
             <View key={fieldKey} style={{ marginBottom: 16 }}>
               <Text
                 style={{
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: "700",
                   textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                  color: theme.textSecondary,
-                  marginBottom: 8,
+                  letterSpacing: 0.5,
+                  color: isDark ? "#CBD5E1" : "#334155",
+                  marginBottom: 6,
                 }}
               >
-                {field.label} {field.required ? "*" : ""}
+                {field.label} {isRequired ? "*" : ""}
               </Text>
 
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -141,7 +113,8 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
 
                   const isSelected =
                     fieldValue !== undefined &&
-                    String(fieldValue).toLowerCase() === String(optVal).toLowerCase();
+                    String(fieldValue).toLowerCase() ===
+                      String(optVal).toLowerCase();
 
                   return (
                     <TouchableOpacity
@@ -154,18 +127,26 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
                         borderRadius: 12,
                         backgroundColor: isSelected
                           ? theme.primary
-                          : theme.isDark
+                          : isDark
                           ? "#1E293B"
                           : "#F1F5F9",
                         borderWidth: 1,
-                        borderColor: isSelected ? theme.primary : theme.border,
+                        borderColor: isSelected
+                          ? theme.primary
+                          : isDark
+                          ? "#2E2E33"
+                          : "#E2E8F0",
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 12,
                           fontWeight: "700",
-                          color: isSelected ? "#FFFFFF" : theme.text,
+                          color: isSelected
+                            ? "#FFFFFF"
+                            : isDark
+                            ? "#FFFFFF"
+                            : "#0F172A",
                         }}
                       >
                         {String(optLabel)}
@@ -188,19 +169,28 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                paddingVertical: 10,
-                borderTopWidth: 1,
-                borderColor: theme.border,
-                marginBottom: 12,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderColor: isDark ? "#2E2E33" : "#E2E8F0",
+                marginBottom: 16,
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.text }}>
-                {field.label} {field.required ? "*" : ""}
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "600",
+                  color: isDark ? "#FFFFFF" : "#0F172A",
+                }}
+              >
+                {field.label} {isRequired ? "*" : ""}
               </Text>
               <Switch
                 value={switchVal}
                 onValueChange={(val) => onChange(fieldKey, val)}
-                trackColor={{ false: theme.border, true: theme.primary }}
+                trackColor={{
+                  false: isDark ? "#2E2E33" : "#CBD5E1",
+                  true: theme.primary,
+                }}
               />
             </View>
           );
@@ -210,8 +200,10 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
         return (
           <Input
             key={fieldKey}
-            label={`${field.label} ${field.required ? "*" : ""}`}
-            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+            label={`${field.label} ${isRequired ? "*" : ""}`}
+            placeholder={
+              field.placeholder || `Enter ${field.label.toLowerCase()}`
+            }
             value={fieldValue !== undefined ? String(fieldValue) : ""}
             onChangeText={(text) => onChange(fieldKey, text)}
             multiline={field.type === "textarea"}
@@ -231,3 +223,4 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
     </View>
   );
 };
+export default DynamicFieldsSection;
