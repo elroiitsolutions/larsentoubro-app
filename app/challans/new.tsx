@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { toast } from "@/components/ui/Toast";
+import { InlineCalendarPicker } from "@/components/ui/InlineCalendarPicker";
 import { challanService } from "@/features/challans/services/challanService";
 import { storeService } from "@/features/stores/services/storeService";
 import { toolService } from "@/features/tools/services/toolService";
@@ -190,6 +191,23 @@ export default function NewChallanScreen() {
     new Date().toISOString().split("T")[0]
   );
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [activeCalendar, setActiveCalendar] = useState<"issue" | "return" | null>(null);
+  const [isManualDateInput, setIsManualDateInput] = useState<boolean>(false);
+
+  const formatDisplayDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   const handleDeliveryPresetClick = (type: "1week" | "1month" | "3months" | "6months") => {
     const base = challanDate ? new Date(challanDate + "T00:00:00") : new Date();
@@ -550,28 +568,244 @@ export default function NewChallanScreen() {
             </View>
           </View>
 
-          {/* Coordinated Inputs Row */}
-          <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                placeholder="YYYY-MM-DD"
-                value={challanDate}
-                onChangeText={setChallanDate}
-                containerStyle={{ marginBottom: 0 }}
-              />
+          {isManualDateInput ? (
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: "row", gap: 12, marginBottom: 6 }}>
+                <View style={{ flex: 1 }}>
+                  <Input
+                    placeholder="YYYY-MM-DD"
+                    value={challanDate}
+                    onChangeText={setChallanDate}
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Input
+                    placeholder="YYYY-MM-DD"
+                    value={deliveryDate}
+                    onChangeText={(txt) => {
+                      setDeliveryDate(txt);
+                      setSelectedPreset(null);
+                    }}
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setIsManualDateInput(false)}
+                style={{ alignSelf: "flex-end" }}
+              >
+                <Text style={{ fontSize: 11, color: theme.primary, fontWeight: "600" }}>
+                  Switch to Calendar Picker
+                </Text>
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                placeholder="YYYY-MM-DD"
-                value={deliveryDate}
-                onChangeText={(txt) => {
-                  setDeliveryDate(txt);
-                  setSelectedPreset(null);
-                }}
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </View>
-          </View>
+          ) : (
+            <>
+              {/* Coordinated Date Cards Row */}
+              <View style={{ flexDirection: "row", gap: 12, marginBottom: 8 }}>
+                {/* Challan Issue Date Card */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setActiveCalendar((prev) => (prev === "issue" ? null : "issue"))}
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                    borderWidth: 1.5,
+                    borderColor:
+                      activeCalendar === "issue"
+                        ? theme.primary
+                        : isDark
+                        ? "#334155"
+                        : "#E2E8F0",
+                    borderRadius: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 1,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 7,
+                        backgroundColor:
+                          activeCalendar === "issue"
+                            ? isDark
+                              ? "rgba(99, 102, 241, 0.2)"
+                              : "#EEF2FF"
+                            : isDark
+                            ? "#0F172A"
+                            : "#F1F5F9",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Calendar
+                        size={15}
+                        color={activeCalendar === "issue" ? theme.primary : "#64748B"}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          fontFamily: "monospace",
+                          color: isDark ? "#F8FAFC" : "#0F172A",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {challanDate || "YYYY-MM-DD"}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 10.5,
+                          color: isDark ? "#94A3B8" : "#64748B",
+                          marginTop: 1,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {formatDisplayDate(challanDate)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Expected Return Date Card */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setActiveCalendar((prev) => (prev === "return" ? null : "return"))}
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                    borderWidth: 1.5,
+                    borderColor:
+                      activeCalendar === "return"
+                        ? theme.primary
+                        : isDark
+                        ? "#334155"
+                        : "#E2E8F0",
+                    borderRadius: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 1,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 7,
+                        backgroundColor:
+                          activeCalendar === "return"
+                            ? isDark
+                              ? "rgba(99, 102, 241, 0.2)"
+                              : "#EEF2FF"
+                            : isDark
+                            ? "#0F172A"
+                            : "#F1F5F9",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Calendar
+                        size={15}
+                        color={activeCalendar === "return" ? theme.primary : "#64748B"}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          fontFamily: "monospace",
+                          color: isDark ? "#F8FAFC" : "#0F172A",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {deliveryDate || "YYYY-MM-DD"}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 10.5,
+                          color: isDark ? "#94A3B8" : "#64748B",
+                          marginTop: 1,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {formatDisplayDate(deliveryDate)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Manual input toggle link */}
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 }}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setIsManualDateInput(true)}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10.5,
+                      color: isDark ? "#94A3B8" : "#64748B",
+                      textDecorationLine: "underline",
+                    }}
+                  >
+                    Type date manually
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Calendar Picker for Challan Issue Date */}
+              {activeCalendar === "issue" && (
+                <View style={{ marginBottom: 12 }}>
+                  <InlineCalendarPicker
+                    title="Challan Issue Date"
+                    selectedDate={challanDate}
+                    onSelectDate={(d) => {
+                      setChallanDate(d);
+                      if (deliveryDate < d) {
+                        setDeliveryDate(d);
+                      }
+                      setActiveCalendar(null);
+                    }}
+                    onClose={() => setActiveCalendar(null)}
+                  />
+                </View>
+              )}
+
+              {/* Calendar Picker for Expected Return Date */}
+              {activeCalendar === "return" && (
+                <View style={{ marginBottom: 12 }}>
+                  <InlineCalendarPicker
+                    title="Expected Return Date"
+                    selectedDate={deliveryDate}
+                    minDate={challanDate}
+                    onSelectDate={(d) => {
+                      setDeliveryDate(d);
+                      setSelectedPreset(null);
+                      setActiveCalendar(null);
+                    }}
+                    onClose={() => setActiveCalendar(null)}
+                  />
+                </View>
+              )}
+            </>
+          )}
 
           {/* Quick Validity Preset Pills */}
           <View style={{ marginTop: 2 }}>

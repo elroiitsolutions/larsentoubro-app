@@ -24,12 +24,17 @@ import {
   FolderGit2,
   Store,
   UserCheck,
+  Calendar,
+  Clock,
+  Trash2,
+  Tag,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { userService } from '@/features/users/services/userService';
-import { UserRecord } from '@/features/users/types';
+import { guestUserService } from '@/features/users/services/guestUserService';
+import { UserRecord, GuestUserRecord } from '@/features/users/types';
 import { SearchBar } from '@/components/common/SearchBar';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Card } from '@/components/ui/Card';
@@ -38,8 +43,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { UserFormModal } from '@/features/users/components/UserFormModal';
 import { SubuserFormModal } from '@/features/users/components/SubuserFormModal';
+import { GuestUserFormModal } from '@/features/users/components/GuestUserFormModal';
+import { ExtendGuestModal } from '@/features/users/components/ExtendGuestModal';
 
-type UserTab = 'users' | 'subusers';
+type UserTab = 'users' | 'subusers' | 'guests';
 
 export default function UsersScreen() {
   const router = useRouter();
@@ -53,6 +60,7 @@ export default function UsersScreen() {
 
   const [activeTab, setActiveTab] = useState<UserTab>(isAdmin ? 'users' : 'subusers');
   const [userList, setUserList] = useState<UserRecord[]>([]);
+  const [guestList, setGuestList] = useState<GuestUserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,17 +74,28 @@ export default function UsersScreen() {
   const [subuserModalVisible, setSubuserModalVisible] = useState(false);
   const [selectedSubuser, setSelectedSubuser] = useState<UserRecord | null>(null);
 
+  // Guest User Modal State
+  const [guestModalVisible, setGuestModalVisible] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState<GuestUserRecord | null>(null);
+
+  // Extend Guest Modal State
+  const [extendModalVisible, setExtendModalVisible] = useState(false);
+  const [guestToExtend, setGuestToExtend] = useState<GuestUserRecord | null>(null);
+
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isAdmin && activeTab === 'users') {
       setActiveTab('subusers');
     }
-  }, [isAdmin]);
+  }, [isAdmin, activeTab]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      if (isAdmin && activeTab === 'users') {
+      if (activeTab === 'guests') {
+        const data = await guestUserService.getGuestUsers();
+        setGuestList(data || []);
+      } else if (isAdmin && activeTab === 'users') {
         const data = await userService.getUsers({ type: 'internal' });
         // Organization Users tab: strictly primary organization users (Admin & User)
         const orgUsers = (data || []).filter(
@@ -90,7 +109,7 @@ export default function UsersScreen() {
         setUserList(subusersList);
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to load user list.');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load directory list.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,7 +126,10 @@ export default function UsersScreen() {
   };
 
   const handleOpenAdd = () => {
-    if (isAdmin && activeTab === 'users') {
+    if (activeTab === 'guests') {
+      setSelectedGuest(null);
+      setGuestModalVisible(true);
+    } else if (isAdmin && activeTab === 'users') {
       setSelectedUser(null);
       setUserModalVisible(true);
     } else {
@@ -126,7 +148,58 @@ export default function UsersScreen() {
     }
   };
 
-  const filteredList = userList.filter((u) => {
+  const handleEditGuest = (guest: GuestUserRecord) => {
+    setSelectedGuest(guest);
+    setGuestModalVisible(true);
+  };
+
+  const handleOpenExtendGuest = (guest: GuestUserRecord) => {
+    setGuestToExtend(guest);
+    setExtendModalVisible(true);
+  };
+
+  const handleDeleteGuest = (guest: GuestUserRecord) => {
+    Alert.alert(
+      'Delete Guest User',
+      `Are you sure you want to delete guest account for "${guest.name}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await guestUserService.deleteGuestUser(guest._id);
+              Alert.alert('Deleted', 'Guest account deleted successfully.');
+              fetchData();
+            } catch (err: any) {
+              Alert.alert(
+                'Delete Failed',
+                err?.response?.data?.message || err?.message || 'Could not delete guest user.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const filteredUserList = userList.filter((u) => {
     const q = searchQuery.toLowerCase();
     return (
       !searchQuery ||
@@ -137,27 +210,43 @@ export default function UsersScreen() {
     );
   });
 
+  const filteredGuestList = guestList.filter((g) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      !searchQuery ||
+      (g.name && g.name.toLowerCase().includes(q)) ||
+      (g.phone && g.phone.toLowerCase().includes(q)) ||
+      (g.email && g.email.toLowerCase().includes(q)) ||
+      (g.organization && g.organization.toLowerCase().includes(q)) ||
+      (g.purpose && g.purpose.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <ScreenWrapper
       title={isAdmin ? "Users & Access Directory" : "Subuser Team Accounts"}
       showBack
       requiredPage="/users"
       headerRight={
-        (isAdmin || (activeTab === 'subusers' && canManageSubusers)) ? (
+        (isAdmin || (canManageSubusers && (activeTab === 'subusers' || activeTab === 'guests'))) ? (
           <TouchableOpacity
             onPress={handleOpenAdd}
             className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 active:bg-indigo-700 shadow-sm"
           >
             <UserPlus size={14} color="#FFFFFF" />
             <Text className="text-xs font-bold text-white">
-              {isAdmin && activeTab === 'users' ? 'Add User / Admin' : 'Add Subuser'}
+              {activeTab === 'guests'
+                ? 'Add Guest'
+                : isAdmin && activeTab === 'users'
+                ? 'Add User / Admin'
+                : 'Add Subuser'}
             </Text>
           </TouchableOpacity>
         ) : undefined
       }
     >
-      {/* Tabs Switcher (Only visible to Admin who manages BOTH organization users and subusers) */}
-      {isAdmin && (
+      {/* Tabs Switcher: Org Users | Subusers | Guest Users */}
+      {(isAdmin || canManageSubusers) && (
         <View
           style={[
             styles.tabBar,
@@ -167,29 +256,32 @@ export default function UsersScreen() {
             },
           ]}
         >
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('users')}
-            style={[
-              styles.tabItem,
-              activeTab === 'users' && [
-                styles.tabItemActive,
-                { backgroundColor: theme.surface },
-              ],
-            ]}
-          >
-            <Text
+          {isAdmin && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('users')}
               style={[
-                styles.tabText,
-                {
-                  color: activeTab === 'users' ? theme.primary : theme.textSecondary,
-                  fontWeight: activeTab === 'users' ? '700' : '500',
-                },
+                styles.tabItem,
+                activeTab === 'users' && [
+                  styles.tabItemActive,
+                  { backgroundColor: theme.surface },
+                ],
               ]}
             >
-              Organization Users
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: activeTab === 'users' ? theme.primary : theme.textSecondary,
+                    fontWeight: activeTab === 'users' ? '700' : '500',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                Org Users
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -210,8 +302,34 @@ export default function UsersScreen() {
                   fontWeight: activeTab === 'subusers' ? '700' : '500',
                 },
               ]}
+              numberOfLines={1}
             >
-              Subuser Team Accounts
+              Subuser Accounts
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('guests')}
+            style={[
+              styles.tabItem,
+              activeTab === 'guests' && [
+                styles.tabItemActive,
+                { backgroundColor: theme.surface },
+              ],
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: activeTab === 'guests' ? theme.primary : theme.textSecondary,
+                  fontWeight: activeTab === 'guests' ? '700' : '500',
+                },
+              ]}
+              numberOfLines={1}
+            >
+              Guest Users
             </Text>
           </TouchableOpacity>
         </View>
@@ -229,7 +347,11 @@ export default function UsersScreen() {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder={`Search ${activeTab === 'users' ? 'users' : 'subusers'} by name, ID, email...`}
+          placeholder={
+            activeTab === 'guests'
+              ? 'Search guest users by name, mobile, org...'
+              : `Search ${activeTab === 'users' ? 'users' : 'subusers'} by name, ID, email...`
+          }
         />
       </View>
 
@@ -238,9 +360,272 @@ export default function UsersScreen() {
         <Loader fullScreen message="Loading directory records..." />
       ) : error ? (
         <ErrorState title="Error" message={error} onRetry={fetchData} />
+      ) : activeTab === 'guests' ? (
+        <FlatList
+          data={filteredGuestList}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.primary]}
+              tintColor={theme.primary}
+            />
+          }
+          renderItem={({ item }) => {
+            const status = item.computedStatus || item.status || 'Active';
+            const isExpired = status === 'Expired';
+            const isExpiringSoon = status === 'Expiring Soon';
+
+            return (
+              <View style={{ marginBottom: 12 }}>
+                <Card style={{ padding: 14 }}>
+                  {/* Header: Name, Guest Badge, Status */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: 6,
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 'bold',
+                            color: theme.text,
+                          }}
+                        >
+                          {item.name}
+                        </Text>
+                        <View
+                          style={{
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 6,
+                            backgroundColor: isDark ? '#312E81' : '#EEF2FF',
+                            borderWidth: 1,
+                            borderColor: isDark ? '#4338CA' : '#C7D2FE',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: '700',
+                              color: isDark ? '#C7D2FE' : '#4338CA',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Guest Access
+                          </Text>
+                        </View>
+                      </View>
+
+                      {item.organization ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                          <Building size={11} color={theme.textSecondary} />
+                          <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                            {item.organization}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <StatusBadge status={status} size="sm" />
+                  </View>
+
+                  {/* Contact info: Phone & Email */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginTop: 4,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Phone size={12} color="#059669" />
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          fontFamily: 'monospace',
+                          color: isDark ? '#CBD5E1' : '#334155',
+                        }}
+                      >
+                        +91 {item.phone}
+                      </Text>
+                    </View>
+
+                    {item.email ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Mail size={12} color={theme.textSecondary} />
+                        <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                          {item.email}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Purpose / visit notes */}
+                  {item.purpose ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 6,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Tag size={10} color={theme.textSecondary} />
+                      <Text
+                        style={{ fontSize: 11, color: theme.textSecondary, flex: 1 }}
+                        numberOfLines={1}
+                      >
+                        {item.purpose}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Dates & Validity row */}
+                  <View
+                    style={{
+                      paddingTop: 8,
+                      borderTopWidth: 1,
+                      borderColor: theme.border,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'column', gap: 2 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Calendar size={11} color={theme.textSecondary} />
+                        <Text style={{ fontSize: 10.5, color: theme.textSecondary }}>
+                          Start: {formatDate(item.startDate || item.createdAt)}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: '600',
+                            color: isExpired
+                              ? '#DC2626'
+                              : isExpiringSoon
+                              ? '#D97706'
+                              : theme.textSecondary,
+                          }}
+                        >
+                          Exp: {formatDate(item.expiresAt)}
+                        </Text>
+
+                        {/* Edit Date quick button */}
+                        <TouchableOpacity
+                          onPress={() => handleOpenExtendGuest(item)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 3,
+                            paddingHorizontal: 5,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                            backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+                            borderWidth: 1,
+                            borderColor: isDark ? '#047857' : '#A7F3D0',
+                          }}
+                        >
+                          <Edit2 size={9} color="#059669" />
+                          <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#059669' }}>
+                            Edit Date
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Action Buttons: Extend, Edit, Delete */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {/* Extend Button */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleOpenExtendGuest(item)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+                          borderWidth: 1,
+                          borderColor: isDark ? '#047857' : '#A7F3D0',
+                        }}
+                      >
+                        <Clock size={12} color="#059669" />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
+                          Extend
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Edit Full Profile */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleEditGuest(item)}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                        }}
+                      >
+                        <Edit2 size={13} color="#64748B" />
+                      </TouchableOpacity>
+
+                      {/* Delete Guest */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleDeleteGuest(item)}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? '#450A0A' : '#FEF2F2',
+                          borderWidth: 1,
+                          borderColor: isDark ? '#7F1D1D' : '#FECACA',
+                        }}
+                      >
+                        <Trash2 size={13} color="#DC2626" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Card>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <EmptyState
+              title="No Guest Users Found"
+              description="No temporary guest accounts matched your search criteria."
+              actionTitle={canManageSubusers ? "Add Guest User" : undefined}
+              onAction={canManageSubusers ? handleOpenAdd : undefined}
+            />
+          }
+        />
       ) : (
         <FlatList
-          data={filteredList}
+          data={filteredUserList}
           keyExtractor={(item) => item._id}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           showsVerticalScrollIndicator={false}
@@ -398,6 +783,22 @@ export default function UsersScreen() {
         subuser={selectedSubuser}
         onSuccess={fetchData}
       />
+
+      {/* Guest User Form Modal (Create & Edit) */}
+      <GuestUserFormModal
+        visible={guestModalVisible}
+        onClose={() => setGuestModalVisible(false)}
+        guest={selectedGuest}
+        onSuccess={fetchData}
+      />
+
+      {/* Extend Guest Access Modal */}
+      <ExtendGuestModal
+        visible={extendModalVisible}
+        onClose={() => setExtendModalVisible(false)}
+        guest={guestToExtend}
+        onSuccess={fetchData}
+      />
     </ScreenWrapper>
   );
 }
@@ -433,7 +834,8 @@ const styles = StyleSheet.create({
     }),
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11.5,
+    textAlign: 'center',
   },
   microBadge: {
     flexDirection: 'row',
