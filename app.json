@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "l-t-mobile",
-    "slug": "l-t-mobile",
+    "name": "Larsen & Toubro",
+    "slug": "larsen-toubro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "scheme": "ltmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -34,8 +34,7 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store",
-      "expo-video"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
