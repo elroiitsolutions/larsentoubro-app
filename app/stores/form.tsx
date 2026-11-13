@@ -203,9 +203,21 @@ export default function StoreFormScreen() {
     const newErrors: Record<string, string> = {};
 
     fields.forEach((field) => {
-      const val = values[field.name];
+      const fieldKey = field.name || field.id || "";
+      if (!fieldKey) return;
 
-      if (field.required) {
+      const val =
+        values[fieldKey] !== undefined && values[fieldKey] !== null
+          ? values[fieldKey]
+          : (field.name && values[field.name] !== undefined ? values[field.name] : (field.id ? values[field.id] : undefined));
+
+      const isRequired = Boolean(
+        field.required ||
+          (Array.isArray(field.validations) &&
+            field.validations.some((v: any) => v.type === "required"))
+      );
+
+      if (isRequired) {
         const isEmpty =
           val === undefined ||
           val === null ||
@@ -213,12 +225,24 @@ export default function StoreFormScreen() {
           (Array.isArray(val) && val.length === 0);
 
         if (isEmpty) {
-          if (field.name === "storeName" && values.name && String(values.name).trim()) {
+          if (
+            (fieldKey === "storeName" || field.name === "storeName") &&
+            values.name &&
+            String(values.name).trim()
+          ) {
             // satisfied
-          } else if (field.name === "name" && values.storeName && String(values.storeName).trim()) {
+          } else if (
+            (fieldKey === "name" || field.name === "name") &&
+            values.storeName &&
+            String(values.storeName).trim()
+          ) {
             // satisfied
           } else {
-            newErrors[field.name] = `${field.label || field.name} is required`;
+            const reqRule = Array.isArray(field.validations)
+              ? field.validations.find((v: any) => v.type === "required")
+              : null;
+            newErrors[fieldKey] =
+              (reqRule && reqRule.message) || `${field.label || field.name} is required`;
           }
         }
       }
@@ -226,10 +250,10 @@ export default function StoreFormScreen() {
       if (field.validations && Array.isArray(field.validations) && val) {
         field.validations.forEach((rule) => {
           if (rule.type === "min" && typeof val === "string" && val.length < Number(rule.value)) {
-            newErrors[field.name] = rule.message || `Minimum ${rule.value} characters required`;
+            newErrors[fieldKey] = rule.message || `Minimum ${rule.value} characters required`;
           }
           if (rule.type === "max" && typeof val === "string" && val.length > Number(rule.value)) {
-            newErrors[field.name] = rule.message || `Maximum ${rule.value} characters allowed`;
+            newErrors[fieldKey] = rule.message || `Maximum ${rule.value} characters allowed`;
           }
         });
       }
@@ -258,7 +282,10 @@ export default function StoreFormScreen() {
       const payload: Record<string, any> = { ...values };
 
       const effectiveName = String(payload.storeName || payload.name || "").trim();
-      const effectiveLocation = String(payload.location || "Main Yard").trim();
+      const effectiveLocation =
+        payload.location !== undefined && payload.location !== null
+          ? String(payload.location).trim()
+          : "";
       const targetProjId = selectedProjectId || paramProjectId || (projects[0] ? projects[0]._id : undefined);
 
       const storePayload: StoreFormValues = {

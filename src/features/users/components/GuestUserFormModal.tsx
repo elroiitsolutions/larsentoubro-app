@@ -28,6 +28,7 @@ import { GuestUserRecord } from '../types';
 import { guestUserService } from '../services/guestUserService';
 import { DynamicFieldsSection } from '@/components/common/DynamicFieldsSection';
 import { formService, FormFieldDefinition } from '@/services/formService';
+import { cleanAndFormatIndianMobile, validateIndianMobile, validateEmail } from '@/utils/validation';
 
 interface GuestUserFormModalProps {
   visible: boolean;
@@ -172,12 +173,12 @@ export const GuestUserFormModal: React.FC<GuestUserFormModalProps> = ({
       return;
     }
 
-    const cleanDigits = phone.replace(/\D/g, '');
-    if (cleanDigits.length < 10) {
-      Alert.alert('Invalid Mobile', 'Please provide a valid 10-digit mobile number for SMS/OTP verification.');
+    const phoneCheck = validateIndianMobile(phone.trim(), 'Mobile Number');
+    if (!phoneCheck.isValid) {
+      Alert.alert('Invalid Mobile', phoneCheck.error || 'Please provide a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
-    const cleanPhone = cleanDigits.length > 10 ? cleanDigits.slice(-10) : cleanDigits;
+    const cleanPhone = phone.trim();
 
     // Validate standard fields if marked required in Forms Management
     if (isEmailReq && !email.trim()) {
@@ -185,9 +186,9 @@ export const GuestUserFormModal: React.FC<GuestUserFormModalProps> = ({
       return;
     }
     if (email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      const emailCheck = validateEmail(email.trim());
+      if (!emailCheck.isValid) {
+        Alert.alert('Invalid Email', emailCheck.error || 'Please enter a valid email address.');
         return;
       }
     }
@@ -333,8 +334,9 @@ export const GuestUserFormModal: React.FC<GuestUserFormModalProps> = ({
           label={`${phoneFieldDef?.label?.replace(/\s*\*+$/, '') || 'Mobile Number (India +91)'} *`}
           placeholder={phoneFieldDef?.placeholder || 'e.g. 9876543210'}
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 10))}
           keyboardType="phone-pad"
+          maxLength={10}
           leftIcon={<Phone size={16} color="#94A3B8" />}
         />
 

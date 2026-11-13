@@ -14,6 +14,8 @@ export interface ProjectRecord {
   endDate?: string;
   storesCount?: number;
   totalTools?: number;
+  customFields?: Record<string, any>;
+  [key: string]: any;
   createdAt?: string;
   updatedAt?: string;
 }

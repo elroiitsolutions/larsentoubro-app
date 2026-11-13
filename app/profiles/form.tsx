@@ -18,7 +18,7 @@ import { profileService } from "@/features/profiles/services/profileService";
 import { ProfileType } from "@/features/profiles/types";
 import { formService, FormDefinition, FormFieldDefinition } from "@/services/formService";
 import { DynamicFormRenderer } from "@/components/common/DynamicFormRenderer";
-import { validateEmail } from "@/utils/validation";
+import { validateEmail, validateIndianMobile } from "@/utils/validation";
 
 const PROFILE_TYPES: { label: string; value: ProfileType }[] = [
   { label: "Subcontractor", value: "Subcontractor" },
@@ -70,8 +70,8 @@ const FALLBACK_SCHEMAS: Record<ProfileType, FormDefinition> = {
       { id: "code", name: "code", label: "Profile Code", type: "text", placeholder: "e.g. SUB-0001", order: 1 },
       { id: "contactPerson", name: "contactPerson", label: "Contact Person Name", type: "text", placeholder: "e.g. Dinesh G", order: 2 },
       { id: "contactDesignation", name: "contactDesignation", label: "Designation", type: "text", placeholder: "e.g. Site Manager / Proprietor", order: 3 },
-      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "text", placeholder: "e.g. 9934110587", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
-      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "text", placeholder: "e.g. 9876543210", order: 5 },
+      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "phone", placeholder: "e.g. 9934110587", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
+      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "phone", placeholder: "e.g. 9876543210", order: 5 },
       { id: "contactEmail", name: "contactEmail", label: "Email Address", type: "email", placeholder: "e.g. contact@company.com", order: 6 },
       { id: "gstNumber", name: "gstNumber", label: "GST Number", type: "text", placeholder: "e.g. 27AAACL0140P1Z0", order: 7 },
       { id: "panNumber", name: "panNumber", label: "PAN Number", type: "text", placeholder: "e.g. AAACL0140P", order: 8 },
@@ -88,8 +88,8 @@ const FALLBACK_SCHEMAS: Record<ProfileType, FormDefinition> = {
       { id: "code", name: "code", label: "Profile Code", type: "text", placeholder: "e.g. SCR-0001", order: 1 },
       { id: "contactPerson", name: "contactPerson", label: "Contact Person Name", type: "text", placeholder: "e.g. Ramesh Patel", order: 2 },
       { id: "contactDesignation", name: "contactDesignation", label: "Designation", type: "text", placeholder: "e.g. Proprietor / Manager", order: 3 },
-      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "text", placeholder: "e.g. 9820012345", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
-      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "text", placeholder: "e.g. 9876543210", order: 5 },
+      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "phone", placeholder: "e.g. 9820012345", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
+      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "phone", placeholder: "e.g. 9876543210", order: 5 },
       { id: "contactEmail", name: "contactEmail", label: "Email Address", type: "email", placeholder: "e.g. ramesh@shreemetals.com", order: 6 },
       { id: "gstNumber", name: "gstNumber", label: "GST Number", type: "text", placeholder: "e.g. 27AAACS1234P1Z5", order: 7 },
       { id: "panNumber", name: "panNumber", label: "PAN Number", type: "text", placeholder: "e.g. AAACS1234P", order: 8 },
@@ -106,8 +106,8 @@ const FALLBACK_SCHEMAS: Record<ProfileType, FormDefinition> = {
       { id: "code", name: "code", label: "Profile Code", type: "text", placeholder: "e.g. SUP-0001", order: 1 },
       { id: "contactPerson", name: "contactPerson", label: "Contact Person Name", type: "text", placeholder: "e.g. Amit Sharma", order: 2 },
       { id: "contactDesignation", name: "contactDesignation", label: "Designation", type: "text", placeholder: "e.g. Sales / Account Manager", order: 3 },
-      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "text", placeholder: "e.g. 1800 102 4400", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
-      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "text", placeholder: "e.g. 9876543210", order: 5 },
+      { id: "contactPhone", name: "contactPhone", label: "Primary Phone Number", type: "phone", placeholder: "e.g. 9812345678", required: true, validations: [{ type: "required", message: "Primary phone is required" }], order: 4 },
+      { id: "alternatePhone", name: "alternatePhone", label: "Alternate Phone Number", type: "phone", placeholder: "e.g. 9876543210", order: 5 },
       { id: "contactEmail", name: "contactEmail", label: "Email Address", type: "email", placeholder: "e.g. sales@hilti.com", order: 6 },
       { id: "gstNumber", name: "gstNumber", label: "GST Number", type: "text", placeholder: "e.g. 07AAACH0042P1Z3", order: 7 },
       { id: "panNumber", name: "panNumber", label: "PAN Number", type: "text", placeholder: "e.g. AAACH0042P", order: 8 },
@@ -244,6 +244,8 @@ export default function ProfileFormScreen() {
       formatted = typeof val === "string" ? val.toUpperCase() : val;
     } else if (fieldName.toLowerCase().includes("aadhaar")) {
       formatted = typeof val === "string" ? formatAadhaarNumber(val, values[fieldName] || "") : val;
+    } else if (fieldName.toLowerCase().includes("phone")) {
+      formatted = typeof val === "string" ? val.replace(/\D/g, "").slice(0, 10) : val;
     }
 
     setValues((prev) => ({ ...prev, [fieldName]: formatted }));
@@ -278,9 +280,24 @@ export default function ProfileFormScreen() {
       }
     });
 
-    // 2. Validate email format for contactEmail or any field with type='email'
+    // 2. Validate mobile number format: only 10 numbers, starts with 6-9, no country code
     fields.forEach((f) => {
-      if (f.name === "contactEmail" || f.type === "email") {
+      const fieldNameLower = f.name.toLowerCase();
+      if (fieldNameLower.includes("phone") || f.type === "phone") {
+        const phoneVal = values[f.name];
+        if (phoneVal && String(phoneVal).trim()) {
+          const phoneCheck = validateIndianMobile(String(phoneVal).trim(), f.label || f.name);
+          if (!phoneCheck.isValid) {
+            newErrors[f.name] = phoneCheck.error || "Must be a valid 10-digit Indian mobile number.";
+          }
+        }
+      }
+    });
+
+    // 3. Validate email format for contactEmail or any field with type='email'
+    fields.forEach((f) => {
+      const fieldNameLower = f.name.toLowerCase();
+      if (f.name === "contactEmail" || fieldNameLower.includes("email") || f.type === "email") {
         const emailVal = values[f.name];
         if (emailVal && String(emailVal).trim()) {
           const emailCheck = validateEmail(String(emailVal).trim());

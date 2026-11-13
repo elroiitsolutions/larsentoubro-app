@@ -175,6 +175,10 @@ export default function ToolsCatalogScreen() {
               (t.toolCode || "").toLowerCase() === tok
             );
           }
+          const statusMatch = (t.status || "").toLowerCase() === tok;
+          const printMatch = (tok === "printed" && t.isPrinted === true) ||
+            ((tok === "unprint" || tok === "unprinted" || tok === "not printed") && !t.isPrinted);
+
           return (
             name.includes(tok) ||
             (t.toolId || "").toLowerCase().includes(tok) ||
@@ -183,7 +187,9 @@ export default function ToolsCatalogScreen() {
             cat.includes(tok) ||
             job.includes(tok) ||
             purchaser.includes(tok) ||
-            supplier.includes(tok)
+            supplier.includes(tok) ||
+            statusMatch ||
+            printMatch
           );
         });
       }

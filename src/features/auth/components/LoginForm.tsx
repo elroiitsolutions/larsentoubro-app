@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LNT_LOGO_BASE64 } from "@/assets/logoBase64";
-import { validateEmail } from "@/utils/validation";
+import { validateEmail, cleanAndFormatIndianMobile } from "@/utils/validation";
 
 export const LoginForm: React.FC = () => {
   const { login } = useAuthStore();
@@ -461,9 +461,9 @@ export const LoginForm: React.FC = () => {
             <Input
               placeholder="9876543210"
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={16}
               value={phone}
-              onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, "").slice(0, 10))}
+              onChangeText={(text) => setPhone(cleanAndFormatIndianMobile(text))}
               leftIcon={<Phone size={18} color="#94A3B8" />}
               editable={!loading}
             />

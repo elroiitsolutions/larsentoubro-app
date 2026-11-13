@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import {
   Shield,
@@ -15,16 +16,34 @@ import {
   ChevronUp,
   CheckCircle2,
   XCircle,
+  FolderGit2,
+  Store,
+  LayoutDashboard,
+  ClipboardCheck,
+  UserCheck,
 } from 'lucide-react-native';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAppTheme } from '@/context/ThemeContext';
 import { UserRecord } from '../types';
-import { validateEmail } from '@/utils/validation';
+import { validateEmail, validateIndianMobile } from '@/utils/validation';
 import { userService } from '../services/userService';
 import { DynamicFieldsSection } from '@/components/common/DynamicFieldsSection';
 import { formService, FormFieldDefinition } from '@/services/formService';
+import { projectService } from '@/features/projects/services/projectService';
+import { storeService } from '@/features/stores/services/storeService';
+
+const ALL_PAGES = [
+  { title: 'Dashboard', url: '/dashboard' },
+  { title: 'Projects', url: '/projects' },
+  { title: 'Stores & HUBs', url: '/stores' },
+  { title: 'Tools Inventory', url: '/tools' },
+  { title: 'Delivery Challans', url: '/challans' },
+  { title: 'Profiles Directory', url: '/profiles' },
+  { title: 'Scrap Register', url: '/scrap' },
+  { title: 'QR Scanner', url: '/scanner' },
+];
 
 interface UserFormModalProps {
   visible: boolean;
@@ -56,6 +75,14 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [role, setRole] = useState<'Admin' | 'User'>('User');
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [allowedPages, setAllowedPages] = useState<string[]>([]);
+  const [hasInspectionAccess, setHasInspectionAccess] = useState(false);
+  const [canCreateUser, setCanCreateUser] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const [allStores, setAllStores] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [allFormFields, setAllFormFields] = useState<FormFieldDefinition[] | null>(null);
   const [dynamicFieldsSchema, setDynamicFieldsSchema] = useState<FormFieldDefinition[]>([]);
@@ -85,6 +112,31 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     };
   }, [visible]);
 
+  // Fetch available projects and stores
+  useEffect(() => {
+    if (!visible) return;
+    let isMounted = true;
+    async function loadScopeData() {
+      try {
+        setLoadingData(true);
+        const [projRes, storeRes] = await Promise.all([
+          projectService.getProjects().catch(() => []),
+          storeService.getStores().catch(() => []),
+        ]);
+        if (isMounted) {
+          setAllProjects(Array.isArray(projRes) ? projRes : (projRes as any)?.data || []);
+          setAllStores(Array.isArray(storeRes) ? storeRes : (storeRes as any)?.data || []);
+        }
+      } finally {
+        if (isMounted) setLoadingData(false);
+      }
+    }
+    loadScopeData();
+    return () => {
+      isMounted = false;
+    };
+  }, [visible]);
+
   useEffect(() => {
     if (user) {
       setName(user.name || '');
@@ -94,6 +146,16 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setStatus((user.status as any) === 'Inactive' ? 'Inactive' : 'Active');
       setRole(user.role === 'Admin' ? 'Admin' : 'User');
       setRoleDropdownOpen(false);
+
+      setAllowedPages(
+        Array.isArray(user.allowedPages) && user.allowedPages.length > 0
+          ? user.allowedPages
+          : ['/dashboard', '/projects', '/stores', '/tools']
+      );
+      setHasInspectionAccess(Boolean(user.hasInspectionAccess));
+      setCanCreateUser(Boolean(user.canCreateUser));
+      setSelectedProjects((user.projects || []).map((p: any) => typeof p === 'object' ? p._id : p));
+      setSelectedStores((user.stores || []).map((s: any) => typeof s === 'object' ? s._id : s));
 
       const raw = user as any;
       const initialCustom: Record<string, any> = { ...raw };
@@ -109,9 +171,32 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setStatus('Active');
       setRole('User');
       setRoleDropdownOpen(false);
+      setAllowedPages(['/dashboard', '/projects', '/stores', '/tools']);
+      setHasInspectionAccess(false);
+      setCanCreateUser(false);
+      setSelectedProjects([]);
+      setSelectedStores([]);
       setCustomFields({});
     }
   }, [user, visible]);
+
+  const togglePage = (url: string) => {
+    setAllowedPages((prev) =>
+      prev.includes(url) ? prev.filter((p) => p !== url) : [...prev, url]
+    );
+  };
+
+  const toggleProject = (id: string) => {
+    setSelectedProjects((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
+  const toggleStore = (id: string) => {
+    setSelectedStores((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
 
   // Determine whether fields exist and whether they are required in Forms Management schema
   const hasNameField = allFormFields
@@ -198,9 +283,18 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       }
     }
 
-    if (hasPhoneField && isPhoneRequired && !phonenumber.trim()) {
-      Alert.alert('Required Field', 'Please enter a valid phone number.');
-      return;
+    if (hasPhoneField) {
+      if (isPhoneRequired && !phonenumber.trim()) {
+        Alert.alert('Required Field', 'Please enter a valid phone number.');
+        return;
+      }
+      if (phonenumber.trim()) {
+        const phoneCheck = validateIndianMobile(phonenumber.trim(), 'Phone Number');
+        if (!phoneCheck.isValid) {
+          Alert.alert('Invalid Phone Number', phoneCheck.error || 'Must be a 10-digit Indian phone number.');
+          return;
+        }
+      }
     }
 
     // Validate any custom fields configured as required in Forms Management
@@ -223,25 +317,28 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
         phonenumber: phonenumber.trim(),
         role: hasRoleField ? role : 'User',
         status: hasStatusField ? status : 'Active',
-        hasInspectionAccess: role === 'Admin' ? true : Boolean(user?.hasInspectionAccess),
-        canCreateUser: role === 'Admin' ? true : Boolean(user?.canCreateUser),
       };
 
-      if (!isEdit) {
-        payload.allowedPages =
-          role === 'Admin'
-            ? [
-                '/qr-scanner',
-                '/dashboard',
-                '/projects',
-                '/stores',
-                '/tools',
-                '/users',
-                '/settings',
-              ]
-            : ['/qr-scanner', '/dashboard', '/projects', '/stores', '/tools'];
+      if (role === 'Admin') {
+        payload.allowedPages = [
+          '/qr-scanner',
+          '/dashboard',
+          '/projects',
+          '/stores',
+          '/tools',
+          '/users',
+          '/settings',
+        ];
         payload.projects = [];
         payload.stores = [];
+        payload.hasInspectionAccess = true;
+        payload.canCreateUser = true;
+      } else {
+        payload.allowedPages = allowedPages;
+        payload.projects = selectedProjects;
+        payload.stores = selectedStores;
+        payload.hasInspectionAccess = hasInspectionAccess;
+        payload.canCreateUser = canCreateUser;
       }
 
       if (isEdit && user) {
@@ -329,9 +426,10 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
             <View className="flex-1">
               <Input
                 label={`Phone Number ${isPhoneRequired ? '*' : ''}`}
-                placeholder="+91 98765 43210"
+                placeholder="e.g. 9876543210"
                 value={phonenumber}
-                onChangeText={setPhonenumber}
+                onChangeText={(text) => setPhonenumber(text.replace(/\D/g, '').slice(0, 10))}
+                maxLength={10}
                 keyboardType="phone-pad"
               />
             </View>
@@ -690,6 +788,281 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                   Standard access scope governed by assigned Projects, Stores, and Page Permissions.
                 </Text>
               )}
+            </View>
+          </View>
+        )}
+
+        {/* User Permission & Scope Configuration */}
+        {role === 'User' && (
+          <View style={{ gap: 12, marginBottom: 16 }}>
+            {/* 1. Page Permissions */}
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
+                borderWidth: 1,
+                borderColor: isDark ? '#2E2E33' : '#E2E8F0',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 10,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <LayoutDashboard size={15} color="#4F46E5" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#E2E8F0' : '#1E293B' }}>
+                    Allowed Pages ({allowedPages.length} of {ALL_PAGES.length} Granted)
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (allowedPages.length === ALL_PAGES.length) {
+                      setAllowedPages([]);
+                    } else {
+                      setAllowedPages(ALL_PAGES.map((p) => p.url));
+                    }
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
+                    {allowedPages.length === ALL_PAGES.length ? 'Revoke All' : 'Grant All'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {ALL_PAGES.map((page) => {
+                  const isChecked = allowedPages.includes(page.url);
+                  return (
+                    <TouchableOpacity
+                      key={page.url}
+                      activeOpacity={0.7}
+                      onPress={() => togglePage(page.url)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 5,
+                        paddingHorizontal: 8,
+                        paddingVertical: 5,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        backgroundColor: isChecked
+                          ? (isDark ? '#312E81' : '#EEF2FF')
+                          : (isDark ? '#262626' : '#FFFFFF'),
+                        borderColor: isChecked ? '#4F46E5' : (isDark ? '#3E3E42' : '#CBD5E1'),
+                      }}
+                    >
+                      {isChecked ? (
+                        <CheckCircle2 size={12} color="#4F46E5" />
+                      ) : (
+                        <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: '#94A3B8' }} />
+                      )}
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: isChecked ? '700' : '500',
+                          color: isChecked ? (isDark ? '#C7D2FE' : '#3730A3') : (isDark ? '#94A3B8' : '#475569'),
+                        }}
+                      >
+                        {page.title}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 2. Tool Inspection & Subuser Privileges */}
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
+                borderWidth: 1,
+                borderColor: isDark ? '#2E2E33' : '#E2E8F0',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: 10,
+                  borderBottomWidth: 1,
+                  borderColor: isDark ? '#2E2E33' : '#E2E8F0',
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ClipboardCheck size={14} color="#059669" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#E2E8F0' : '#1E293B' }}>
+                      Tool Inspection Access
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: isDark ? '#94A3B8' : '#64748B', marginTop: 2 }}>
+                    Allows user to conduct tool inspections & record Pass/Fail status.
+                  </Text>
+                </View>
+                <Switch
+                  value={hasInspectionAccess}
+                  onValueChange={setHasInspectionAccess}
+                  trackColor={{ false: '#CBD5E1', true: '#059669' }}
+                />
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: 10,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <UserCheck size={14} color="#4F46E5" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#E2E8F0' : '#1E293B' }}>
+                      Can Create Subusers
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: isDark ? '#94A3B8' : '#64748B', marginTop: 2 }}>
+                    Allows user to manage their own subuser team accounts.
+                  </Text>
+                </View>
+                <Switch
+                  value={canCreateUser}
+                  onValueChange={setCanCreateUser}
+                  trackColor={{ false: '#CBD5E1', true: '#4F46E5' }}
+                />
+              </View>
+            </View>
+
+            {/* 3. Assigned Projects & Stores Scope */}
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: isDark ? '#1E1E1E' : '#F8FAFC',
+                borderWidth: 1,
+                borderColor: isDark ? '#2E2E33' : '#E2E8F0',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <FolderGit2 size={15} color="#4F46E5" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#E2E8F0' : '#1E293B' }}>
+                    Inventory Scope (Projects & Stores)
+                  </Text>
+                </View>
+                {loadingData && <ActivityIndicator size="small" color="#4F46E5" />}
+              </View>
+
+              {/* Projects */}
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#94A3B8' : '#64748B', marginBottom: 6 }}>
+                  Assigned Projects ({selectedProjects.length} Selected)
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {allProjects.map((p) => {
+                    const isSel = selectedProjects.includes(p._id);
+                    return (
+                      <TouchableOpacity
+                        key={p._id}
+                        activeOpacity={0.7}
+                        onPress={() => toggleProject(p._id)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          backgroundColor: isSel
+                            ? '#4F46E5'
+                            : (isDark ? '#262626' : '#FFFFFF'),
+                          borderColor: isSel ? '#4F46E5' : (isDark ? '#3E3E42' : '#CBD5E1'),
+                        }}
+                      >
+                        <FolderGit2 size={11} color={isSel ? '#FFFFFF' : '#64748B'} />
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: isSel ? '700' : '500',
+                            color: isSel ? '#FFFFFF' : (isDark ? '#E2E8F0' : '#334155'),
+                          }}
+                        >
+                          {p.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {allProjects.length === 0 && (
+                    <Text style={{ fontSize: 11, fontStyle: 'italic', color: '#94A3B8' }}>
+                      No projects available.
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Stores */}
+              <View style={{ paddingTop: 8, borderTopWidth: 1, borderColor: isDark ? '#2E2E33' : '#E2E8F0' }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: isDark ? '#94A3B8' : '#64748B', marginBottom: 6 }}>
+                  Assigned Stores ({selectedStores.length} Selected)
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {allStores.map((s) => {
+                    const isSel = selectedStores.includes(s._id);
+                    return (
+                      <TouchableOpacity
+                        key={s._id}
+                        activeOpacity={0.7}
+                        onPress={() => toggleStore(s._id)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          backgroundColor: isSel
+                            ? '#059669'
+                            : (isDark ? '#262626' : '#FFFFFF'),
+                          borderColor: isSel ? '#059669' : (isDark ? '#3E3E42' : '#CBD5E1'),
+                        }}
+                      >
+                        <Store size={11} color={isSel ? '#FFFFFF' : '#64748B'} />
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: isSel ? '700' : '500',
+                            color: isSel ? '#FFFFFF' : (isDark ? '#E2E8F0' : '#334155'),
+                          }}
+                        >
+                          {s.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {allStores.length === 0 && (
+                    <Text style={{ fontSize: 11, fontStyle: 'italic', color: '#94A3B8' }}>
+                      No stores available.
+                    </Text>
+                  )}
+                </View>
+              </View>
             </View>
           </View>
         )}

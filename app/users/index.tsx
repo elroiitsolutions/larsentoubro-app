@@ -28,6 +28,8 @@ import {
   Clock,
   Trash2,
   Tag,
+  LayoutDashboard,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -733,23 +735,37 @@ export default function UsersScreen() {
                       </Text>
                     </View>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {Array.isArray(item.projects) && item.projects.length > 0 && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                          <FolderGit2 size={11} color="#4F46E5" />
-                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#4F46E5' }}>
-                            {item.projects.length} Proj
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {item.role === 'Admin' ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#451A1A' : '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                          <ShieldAlert size={10} color="#E11D48" />
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#E11D48' }}>
+                            All Pages & Scope
                           </Text>
                         </View>
-                      )}
+                      ) : (
+                        <>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#1E1B4B' : '#EEF2FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <LayoutDashboard size={10} color="#4F46E5" />
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#4F46E5' }}>
+                              {(item.allowedPages || []).length} Pages
+                            </Text>
+                          </View>
 
-                      {Array.isArray(item.stores) && item.stores.length > 0 && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                          <Store size={11} color="#D97706" />
-                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>
-                            {item.stores.length} Stores
-                          </Text>
-                        </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#172554' : '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <FolderGit2 size={10} color="#2563EB" />
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#2563EB' }}>
+                              {(item.projects || []).length} Proj
+                            </Text>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#064E3B' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <Store size={10} color="#059669" />
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#059669' }}>
+                              {(item.stores || []).length} Stores
+                            </Text>
+                          </View>
+                        </>
                       )}
                     </View>
                   </View>
