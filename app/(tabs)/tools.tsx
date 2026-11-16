@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   Wrench,
@@ -19,11 +19,11 @@ import {
   Filter,
   Clock,
   Layers,
-  Calendar,
-  Shield,
   Edit2,
   Trash2,
   MapPin,
+  Tag,
+  RotateCcw,
 } from "lucide-react-native";
 import { ScreenWrapper } from "@/components/layout/ScreenWrapper";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -38,42 +38,78 @@ import {
   ToolAdvancedFilterModal,
   ToolFilterState,
 } from "@/features/tools/components/ToolAdvancedFilterModal";
-import { CenteredPagination } from "@/components/common/CenteredPagination";
 import { SearchBar } from "@/components/common/SearchBar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ConfirmationDialog } from "@/components/common/ConfirmationDialog";
-import { Card } from "@/components/ui/Card";
 import { Loader } from "@/components/ui/Loader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 
-const ITEMS_PER_PAGE = 50;
+const quickStatusOptions = ["All", "Available", "Moving", "Repair", "Missing"];
 
 export default function ToolsCatalogScreen() {
-  const flatListRef = React.useRef<FlatList>(null);
-  const [pageSize, setPageSize] = useState(50);
+  const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{ status?: string }>();
   const { user } = useAuthStore();
   const { theme, isDark } = useAppTheme();
 
   const [tools, setTools] = useState<ToolRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [totalServerTools, setTotalServerTools] = useState<number>(0);
+  const [statusCounts, setStatusCounts] = useState<{
+    all?: number;
+    available?: number;
+    moving?: number;
+    repair?: number;
+    missing?: number;
+    printed?: number;
+    unprinted?: number;
+  }>({});
+
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [filters, setFilters] = useState<ToolFilterState>({
-    status: "All",
+  const [filters, setFilters] = useState<ToolFilterState>(() => ({
+    status: searchParams.status || "All",
     printStatus: "All",
     category: "All",
     validation: "All",
     makeYear: "All",
-  });
+  }));
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  // Refs for tracking pagination and async requests
+  const currentPageRef = useRef(1);
+  const isLoadingMoreRef = useRef(false);
+  const latestRequestIdRef = useRef(0);
+  const isFirstMountRef = useRef(true);
+  const hasMountedRef = useRef(false);
+
+  // Debounce search query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Sync incoming route params (e.g. from Dashboard cards)
+  useEffect(() => {
+    if (searchParams.status) {
+      setFilters((prev) => ({
+        ...prev,
+        status: searchParams.status || "All",
+      }));
+    }
+  }, [searchParams.status]);
 
   // Preview & Delete State
   const [previewTool, setPreviewTool] = useState<ToolRecord | null>(null);
@@ -82,36 +118,185 @@ export default function ToolsCatalogScreen() {
 
   const canManageTools = user?.role === "Admin" || user?.role === "Manager";
 
-  const fetchTools = useCallback(async () => {
+  // Build query parameters for server-side search, status, and advanced filtering
+  const getQueryParams = useCallback(
+    (pageNumber: number = 1) => {
+      const params: any = {
+        page: pageNumber,
+        limit: 50,
+        search: debouncedSearchQuery.trim() || undefined,
+        status: filters.status !== "All" ? filters.status : undefined,
+        printStatus: filters.printStatus !== "All" ? filters.printStatus : undefined,
+        category: filters.category !== "All" ? filters.category : undefined,
+        validation: filters.validation !== "All" ? filters.validation : undefined,
+        makeYear: filters.makeYear !== "All" ? filters.makeYear : undefined,
+      };
+
+      const deepKeys: (keyof ToolFilterState)[] = [
+        "toolCode",
+        "toolId",
+        "capacity",
+        "safeWorkingLoad",
+        "metalType",
+        "toolVariant",
+        "purchaserName",
+        "supplierCode",
+        "jobCode",
+        "remarks",
+      ];
+      for (const k of deepKeys) {
+        if (filters[k] && String(filters[k]).trim() !== "") {
+          params[k] = String(filters[k]).trim();
+        }
+      }
+      return params;
+    },
+    [debouncedSearchQuery, filters]
+  );
+
+  // Initial load
+  const loadInitialData = useCallback(async () => {
     try {
       setError(null);
-      const data = await toolService.getAllTools();
-      setTools(data);
+      setInitialLoading(true);
+      isLoadingMoreRef.current = false;
+      currentPageRef.current = 1;
+
+      const res = await toolService.getAllToolsPaginated(getQueryParams(1));
+      const initialTools = res?.data || [];
+      setTools(initialTools);
+      if (res?.statusCounts) {
+        setStatusCounts(res.statusCounts);
+      }
+      const trueTotal = res?.total ?? initialTools.length;
+      setTotalServerTools(trueTotal);
+      setPage(1);
+      setHasMore(initialTools.length < trueTotal);
     } catch (err: any) {
       setError(
         err?.response?.data?.message ||
         err?.message ||
-        "Failed to load tools catalog."
+        "Failed to load equipment catalog."
       );
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [getQueryParams]);
 
   useEffect(() => {
-    fetchTools();
-  }, [fetchTools]);
+    loadInitialData();
+    hasMountedRef.current = true;
+  }, [loadInitialData]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchTools();
-    }, [fetchTools])
+      if (!hasMountedRef.current) return;
+      loadInitialData();
+    }, [loadInitialData])
   );
 
-  const onRefresh = () => {
+  // Debounced search and filter query
+  useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
+    if (initialLoading) return;
+
+    let isCancelled = false;
+    const currentRequestId = ++latestRequestIdRef.current;
+
+    async function executeSearch() {
+      try {
+        setIsSearching(true);
+        isLoadingMoreRef.current = false;
+        currentPageRef.current = 1;
+
+        const res = await toolService.getAllToolsPaginated(getQueryParams(1));
+
+        if (isCancelled || currentRequestId !== latestRequestIdRef.current) {
+          return;
+        }
+
+        const newTools = res?.data || [];
+        setTools(newTools);
+        if (res?.statusCounts) {
+          setStatusCounts(res.statusCounts);
+        }
+        const total = res?.total ?? newTools.length;
+        setTotalServerTools(total);
+        setPage(1);
+        setHasMore(newTools.length < total);
+      } catch (err: any) {
+        if (!isCancelled && currentRequestId === latestRequestIdRef.current) {
+          console.error("Tools search failed:", err);
+        }
+      } finally {
+        if (!isCancelled && currentRequestId === latestRequestIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    }
+
+    executeSearch();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [getQueryParams, initialLoading]);
+
+  // Load next 50 tools on scroll
+  const handleLoadMore = async () => {
+    if (isLoadingMoreRef.current || !hasMore || initialLoading || isSearching || refreshing) return;
+    isLoadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = currentPageRef.current + 1;
+      const res = await toolService.getAllToolsPaginated(getQueryParams(nextPage));
+      const newItems = res?.data || [];
+      if (newItems.length > 0) {
+        currentPageRef.current = nextPage;
+        setPage(nextPage);
+        setTools((prev) => {
+          const existingIds = new Set(prev.map((t) => t._id));
+          const uniqueNew = newItems.filter((t) => !existingIds.has(t._id));
+          const updated = [...prev, ...uniqueNew];
+          const total = res?.total ?? totalServerTools;
+          setHasMore(updated.length < total);
+          return updated;
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to load more tools on scroll:", err);
+    } finally {
+      isLoadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  };
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchTools();
+    isLoadingMoreRef.current = false;
+    currentPageRef.current = 1;
+    try {
+      const res = await toolService.getAllToolsPaginated(getQueryParams(1));
+      const newTools = res?.data || [];
+      setTools(newTools);
+      if (res?.statusCounts) {
+        setStatusCounts(res.statusCounts);
+      }
+      const total = res?.total ?? newTools.length;
+      setTotalServerTools(total);
+      setPage(1);
+      setHasMore(newTools.length < total);
+    } catch (err) {
+      console.error("Refresh tools error:", err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const isToolDeletable = (status?: string): boolean => {
@@ -133,6 +318,13 @@ export default function ToolsCatalogScreen() {
       setDeleteLoading(true);
       await toolService.deleteTool(deletingTool._id);
       setTools((prev) => prev.filter((t) => t._id !== deletingTool._id));
+      setTotalServerTools((prev) => Math.max(0, prev - 1));
+      setStatusCounts((prev) => ({
+        ...prev,
+        all: Math.max(0, (prev.all ?? 1) - 1),
+        available: deletingTool.status === "Available" ? Math.max(0, (prev.available ?? 1) - 1) : prev.available,
+        missing: deletingTool.status === "Missing" ? Math.max(0, (prev.missing ?? 1) - 1) : prev.missing,
+      }));
       setDeletingTool(null);
       Alert.alert("Success", "Tool moved to Trash.");
     } catch (err: any) {
@@ -145,154 +337,13 @@ export default function ToolsCatalogScreen() {
     }
   };
 
-  // Filter tools based on search & advanced filter state (including Validation, Print Status, and Specifications)
-  const filteredTools = useMemo(() => {
-    const rawSearch = searchQuery.trim().toLowerCase();
-    const searchTokens = rawSearch.includes(',') || rawSearch.includes(';')
-      ? rawSearch.split(/[,;\n\t]+/).map((t) => t.trim()).filter(Boolean)
-      : rawSearch ? [rawSearch] : [];
-
-    return tools.filter((t) => {
-      // Search: supports multi-token or single search
-      const name = (t.name || t.description || "").toLowerCase();
-      const code = (t.toolId || t.toolCode || "").toLowerCase();
-      const serial = (t.serialNumber || "").toLowerCase();
-      const cat = (t.category || t.toolType || "").toLowerCase();
-      const job = (t.jobCode || "").toLowerCase();
-      const purchaser = (t.purchaserName || "").toLowerCase();
-      const supplier = (t.supplierCode || "").toLowerCase();
-
-      let matchesSearch = true;
-      if (searchTokens.length > 0) {
-        matchesSearch = searchTokens.some((tok) => {
-          const isNumeric = /^\d+$/.test(tok);
-          if (isNumeric) {
-            const num = parseInt(tok, 10);
-            return (
-              (t.toolId || "").toLowerCase() === tok ||
-              (t.toolId || "").toLowerCase().endsWith(tok) ||
-              (!isNaN(num) && Number(t.serialNumber) === num) ||
-              (t.toolCode || "").toLowerCase() === tok
-            );
-          }
-          const statusMatch = (t.status || "").toLowerCase() === tok;
-          const printMatch = (tok === "printed" && t.isPrinted === true) ||
-            ((tok === "unprint" || tok === "unprinted" || tok === "not printed") && !t.isPrinted);
-
-          return (
-            name.includes(tok) ||
-            (t.toolId || "").toLowerCase().includes(tok) ||
-            (t.toolCode || "").toLowerCase().startsWith(tok) ||
-            (t.toolCode || "").toLowerCase() === tok ||
-            cat.includes(tok) ||
-            job.includes(tok) ||
-            purchaser.includes(tok) ||
-            supplier.includes(tok) ||
-            statusMatch ||
-            printMatch
-          );
-        });
-      }
-
-      // Status
-      let matchesStatus = filters.status === "All";
-      if (!matchesStatus && t.status) {
-        const s = t.status.toLowerCase();
-        if (filters.status === "Moving") {
-          matchesStatus = s === "moving" || s === "in transit";
-        } else if (filters.status === "Repair") {
-          matchesStatus = s === "repair" || s === "under repair" || s === "damaged/repair";
-        } else {
-          matchesStatus = s === filters.status.toLowerCase();
-        }
-      }
-
-      // Print Status
-      const matchesPrint =
-        !filters.printStatus ||
-        filters.printStatus === "All" ||
-        (filters.printStatus === "Printed" && t.isPrinted === true) ||
-        (filters.printStatus === "Not Printed" && !t.isPrinted);
-
-      // Category
-      const matchesCategory =
-        filters.category === "All" ||
-        (cat && cat.toLowerCase() === filters.category.toLowerCase());
-
-      // Validation Filter
-      let matchesValidation = true;
-      if (filters.validation !== "All") {
-        const val = resolveValidationValue(t).toLowerCase();
-        const targetVal = filters.validation.toLowerCase();
-        const targetNum = targetVal.match(/(\d+)/)?.[1];
-        const valNum = val.match(/(\d+)/)?.[1];
-        if (targetNum && valNum) {
-          matchesValidation = targetNum === valNum;
-        } else {
-          matchesValidation = val.includes(targetVal);
-        }
-      }
-
-      // Make Year
-      const matchesYear =
-        filters.makeYear === "All" ||
-        (t.makeYear && String(t.makeYear) === filters.makeYear);
-
-      // Deep Specifications
-      const matchesSpecs = (
-        (!filters.toolCode || (t.toolCode && t.toolCode.toLowerCase().includes(filters.toolCode.toLowerCase()))) &&
-        (!filters.toolId || (t.toolId && t.toolId.toLowerCase().includes(filters.toolId.toLowerCase()))) &&
-        (!filters.capacity || (t.capacity && t.capacity.toLowerCase().includes(filters.capacity.toLowerCase()))) &&
-        (!filters.safeWorkingLoad || (t.safeWorkingLoad && t.safeWorkingLoad.toLowerCase().includes(filters.safeWorkingLoad.toLowerCase()))) &&
-        (!filters.metalType || (t.metalType && t.metalType.toLowerCase().includes(filters.metalType.toLowerCase()))) &&
-        (!filters.toolVariant || (t.toolVariant && t.toolVariant.toLowerCase().includes(filters.toolVariant.toLowerCase()))) &&
-        (!filters.purchaserName || (t.purchaserName && t.purchaserName.toLowerCase().includes(filters.purchaserName.toLowerCase()))) &&
-        (!filters.supplierCode || (t.supplierCode && t.supplierCode.toLowerCase().includes(filters.supplierCode.toLowerCase()))) &&
-        (!filters.jobCode || (t.jobCode && t.jobCode.toLowerCase().includes(filters.jobCode.toLowerCase()))) &&
-        (!filters.remarks || (t.remarks && t.remarks.toLowerCase().includes(filters.remarks.toLowerCase())))
-      );
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesPrint &&
-        matchesCategory &&
-        matchesValidation &&
-        matchesYear &&
-        matchesSpecs
-      );
-    });
-  }, [tools, searchQuery, filters]);
-
-  // Pagination calculation
-  const totalItems = filteredTools.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-
-  // Reset current page if filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filters]);
-
-  const paginatedTools = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredTools.slice(startIndex, startIndex + pageSize);
-  }, [filteredTools, currentPage]);
-
-  const stats = useMemo(() => {
-    const total = tools.length;
-    const available = tools.filter((t) => t.status?.toLowerCase() === "available").length;
-    const moving = tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
-    const repair = tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
-    return { total, available, moving, repair };
-  }, [tools]);
-
-  const quickStatusOptions = ["All", "Available", "Moving", "Repair"];
-
   const getStatusCount = (status: string) => {
-    if (status === "All") return tools.length;
-    if (status === "Moving") return tools.filter((t) => t.status?.toLowerCase() === "moving" || t.status?.toLowerCase() === "in transit").length;
-    if (status === "Repair") return tools.filter((t) => t.status?.toLowerCase() === "repair" || t.status?.toLowerCase() === "under repair" || t.status?.toLowerCase() === "damaged/repair").length;
-    return tools.filter((t) => t.status?.toLowerCase() === status.toLowerCase()).length;
+    if (status === "All") return (statusCounts.all ?? totalServerTools ?? 0).toLocaleString();
+    if (status === "Available") return (statusCounts.available ?? 0).toLocaleString();
+    if (status === "Moving") return (statusCounts.moving ?? 0).toLocaleString();
+    if (status === "Repair") return (statusCounts.repair ?? 0).toLocaleString();
+    if (status === "Missing") return (statusCounts.missing ?? 0).toLocaleString();
+    return 0;
   };
 
   const activeFilterCount = useMemo(() => {
@@ -303,9 +354,16 @@ export default function ToolsCatalogScreen() {
     if (filters.validation !== "All") count++;
     if (filters.makeYear !== "All") count++;
     const deepKeys: (keyof ToolFilterState)[] = [
-      'toolCode', 'toolId', 'capacity', 'safeWorkingLoad',
-      'metalType', 'toolVariant', 'purchaserName', 'supplierCode',
-      'jobCode', 'remarks'
+      "toolCode",
+      "toolId",
+      "capacity",
+      "safeWorkingLoad",
+      "metalType",
+      "toolVariant",
+      "purchaserName",
+      "supplierCode",
+      "jobCode",
+      "remarks",
     ];
     for (const k of deepKeys) {
       if (filters[k] && String(filters[k]).trim() !== "") count++;
@@ -313,10 +371,17 @@ export default function ToolsCatalogScreen() {
     return count;
   }, [filters]);
 
+  const subtitleText = useMemo(() => {
+    if (filters.status !== "All") {
+      return `${totalServerTools.toLocaleString()} ${filters.status} Assets Tracked`;
+    }
+    return `${(totalServerTools || tools.length).toLocaleString()} Industrial Assets Tracked`;
+  }, [filters.status, totalServerTools, tools.length]);
+
   return (
     <ScreenWrapper
       title="Equipment Catalog"
-      subtitle={`${tools.length} Industrial Assets Tracked`}
+      subtitle={subtitleText}
       requiredPage="/tools"
       rightAction={
         canManageTools ? (
@@ -358,7 +423,14 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "All" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "All" ? (isDark ? "#312E81" : "#EEF2FF") : (isDark ? "#262626" : "#F8FAFC"),
+            backgroundColor:
+              filters.status === "All"
+                ? isDark
+                  ? "#312E81"
+                  : "#EEF2FF"
+                : isDark
+                ? "#262626"
+                : "#F8FAFC",
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -367,10 +439,23 @@ export default function ToolsCatalogScreen() {
             borderColor: filters.status === "All" ? theme.primary : theme.border,
           }}
         >
-          <Text style={{ fontSize: 15, fontWeight: "900", color: filters.status === "All" ? theme.primary : theme.text }}>
-            {stats.total}
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "900",
+              color: filters.status === "All" ? theme.primary : theme.text,
+            }}
+          >
+            {(statusCounts.all ?? totalServerTools).toLocaleString()}
           </Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "600",
+              color: theme.textSecondary,
+              marginTop: 1,
+            }}
+          >
             Total
           </Text>
         </TouchableOpacity>
@@ -380,7 +465,14 @@ export default function ToolsCatalogScreen() {
           onPress={() => setFilters((prev) => ({ ...prev, status: "Available" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "Available" ? (isDark ? "rgba(5, 150, 105, 0.25)" : "#ECFDF5") : (isDark ? "#262626" : "#F8FAFC"),
+            backgroundColor:
+              filters.status === "Available"
+                ? isDark
+                  ? "rgba(5, 150, 105, 0.25)"
+                  : "#ECFDF5"
+                : isDark
+                ? "#262626"
+                : "#F8FAFC",
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
@@ -390,53 +482,94 @@ export default function ToolsCatalogScreen() {
           }}
         >
           <Text style={{ fontSize: 15, fontWeight: "900", color: "#059669" }}>
-            {stats.available}
+            {(statusCounts.available ?? 0).toLocaleString()}
           </Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "600",
+              color: theme.textSecondary,
+              marginTop: 1,
+            }}
+          >
             Ready
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => setFilters((prev) => ({ ...prev, status: "In Transit" }))}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "Moving" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "In Transit" ? (isDark ? "rgba(2, 132, 199, 0.25)" : "#F0F9FF") : (isDark ? "#262626" : "#F8FAFC"),
+            backgroundColor:
+              filters.status === "In Transit" || filters.status === "Moving"
+                ? isDark
+                  ? "rgba(2, 132, 199, 0.25)"
+                  : "#F0F9FF"
+                : isDark
+                ? "#262626"
+                : "#F8FAFC",
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
             alignItems: "center",
             borderWidth: 1,
-            borderColor: filters.status === "In Transit" ? "#0284C7" : theme.border,
+            borderColor:
+              filters.status === "In Transit" || filters.status === "Moving"
+                ? "#0284C7"
+                : theme.border,
           }}
         >
           <Text style={{ fontSize: 15, fontWeight: "900", color: "#0284C7" }}>
-            {stats.moving}
+            {(statusCounts.moving ?? 0).toLocaleString()}
           </Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "600",
+              color: theme.textSecondary,
+              marginTop: 1,
+            }}
+          >
             Transit
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => setFilters((prev) => ({ ...prev, status: "Under Repair" }))}
+          onPress={() => setFilters((prev) => ({ ...prev, status: "Repair" }))}
           style={{
             flex: 1,
-            backgroundColor: filters.status === "Under Repair" ? (isDark ? "rgba(217, 119, 6, 0.25)" : "#FFFBEB") : (isDark ? "#262626" : "#F8FAFC"),
+            backgroundColor:
+              filters.status === "Under Repair" || filters.status === "Repair"
+                ? isDark
+                  ? "rgba(217, 119, 6, 0.25)"
+                  : "#FFFBEB"
+                : isDark
+                ? "#262626"
+                : "#F8FAFC",
             paddingVertical: 8,
             paddingHorizontal: 6,
             borderRadius: 10,
             alignItems: "center",
             borderWidth: 1,
-            borderColor: filters.status === "Under Repair" ? "#D97706" : theme.border,
+            borderColor:
+              filters.status === "Under Repair" || filters.status === "Repair"
+                ? "#D97706"
+                : theme.border,
           }}
         >
           <Text style={{ fontSize: 15, fontWeight: "900", color: "#D97706" }}>
-            {stats.repair}
+            {(statusCounts.repair ?? 0).toLocaleString()}
           </Text>
-          <Text style={{ fontSize: 10, fontWeight: "600", color: theme.textSecondary, marginTop: 1 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "600",
+              color: theme.textSecondary,
+              marginTop: 1,
+            }}
+          >
             Repair
           </Text>
         </TouchableOpacity>
@@ -633,9 +766,14 @@ export default function ToolsCatalogScreen() {
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                backgroundColor: filters.printStatus === "Printed"
-                  ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#ECFDF5")
-                  : (isDark ? "#262626" : "#F1F5F9"),
+                backgroundColor:
+                  filters.printStatus === "Printed"
+                    ? isDark
+                      ? "rgba(16, 185, 129, 0.2)"
+                      : "#ECFDF5"
+                    : isDark
+                    ? "#262626"
+                    : "#F1F5F9",
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 8,
@@ -646,9 +784,12 @@ export default function ToolsCatalogScreen() {
                 style={{
                   fontSize: 11,
                   fontWeight: "700",
-                  color: filters.printStatus === "Printed"
-                    ? (isDark ? "#34D399" : "#059669")
-                    : theme.textSecondary,
+                  color:
+                    filters.printStatus === "Printed"
+                      ? isDark
+                        ? "#34D399"
+                        : "#059669"
+                      : theme.textSecondary,
                 }}
               >
                 QR: {filters.printStatus}
@@ -698,21 +839,20 @@ export default function ToolsCatalogScreen() {
       )}
 
       {/* Tools List Content */}
-      {loading ? (
+      {initialLoading ? (
         <Loader fullScreen message="Loading equipment catalog..." />
       ) : error ? (
         <ErrorState
           title="Failed to Load Tools"
           message={error}
           onRetry={() => {
-            setLoading(true);
-            fetchTools();
+            loadInitialData();
           }}
         />
       ) : (
         <FlatList
           ref={flatListRef}
-          data={paginatedTools}
+          data={tools}
           bounces={true}
           overScrollMode="always"
           initialNumToRender={20}
@@ -720,8 +860,10 @@ export default function ToolsCatalogScreen() {
           windowSize={11}
           removeClippedSubviews={true}
           decelerationRate="normal"
-          keyExtractor={(item, index) => item._id ? `${item._id}-${index}` : String(index)}
-          contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          keyExtractor={(item, index) => (item._id ? `${item._id}-${index}` : String(index))}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -734,20 +876,29 @@ export default function ToolsCatalogScreen() {
           }
           renderItem={({ item }) => {
             const toolName = item.name || item.description || "Industrial Equipment";
-            const code = item.toolId || item.toolCode || item._id.substring(item._id.length - 6).toUpperCase();
+            const code =
+              item.toolId ||
+              item.toolCode ||
+              (item._id ? item._id.substring(item._id.length - 6).toUpperCase() : "N/A");
             const validationVal = resolveValidationValue(item);
 
             const getStatusColor = (status?: string) => {
               const s = (status || "").toLowerCase();
               if (s.includes("available") || s.includes("ready")) return "#10B981";
-              if (s.includes("transit") || s.includes("moving") || s.includes("issued") || s.includes("assigned")) return "#3B82F6";
+              if (s.includes("transit") || s.includes("moving") || s.includes("issued") || s.includes("assigned"))
+                return "#3B82F6";
               if (s.includes("repair") || s.includes("maintenance")) return "#F59E0B";
               if (s.includes("missing") || s.includes("lost")) return "#EF4444";
               if (s.includes("scrap") || s.includes("dispose")) return "#64748B";
               return "#0284C7";
             };
             const statusColor = getStatusColor(item.status);
-            const locationName = item.storeName || (item.store && item.store.name) || (item.project && item.project.name) || (item.currentSite && item.currentSite.name) || null;
+            const locationName =
+              item.storeName ||
+              (item.store && item.store.name) ||
+              (item.project && item.project.name) ||
+              (item.currentSite && item.currentSite.name) ||
+              null;
             const categoryText = item.category || item.toolType || "General";
 
             return (
@@ -828,8 +979,12 @@ export default function ToolsCatalogScreen() {
                           paddingVertical: 2,
                           borderRadius: 6,
                           backgroundColor: item.isPrinted
-                            ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#ECFDF5")
-                            : (isDark ? "#334155" : "#F1F5F9"),
+                            ? isDark
+                              ? "rgba(16, 185, 129, 0.2)"
+                              : "#ECFDF5"
+                            : isDark
+                            ? "#334155"
+                            : "#F1F5F9",
                         }}
                       >
                         <Text
@@ -837,8 +992,12 @@ export default function ToolsCatalogScreen() {
                             fontSize: 10,
                             fontWeight: "700",
                             color: item.isPrinted
-                              ? (isDark ? "#34D399" : "#059669")
-                              : (isDark ? "#94A3B8" : "#64748B"),
+                              ? isDark
+                                ? "#34D399"
+                                : "#059669"
+                              : isDark
+                              ? "#94A3B8"
+                              : "#64748B",
                           }}
                         >
                           {item.isPrinted ? "✓ Printed" : "Not Printed"}
@@ -869,7 +1028,8 @@ export default function ToolsCatalogScreen() {
                     }}
                     numberOfLines={1}
                   >
-                    SN: {item.serialNumber || "N/A"}{item.makeYear ? ` • Year: ${item.makeYear}` : ""}
+                    SN: {item.serialNumber !== undefined && item.serialNumber !== null ? String(item.serialNumber) : "N/A"}
+                    {item.makeYear ? ` • Year: ${item.makeYear}` : ""}
                   </Text>
 
                   {/* Meta Pills / Info Box */}
@@ -924,7 +1084,8 @@ export default function ToolsCatalogScreen() {
                     )}
 
                     {/* Capacity pill */}
-                    {(item.capacity || item.safeWorkingLoad) && (
+                    {(item.capacity !== undefined && item.capacity !== null && String(item.capacity).trim() !== "" ||
+                      item.safeWorkingLoad !== undefined && item.safeWorkingLoad !== null && String(item.safeWorkingLoad).trim() !== "") && (
                       <View
                         style={{
                           backgroundColor: isDark ? "#262626" : "#F1F5F9",
@@ -934,7 +1095,7 @@ export default function ToolsCatalogScreen() {
                         }}
                       >
                         <Text style={{ fontSize: 11, fontWeight: "500", color: theme.textSecondary }}>
-                          Cap: {item.capacity || item.safeWorkingLoad}
+                          Cap: {String(item.capacity || item.safeWorkingLoad)}
                         </Text>
                       </View>
                     )}
@@ -1043,8 +1204,12 @@ export default function ToolsCatalogScreen() {
                               height: 32,
                               borderRadius: 8,
                               backgroundColor: isToolDeletable(item.status)
-                                ? (isDark ? "#31181E" : "#FEE2E2")
-                                : (isDark ? "#262626" : "#F1F5F9"),
+                                ? isDark
+                                ? "#31181E"
+                                : "#FEE2E2"
+                                : isDark
+                                ? "#262626"
+                                : "#F1F5F9",
                               opacity: isToolDeletable(item.status) ? 1 : 0.35,
                               alignItems: "center",
                               justifyContent: "center",
@@ -1086,36 +1251,62 @@ export default function ToolsCatalogScreen() {
             );
           }}
           ListFooterComponent={
-            <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>
-                Showing {paginatedTools.length} of {filteredTools.length} tools
-              </Text>
-            </View>
+            loadingMore ? (
+              <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: "600" }}>
+                  Loading more tools...
+                </Text>
+              </View>
+            ) : !hasMore && tools.length > 0 ? (
+              <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>
+                  All {(totalServerTools || tools.length).toLocaleString()} tools loaded
+                </Text>
+              </View>
+            ) : tools.length > 0 ? (
+              <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>
+                  Showing {tools.length.toLocaleString()} of {(totalServerTools || tools.length).toLocaleString()} tools
+                </Text>
+              </View>
+            ) : (
+              <View style={{ height: 20 }} />
+            )
           }
           ListEmptyComponent={
-            <EmptyState
-              title="No Tools Found"
-              description={
-                searchQuery || activeFilterCount > 0
-                  ? "No tools matched your current filter criteria."
-                  : "No equipment registered in the catalog yet."
-              }
-              actionTitle={
-                searchQuery || activeFilterCount > 0
-                  ? "Clear Filters"
-                  : undefined
-              }
-              onAction={() => {
-                setSearchQuery("");
-                setFilters({
-                  status: "All",
-                  printStatus: "All",
-                  category: "All",
-                  validation: "All",
-                  makeYear: "All",
-                });
-              }}
-            />
+            isSearching ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 8, fontWeight: "600" }}>
+                  Searching catalog...
+                </Text>
+              </View>
+            ) : (
+              <EmptyState
+                title="No Tools Found"
+                description={
+                  searchQuery || activeFilterCount > 0
+                    ? "No tools matched your current filter criteria."
+                    : "No equipment registered in the catalog yet."
+                }
+                actionTitle={
+                  searchQuery || activeFilterCount > 0
+                    ? "Clear Filters"
+                    : undefined
+                }
+                onAction={() => {
+                  setSearchQuery("");
+                  setFilters({
+                    status: "All",
+                    printStatus: "All",
+                    category: "All",
+                    validation: "All",
+                    makeYear: "All",
+                  });
+                }}
+              />
+            )
           }
         />
       )}

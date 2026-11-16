@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, Platform } from "react-native";
+import { View, Text, Platform, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import {
   Wrench,
   CheckCircle2,
@@ -18,6 +19,7 @@ interface SummaryCardsProps {
 export const SummaryCards: React.FC<SummaryCardsProps> = ({
   data,
 }) => {
+  const router = useRouter();
   const { isDark } = useAppTheme();
 
   const total = data.totalTools ?? 0;
@@ -142,9 +144,22 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
         {cards.map((card) => {
           const IconComponent = card.icon;
 
+          const handlePress = () => {
+            if (card.key === "scrap") {
+              router.push("/scrap" as any);
+            } else {
+              router.push({
+                pathname: "/(tabs)/tools",
+                params: card.filterVal !== "All" ? { status: card.filterVal } : {},
+              } as any);
+            }
+          };
+
           return (
             <View key={card.key} style={{ width: "50%", padding: 4 }}>
-              <View
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handlePress}
                 style={[
                   {
                     backgroundColor: card.cardBg,
@@ -160,6 +175,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                   Platform.select({
                     web: {
                       backgroundImage: card.webGradient,
+                      cursor: "pointer",
                     } as any,
                   }),
                   shadowStyle,
@@ -239,7 +255,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                     </Text>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
           );
         })}

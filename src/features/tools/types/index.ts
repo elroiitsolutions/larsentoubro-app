@@ -99,6 +99,7 @@ export interface ToolListResponse {
     available?: number;
     moving?: number;
     repair?: number;
+    missing?: number;
     printed?: number;
     unprinted?: number;
   };
