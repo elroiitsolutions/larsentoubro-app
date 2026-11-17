@@ -88,7 +88,8 @@ export const toolService = {
   getAllToolsPaginated: async (
     params: ToolFilterParams = {}
   ): Promise<ToolListResponse> => {
-    const response = await api.get<ToolListResponse>("/api/tools", { params });
+    const queryParams = { limit: 50, ...params };
+    const response = await api.get<ToolListResponse>("/api/tools", { params: queryParams });
     return response.data;
   },
 
@@ -96,7 +97,8 @@ export const toolService = {
    * Retrieves all tools globally across all stores (legacy direct array accessor).
    */
   getAllTools: async (params: ToolFilterParams = {}): Promise<ToolRecord[]> => {
-    const response = await api.get<ToolListResponse>("/api/tools", { params });
+    const queryParams = { limit: 50, ...params };
+    const response = await api.get<ToolListResponse>("/api/tools", { params: queryParams });
     if (response.data && response.data.success) {
       return response.data.data || [];
     }

@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, Switch, ActivityIndicator } from "react-n
 import { formService, FormFieldDefinition } from "@/services/formService";
 import { Input } from "@/components/ui/Input";
 import { useAppTheme } from "@/context/ThemeContext";
+import { InlineCalendarPicker } from "@/components/ui/InlineCalendarPicker";
+import { Calendar as CalendarIcon } from "lucide-react-native";
 
 interface DynamicFieldsSectionProps {
   slug: string;
@@ -11,6 +13,115 @@ interface DynamicFieldsSectionProps {
   onFieldsLoaded?: (fields: FormFieldDefinition[]) => void;
   excludeFieldNames?: string[];
 }
+
+const DynamicDateFieldItem: React.FC<{
+  label: string;
+  isRequired: boolean;
+  value: any;
+  placeholder?: string;
+  onChange: (val: string) => void;
+  isDark: boolean;
+  theme: any;
+}> = ({ label, isRequired, value, placeholder, onChange, isDark, theme }) => {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const dateStr = value !== undefined && value !== null ? String(value) : "";
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text
+        style={{
+          fontSize: 11.5,
+          fontWeight: "700",
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          color: isDark ? "#CBD5E1" : "#334155",
+          marginBottom: 6,
+        }}
+      >
+        {label} {isRequired ? "*" : ""}
+      </Text>
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => setShowCalendar((prev) => !prev)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+          borderWidth: 1.5,
+          borderColor: showCalendar
+            ? theme.primary
+            : isDark
+            ? "#334155"
+            : "#E2E8F0",
+          borderRadius: 14,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+          <CalendarIcon size={18} color={theme.primary} />
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "600",
+              color: dateStr
+                ? isDark
+                  ? "#F8FAFC"
+                  : "#0F172A"
+                : isDark
+                ? "#64748B"
+                : "#94A3B8",
+            }}
+          >
+            {dateStr || placeholder || "Pick a date (YYYY-MM-DD)"}
+          </Text>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 8,
+            backgroundColor: showCalendar
+              ? isDark
+                ? "#1E3A8A"
+                : "#DBEAFE"
+              : theme.primary,
+          }}
+        >
+          <CalendarIcon size={12} color={showCalendar ? theme.primary : "#FFFFFF"} />
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: showCalendar ? theme.primary : "#FFFFFF",
+            }}
+          >
+            {showCalendar ? "Close" : "Pick Date"}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {showCalendar && (
+        <View style={{ marginTop: 8 }}>
+          <InlineCalendarPicker
+            selectedDate={dateStr}
+            onSelectDate={(d) => {
+              onChange(d);
+              setShowCalendar(false);
+            }}
+            onClose={() => setShowCalendar(false)}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
 
 export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
   slug,
@@ -196,7 +307,24 @@ export const DynamicFieldsSection: React.FC<DynamicFieldsSectionProps> = ({
           );
         }
 
-        // 3. Text / Textarea / Number / Date Field Types
+        // 3. Date / Calendar Field Type
+        const fieldTypeLower = String(field.type || "").toLowerCase();
+        if (fieldTypeLower === "date" || fieldTypeLower === "calendar" || fieldTypeLower === "calender") {
+          return (
+            <DynamicDateFieldItem
+              key={fieldKey}
+              label={field.label}
+              isRequired={isRequired}
+              value={fieldValue}
+              placeholder={field.placeholder}
+              onChange={(val) => onChange(fieldKey, val)}
+              isDark={isDark}
+              theme={theme}
+            />
+          );
+        }
+
+        // 4. Text / Textarea / Number Field Types
         return (
           <Input
             key={fieldKey}

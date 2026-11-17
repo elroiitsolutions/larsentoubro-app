@@ -102,6 +102,7 @@ export const ToolAdvancedFilterModal: React.FC<ToolAdvancedFilterModalProps> = (
     'All',
     'Available',
     'Moving',
+    'Missing',
     'Repair',
   ];
 

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { DynamicFieldsSection } from "@/components/common/DynamicFieldsSection";
 import { ProjectRecord, ProjectFormValues } from "../types";
 import { projectService } from "../services/projectService";
 
@@ -29,6 +30,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const [budget, setBudget] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       setBudget(project.budget ? String(project.budget) : "");
       setDescription(project.description || "");
       setDeadline(project.deadline || "");
+      setCustomFields(project.customFields || {});
     } else {
       setName("");
       setProjectCode("");
@@ -52,6 +55,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       setBudget("");
       setDescription("");
       setDeadline("");
+      setCustomFields({});
     }
   }, [project, visible]);
 
@@ -76,6 +80,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         budget: budget.trim() || undefined,
         description: description.trim() || undefined,
         deadline: deadline.trim() || undefined,
+        ...customFields,
+        customFields,
       };
 
       if (isEditing && project?._id) {
@@ -212,6 +218,28 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           numberOfLines={3}
           editable={!loading}
         />
+
+        <View className="mt-3">
+          <DynamicFieldsSection
+            slug="create-project"
+            values={customFields}
+            onChange={(key, val) => setCustomFields((prev) => ({ ...prev, [key]: val }))}
+            excludeFieldNames={[
+              "name",
+              "projectName",
+              "projectCode",
+              "code",
+              "department",
+              "lead",
+              "incharge",
+              "location",
+              "status",
+              "budget",
+              "description",
+              "deadline",
+            ]}
+          />
+        </View>
       </ScrollView>
 
       <View className="flex-row gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">

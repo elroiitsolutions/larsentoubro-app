@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Platform, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import {
   Wrench,
   CheckCircle2,
@@ -13,16 +14,13 @@ import { useAppTheme } from "@/context/ThemeContext";
 
 interface SummaryCardsProps {
   data: SummaryCardsData;
-  activeStatus?: string;
-  onCardPress?: (status: string) => void;
 }
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({
   data,
-  activeStatus,
-  onCardPress,
 }) => {
-  const { theme, isDark } = useAppTheme();
+  const router = useRouter();
+  const { isDark } = useAppTheme();
 
   const total = data.totalTools ?? 0;
   const available = data.available ?? 0;
@@ -145,21 +143,30 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
       <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -4 }}>
         {cards.map((card) => {
           const IconComponent = card.icon;
-          const isActive = activeStatus === card.filterVal;
+
+          const handlePress = () => {
+            if (card.key === "scrap") {
+              router.push("/scrap" as any);
+            } else {
+              router.push({
+                pathname: "/(tabs)/tools",
+                params: card.filterVal !== "All" ? { status: card.filterVal } : {},
+              } as any);
+            }
+          };
 
           return (
             <View key={card.key} style={{ width: "50%", padding: 4 }}>
               <TouchableOpacity
-                activeOpacity={onCardPress ? 0.75 : 1}
-                onPress={() => onCardPress?.(card.filterVal)}
-                disabled={!onCardPress}
+                activeOpacity={0.75}
+                onPress={handlePress}
                 style={[
                   {
                     backgroundColor: card.cardBg,
                     borderRadius: 14,
                     padding: 12,
-                    borderWidth: isActive ? 2 : 1,
-                    borderColor: isActive ? theme.primary : card.borderColor,
+                    borderWidth: 1,
+                    borderColor: card.borderColor,
                     position: "relative",
                     overflow: "hidden",
                     minHeight: 116,
@@ -168,6 +175,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                   Platform.select({
                     web: {
                       backgroundImage: card.webGradient,
+                      cursor: "pointer",
                     } as any,
                   }),
                   shadowStyle,

@@ -24,6 +24,13 @@ import {
   SlidersHorizontal,
   X,
   RotateCcw,
+  CheckCircle2,
+  Clock,
+  Archive,
+  FileText,
+  Package,
+  MapPin,
+  Calendar,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -45,6 +52,7 @@ import { ReportFilterModal } from '@/features/reports/components/ReportFilterMod
 import {
   generateAndShareReportPdf,
   ColumnDefinition,
+  ReportStatItem,
 } from '@/features/reports/utils/reportPdfGenerator';
 
 type ReportTabKey =
@@ -64,14 +72,40 @@ interface TabDefinition {
 }
 
 const TABS: TabDefinition[] = [
-  { key: 'tools', label: 'Tools Master', icon: Wrench, color: '#4F46E5' },
-  { key: 'challans', label: 'Challan Register', icon: Truck, color: '#059669' },
-  { key: 'missing', label: 'Loss & Missing', icon: AlertTriangle, color: '#DC2626' },
-  { key: 'inspections', label: 'Inspections', icon: ClipboardCheck, color: '#D97706' },
-  { key: 'scrap', label: 'Scrap Register', icon: Recycle, color: '#7C3AED' },
-  { key: 'subcontractors', label: 'Subcontractors', icon: Users, color: '#2563EB' },
-  { key: 'logins', label: 'Login Audits', icon: ShieldCheck, color: '#0891B2' },
+  { key: 'tools', label: 'Tools Inventory', icon: Wrench, color: '#2563EB' },
+  { key: 'challans', label: 'Challans & Gate Pass', icon: Truck, color: '#059669' },
+  { key: 'missing', label: 'Loss & Missing Audit', icon: AlertTriangle, color: '#DC2626' },
+  { key: 'inspections', label: 'Inspection Compliance', icon: ClipboardCheck, color: '#D97706' },
+  { key: 'scrap', label: 'Scrap & Disposal', icon: Recycle, color: '#7C3AED' },
+  { key: 'subcontractors', label: 'Subcontractor Custody', icon: Users, color: '#0284C7' },
+  { key: 'logins', label: 'Security & Logins', icon: ShieldCheck, color: '#0D9488' },
 ];
+
+const getToolStatusStyle = (status?: string) => {
+  switch (status) {
+    case 'Available':
+      return { text: '#059669', bg: '#ECFDF5' };
+    case 'Issued':
+      return { text: '#4F46E5', bg: '#EEF2FF' };
+    case 'Moving':
+      return { text: '#D97706', bg: '#FFFBEB' };
+    case 'Repair':
+      return { text: '#EA580C', bg: '#FFF7ED' };
+    case 'Missing':
+      return { text: '#DC2626', bg: '#FEF2F2' };
+    case 'Scrapped':
+      return { text: '#6B7280', bg: '#F3F4F6' };
+    default:
+      return { text: '#2563EB', bg: '#EFF6FF' };
+  }
+};
+
+interface ActiveTabConfig {
+  title: string;
+  subtitle: string;
+  stats: ReportStatItem[];
+  columns: ColumnDefinition[];
+}
 
 export default function ReportsHubScreen() {
   const { theme, isDark } = useAppTheme();
@@ -96,6 +130,13 @@ export default function ReportsHubScreen() {
   const [stores, setStores] = useState<StoreRecord[]>([]);
   const [vendors, setVendors] = useState<ProfileRecord[]>([]);
   const [scrapDealers, setScrapDealers] = useState<ProfileRecord[]>([]);
+
+  const visibleTabs = useMemo(() => {
+    if (user?.role !== 'Admin') {
+      return TABS.filter((t) => t.key !== 'logins');
+    }
+    return TABS;
+  }, [user?.role]);
 
   useEffect(() => {
     const loadMasters = async () => {
@@ -249,19 +290,113 @@ export default function ReportsHubScreen() {
     fetchTabReport();
   };
 
-  // Define table columns & titles for PDF Export
-  const activeTabConfig = useMemo(() => {
+  const handleTabChange = (tabKey: ReportTabKey) => {
+    setActiveTab(tabKey);
+    setSearchQuery('');
+  };
+
+  const handleQuickDatePreset = (presetKey: 'all' | 'today' | 'month' | '30days') => {
+    const today = new Date();
+    const toStr = today.toISOString().split('T')[0];
+
+    if (presetKey === 'all') {
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: 'all',
+        startDate: '',
+        endDate: '',
+      }));
+    } else if (presetKey === 'today') {
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: 'today',
+        startDate: toStr,
+        endDate: toStr,
+      }));
+    } else if (presetKey === 'month') {
+      const fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: 'month',
+        startDate: fromDate.toISOString().split('T')[0],
+        endDate: toStr,
+      }));
+    } else if (presetKey === '30days') {
+      const fromDate = new Date();
+      fromDate.setDate(today.getDate() - 30);
+      setFilters((prev) => ({
+        ...prev,
+        datePreset: '30days',
+        startDate: fromDate.toISOString().split('T')[0],
+        endDate: toStr,
+      }));
+    }
+  };
+
+  // Define tab configuration, Bento KPIs, and PDF table columns
+  const activeTabConfig: ActiveTabConfig = useMemo(() => {
     switch (activeTab) {
       case 'tools':
         return {
-          title: 'Equipment & Tools Master Register',
+          title: 'Equipment & Tools Inventory Register',
           subtitle: 'Active Equipment Inventory across all L&T Facilities',
           stats: [
-            { label: 'Total', value: summaryStats.total || reportData.length },
-            { label: 'Available', value: summaryStats.available || '-' },
-            { label: 'Issued', value: summaryStats.issued || '-' },
-            { label: 'Maintenance', value: summaryStats.underMaintenance || '-' },
-            { label: 'Inspection Due', value: summaryStats.inspectionDue || '-' },
+            {
+              label: 'TOTAL TOOLS',
+              value: summaryStats.totalTools ?? summaryStats.total ?? reportData.length,
+              desc: 'Tracked assets',
+              icon: Wrench,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            },
+            {
+              label: 'AVAILABLE',
+              value: summaryStats.availableCount ?? 0,
+              desc: 'Ready in stores',
+              icon: CheckCircle2,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
+            {
+              label: 'ISSUED / DC',
+              value: summaryStats.issuedCount ?? 0,
+              desc: 'Out at workfronts',
+              icon: Truck,
+              color: '#4F46E5',
+              bgColor: isDark ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.1)',
+            },
+            {
+              label: 'UNDER REPAIR',
+              value: summaryStats.repairCount ?? summaryStats.underRepairCount ?? 0,
+              desc: 'In maintenance',
+              icon: Wrench,
+              color: '#EA580C',
+              bgColor: isDark ? 'rgba(234, 88, 12, 0.2)' : 'rgba(234, 88, 12, 0.1)',
+            },
+            {
+              label: 'INSPECTION DUE',
+              value: summaryStats.overdueCount ?? summaryStats.inspectionDueCount ?? 0,
+              desc: 'Requires engineer audit',
+              icon: Clock,
+              color: '#D97706',
+              bgColor: isDark ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.1)',
+            },
+            {
+              label: 'MISSING',
+              value: summaryStats.missingCount ?? 0,
+              desc: 'Unreconciled loss',
+              icon: AlertTriangle,
+              color: '#E11D48',
+              bgColor: isDark ? 'rgba(225, 29, 72, 0.2)' : 'rgba(225, 29, 72, 0.1)',
+            },
+            {
+              label: 'SCRAPPED',
+              value: summaryStats.scrappedCount ?? 0,
+              desc: 'Decommissioned',
+              icon: Archive,
+              color: '#6B7280',
+              bgColor: isDark ? 'rgba(107, 114, 128, 0.2)' : 'rgba(107, 114, 128, 0.1)',
+            },
           ],
           columns: [
             { title: 'Tool ID', key: 'toolId' },
@@ -282,13 +417,57 @@ export default function ReportsHubScreen() {
         };
       case 'challans':
         return {
-          title: 'Movement & Delivery Challan Register',
+          title: 'Movement & Gate Pass Delivery Challans',
           subtitle: 'Dispatch & Return Audit Records',
           stats: [
-            { label: 'Total Challans', value: summaryStats.total || reportData.length },
-            { label: 'Delivery DCs', value: summaryStats.delivery || '-' },
-            { label: 'Return RCs', value: summaryStats.return || '-' },
-            { label: 'Active / Pending', value: summaryStats.active || '-' },
+            {
+              label: 'TOTAL CHALLANS',
+              value: summaryStats.totalChallans ?? summaryStats.total ?? reportData.length,
+              desc: 'All movements',
+              icon: FileText,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            },
+            {
+              label: 'DELIVERY (DC)',
+              value: summaryStats.deliveryCount ?? 0,
+              desc: `${summaryStats.activeCount ?? 0} active`,
+              icon: Truck,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            },
+            {
+              label: 'RETURN (RC)',
+              value: summaryStats.returnCount ?? 0,
+              desc: 'Processed returns',
+              icon: RotateCcw,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
+            {
+              label: 'DISPATCHED TOOLS',
+              value: summaryStats.totalToolsDispatched ?? 0,
+              desc: 'Sent on DCs',
+              icon: Package,
+              color: '#4F46E5',
+              bgColor: isDark ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.1)',
+            },
+            {
+              label: 'RETURNED TOOLS',
+              value: summaryStats.totalToolsReturned ?? 0,
+              desc: 'Safely received',
+              icon: CheckCircle2,
+              color: '#0D9488',
+              bgColor: isDark ? 'rgba(13, 148, 136, 0.2)' : 'rgba(13, 148, 136, 0.1)',
+            },
+            {
+              label: 'OUTSTANDING',
+              value: summaryStats.totalOutstandingTools ?? 0,
+              desc: 'Pending return in field',
+              icon: Clock,
+              color: '#D97706',
+              bgColor: isDark ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.1)',
+            },
           ],
           columns: [
             { title: 'Challan No', key: 'challanNumber' },
@@ -313,8 +492,30 @@ export default function ReportsHubScreen() {
           title: 'Loss & Missing Tools Register',
           subtitle: 'Discrepancy and Return Loss Tracking',
           stats: [
-            { label: 'Missing Incidents', value: summaryStats.total || reportData.length },
-            { label: 'Under Review', value: summaryStats.pending || '-' },
+            {
+              label: 'TOTAL MISSING TOOLS',
+              value: summaryStats.totalMissing ?? summaryStats.total ?? reportData.length,
+              desc: 'Tools flagged lost at workfronts',
+              icon: AlertTriangle,
+              color: '#E11D48',
+              bgColor: isDark ? 'rgba(225, 29, 72, 0.2)' : 'rgba(225, 29, 72, 0.1)',
+            },
+            {
+              label: 'RESPONSIBLE VENDORS',
+              value: summaryStats.uniqueVendorsCount ?? 0,
+              desc: 'Subcontractors with missing items',
+              icon: Users,
+              color: '#4F46E5',
+              bgColor: isDark ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.1)',
+            },
+            {
+              label: 'IMPACTED PROJECTS',
+              value: summaryStats.uniqueProjectsCount ?? 0,
+              desc: 'Sites where losses occurred',
+              icon: MapPin,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
           ],
           columns: [
             { title: 'Tool ID', key: 'toolIdStr' },
@@ -336,10 +537,54 @@ export default function ReportsHubScreen() {
           title: 'Statutory Inspections & Calibration Compliance',
           subtitle: 'Safety Audit Status & Renewals',
           stats: [
-            { label: 'Total Inspected', value: summaryStats.total || reportData.length },
-            { label: 'Compliant', value: summaryStats.compliant || '-' },
-            { label: 'Due Soon', value: summaryStats.dueSoon || '-' },
-            { label: 'Overdue', value: summaryStats.overdue || '-' },
+            {
+              label: 'ACTIVE FLEET',
+              value: summaryStats.totalTools ?? summaryStats.total ?? reportData.length,
+              desc: 'Tracked assets',
+              icon: Wrench,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            },
+            {
+              label: 'OVERDUE',
+              value: summaryStats.overdueCount ?? 0,
+              desc: 'Requires immediate halt',
+              icon: AlertTriangle,
+              color: '#E11D48',
+              bgColor: isDark ? 'rgba(225, 29, 72, 0.2)' : 'rgba(225, 29, 72, 0.1)',
+            },
+            {
+              label: 'DUE SOON (30D)',
+              value: summaryStats.dueSoonCount ?? 0,
+              desc: 'Schedule inspection',
+              icon: Clock,
+              color: '#D97706',
+              bgColor: isDark ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.1)',
+            },
+            {
+              label: 'PASSED',
+              value: summaryStats.passedCount ?? 0,
+              desc: 'Certified fit for use',
+              icon: CheckCircle2,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
+            {
+              label: 'FAILED / REPAIR',
+              value: summaryStats.failedCount ?? 0,
+              desc: 'Quarantined / repair',
+              icon: X,
+              color: '#DC2626',
+              bgColor: isDark ? 'rgba(220, 38, 38, 0.2)' : 'rgba(220, 38, 38, 0.1)',
+            },
+            {
+              label: 'LIFE EXTENDED',
+              value: summaryStats.lifeExtendedCount ?? 0,
+              desc: '+1 or +2 yrs granted',
+              icon: ClipboardCheck,
+              color: '#7C3AED',
+              bgColor: isDark ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+            },
           ],
           columns: [
             { title: 'Tool ID', key: 'toolId' },
@@ -365,12 +610,33 @@ export default function ReportsHubScreen() {
         };
       case 'scrap':
         return {
-          title: 'Scrap & Asset Disposal Register',
+          title: 'Scrap & Asset Disposal Manifests',
           subtitle: 'Retired and Decommissioned Equipment',
           stats: [
-            { label: 'Total Scrapped', value: summaryStats.total || reportData.length },
-            { label: 'Pending Disposal', value: summaryStats.pending || '-' },
-            { label: 'Disposed', value: summaryStats.disposed || '-' },
+            {
+              label: 'TOTAL SCRAPPED',
+              value: summaryStats.totalScrapped ?? summaryStats.total ?? reportData.length,
+              desc: 'End-of-life or unserviceable',
+              icon: Archive,
+              color: '#6B7280',
+              bgColor: isDark ? 'rgba(107, 114, 128, 0.2)' : 'rgba(107, 114, 128, 0.1)',
+            },
+            {
+              label: 'PENDING DISPOSAL',
+              value: summaryStats.pendingCount ?? 0,
+              desc: 'In yard awaiting SDC',
+              icon: Clock,
+              color: '#D97706',
+              bgColor: isDark ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.1)',
+            },
+            {
+              label: 'DISPOSED VIA SDC',
+              value: summaryStats.disposedCount ?? 0,
+              desc: 'Handed to scrap dealers',
+              icon: CheckCircle2,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
           ],
           columns: [
             { title: 'Tool ID', key: 'toolId' },
@@ -394,14 +660,37 @@ export default function ReportsHubScreen() {
           title: 'Subcontractor Custody Ledger',
           subtitle: 'Partner Holding & Return Compliance Metrics',
           stats: [
-            { label: 'Contractors', value: reportData.length },
             {
-              label: 'Total Dispatched',
-              value: reportData.reduce((acc, c) => acc + (c.totalDispatched || 0), 0),
+              label: 'ACTIVE SUBCONTRACTORS',
+              value: summaryStats.totalSubcontractors ?? summaryStats.total ?? reportData.length,
+              desc: 'Engaged with tooling',
+              icon: Users,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
             },
             {
-              label: 'Holding Count',
-              value: reportData.reduce((acc, c) => acc + (c.holdingCount || 0), 0),
+              label: 'EQUIPMENT IN FIELD',
+              value: summaryStats.totalToolsInField ?? 0,
+              desc: 'Current contractor holding',
+              icon: Package,
+              color: '#4F46E5',
+              bgColor: isDark ? 'rgba(79, 70, 229, 0.2)' : 'rgba(79, 70, 229, 0.1)',
+            },
+            {
+              label: 'TOTAL MISSING TOOLS',
+              value: summaryStats.totalMissingTools ?? 0,
+              desc: 'Lost under vendor custody',
+              icon: AlertTriangle,
+              color: '#E11D48',
+              bgColor: isDark ? 'rgba(225, 29, 72, 0.2)' : 'rgba(225, 29, 72, 0.1)',
+            },
+            {
+              label: 'AVG RETURN COMPLIANCE',
+              value: `${summaryStats.averageComplianceRate ?? 100}%`,
+              desc: 'Fleet turnaround index',
+              icon: CheckCircle2,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
             },
           ],
           columns: [
@@ -420,13 +709,49 @@ export default function ReportsHubScreen() {
         };
       case 'logins':
         return {
-          title: 'Login & Access Audit Activity',
+          title: 'Security & Login Activity Register',
           subtitle: 'User Session History & Security Events',
           stats: [
-            { label: 'Total Logins', value: summaryStats.total || reportData.length },
-            { label: 'Successful', value: summaryStats.success || '-' },
-            { label: 'Failed', value: summaryStats.failed || '-' },
-            { label: 'Pending Approval', value: summaryStats.pending || '-' },
+            {
+              label: 'TOTAL ATTEMPTS',
+              value: summaryStats.total ?? reportData.length,
+              desc: 'Logged authentications',
+              icon: ShieldCheck,
+              color: '#2563EB',
+              bgColor: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            },
+            {
+              label: 'DIRECT SUCCESS',
+              value: summaryStats.success ?? 0,
+              desc: 'Authorized logins',
+              icon: CheckCircle2,
+              color: '#059669',
+              bgColor: isDark ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+            },
+            {
+              label: 'PENDING APPROVAL',
+              value: summaryStats.pending ?? 0,
+              desc: 'Subuser approvals',
+              icon: Clock,
+              color: '#D97706',
+              bgColor: isDark ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.1)',
+            },
+            {
+              label: 'FAILED',
+              value: summaryStats.failed ?? 0,
+              desc: 'Bad credentials',
+              icon: AlertTriangle,
+              color: '#E11D48',
+              bgColor: isDark ? 'rgba(225, 29, 72, 0.2)' : 'rgba(225, 29, 72, 0.1)',
+            },
+            {
+              label: 'REJECTED',
+              value: summaryStats.rejected ?? 0,
+              desc: 'Admin rejected',
+              icon: X,
+              color: '#DC2626',
+              bgColor: isDark ? 'rgba(220, 38, 38, 0.2)' : 'rgba(220, 38, 38, 0.1)',
+            },
           ],
           columns: [
             { title: 'User Name', key: 'userName' },
@@ -442,7 +767,7 @@ export default function ReportsHubScreen() {
           ] as ColumnDefinition[],
         };
     }
-  }, [activeTab, summaryStats, reportData]);
+  }, [activeTab, summaryStats, reportData, isDark]);
 
   const handleSharePdf = async () => {
     try {
@@ -703,7 +1028,7 @@ export default function ReportsHubScreen() {
   }, [filters, activeTab, projects, stores, scrapDealers]);
 
   return (
-    <ScreenWrapper title="Enterprise Reports Hub" showBack requiredPage="/reports">
+    <ScreenWrapper title="Reports & Audit Hub" showBack requiredPage="/reports">
       {/* Horizontal Scrollable Tabs */}
       <View style={{ borderBottomWidth: 1, borderColor: theme.border }}>
         <ScrollView
@@ -711,14 +1036,14 @@ export default function ReportsHubScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, gap: 8 }}
         >
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.key;
             const Icon = tab.icon;
             return (
               <TouchableOpacity
                 key={tab.key}
                 activeOpacity={0.8}
-                onPress={() => setActiveTab(tab.key)}
+                onPress={() => handleTabChange(tab.key)}
                 style={[
                   styles.tabChip,
                   {
@@ -764,7 +1089,8 @@ export default function ReportsHubScreen() {
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder={`Search ${activeTabConfig.title}...`}
+              placeholder="Search by ID, code, name..."
+              onClear={() => setSearchQuery('')}
             />
           </View>
 
@@ -789,6 +1115,57 @@ export default function ReportsHubScreen() {
               Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Quick Date Presets Row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Calendar size={12} color={theme.textSecondary} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingVertical: 2 }}
+          >
+            {[
+              { key: 'all', label: 'All Time' },
+              { key: 'today', label: 'Today' },
+              { key: 'month', label: 'This Month' },
+              { key: '30days', label: 'Last 30 Days' },
+            ].map((preset) => {
+              const isSelected = filters.datePreset === preset.key;
+              return (
+                <TouchableOpacity
+                  key={preset.key}
+                  activeOpacity={0.7}
+                  onPress={() => handleQuickDatePreset(preset.key as any)}
+                  style={[
+                    styles.quickPresetChip,
+                    {
+                      backgroundColor: isSelected
+                        ? (isDark ? '#4338CA' : '#EEF2FF')
+                        : (isDark ? '#1E293B' : '#F1F5F9'),
+                      borderColor: isSelected
+                        ? (isDark ? '#6366F1' : '#4F46E5')
+                        : theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.quickPresetText,
+                      {
+                        color: isSelected
+                          ? (isDark ? '#FFFFFF' : '#4F46E5')
+                          : theme.textSecondary,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Active Filter Badges */}
@@ -879,56 +1256,90 @@ export default function ReportsHubScreen() {
         </View>
       </View>
 
-      {/* KPI Stats Cards Carousel / Row */}
+      {/* KPI Stats Cards Carousel / Bento Grid */}
       {activeTabConfig.stats.length > 0 && (
         <View
           style={{
             flexShrink: 0,
             borderBottomWidth: 1,
             borderColor: theme.border,
-            backgroundColor: isDark ? "rgba(30, 41, 59, 0.4)" : "#F8FAFC",
+            backgroundColor: isDark ? 'rgba(30, 41, 59, 0.4)' : '#F8FAFC',
           }}
         >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={{ flexGrow: 0 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 10 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 10 }}
           >
-            {activeTabConfig.stats.map((s, idx) => (
-              <View
-                key={idx}
-                style={[
-                  styles.statCard,
-                  {
-                    backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: "700",
-                    color: theme.textSecondary,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                  }}
+            {activeTabConfig.stats.map((s, idx) => {
+              const StatIcon = s.icon;
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    styles.statCard,
+                    {
+                      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                      borderColor: theme.border,
+                    },
+                  ]}
                 >
-                  {s.label}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "800",
-                    color: theme.text,
-                    marginTop: 4,
-                  }}
-                >
-                  {s.value}
-                </Text>
-              </View>
-            ))}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '700',
+                        color: theme.textSecondary,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        flex: 1,
+                        marginRight: 6,
+                      }}
+                    >
+                      {s.label}
+                    </Text>
+                    {StatIcon && (
+                      <View
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 8,
+                          backgroundColor: s.bgColor,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <StatIcon size={13} color={s.color} />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 22,
+                      fontWeight: '800',
+                      color: s.color || theme.text,
+                      marginTop: 4,
+                    }}
+                  >
+                    {s.value}
+                  </Text>
+                  {s.desc ? (
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 10,
+                        color: theme.textSecondary,
+                        marginTop: 2,
+                      }}
+                    >
+                      {s.desc}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
       )}
@@ -959,21 +1370,48 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
-                        {item.description || item.name}
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
+                        {item.description || item.name || 'Unnamed Equipment'}
                       </Text>
-                      <Text style={{ fontSize: 11, fontFamily: 'monospace', color: theme.textSecondary, marginTop: 2 }}>
-                        ID: {item.toolId}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                        <Text style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: '600', color: theme.primary }}>
+                          {item.toolId}
+                        </Text>
+                        {item.toolCode ? (
+                          <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                            • Code: {item.toolCode}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    {(() => {
+                      const badgeStyle = getToolStatusStyle(item.status);
+                      return (
+                        <View style={[styles.badge, { backgroundColor: badgeStyle.bg }]}>
+                          <Text style={[styles.badgeText, { color: badgeStyle.text }]}>{item.status || 'Active'}</Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+
+                  <View style={[styles.metaGrid, { marginTop: 10 }]}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Project</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.project?.name || 'Unassigned'}
                       </Text>
                     </View>
-                    <View style={[styles.badge, { backgroundColor: '#EEF2FF' }]}>
-                      <Text style={[styles.badgeText, { color: '#4F46E5' }]}>{item.status}</Text>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Store / Hub</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.currentSite?.name || item.store?.name || '-'}
+                      </Text>
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
+                  <View style={[styles.rowMeta, { marginTop: 8 }]}>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Store: <Text style={{ fontWeight: '600', color: theme.text }}>{item.currentSite?.name || '-'}</Text>
+                      Category: <Text style={{ fontWeight: '600', color: theme.text }}>{item.toolType || item.category || '-'}</Text>
                     </Text>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
                       Validation: <Text style={{ fontWeight: '600', color: theme.text }}>{item.validation || item.validityPeriod || '-'}</Text>
@@ -986,11 +1424,11 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.challanNumber}
                       </Text>
-                      <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
-                        To: {item.subcontractorName || item.vendor?.name || item.receiverName || '-'}
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+                        Recipient: <Text style={{ fontWeight: '600', color: theme.text }}>{item.subcontractorName || item.vendor?.name || item.receiverName || '-'}</Text>
                       </Text>
                     </View>
                     <View
@@ -998,7 +1436,11 @@ export default function ReportsHubScreen() {
                         styles.badge,
                         {
                           backgroundColor:
-                            item.challanType === 'Return' ? '#FEF3C7' : '#ECFDF5',
+                            item.challanType === 'Return'
+                              ? '#ECFDF5'
+                              : item.challanType === 'Scrap'
+                              ? '#FEF2F2'
+                              : '#EEF2FF',
                         },
                       ]}
                     >
@@ -1007,24 +1449,51 @@ export default function ReportsHubScreen() {
                           styles.badgeText,
                           {
                             color:
-                              item.challanType === 'Return' ? '#B45309' : '#047857',
+                              item.challanType === 'Return'
+                                ? '#059669'
+                                : item.challanType === 'Scrap'
+                                ? '#DC2626'
+                                : '#2563EB',
                           },
                         ]}
                       >
-                        {item.challanType} DC
+                        {item.challanType} {item.challanType === 'Return' ? 'RC' : 'DC'}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
-                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Date: <Text style={{ fontWeight: '600', color: theme.text }}>
+                  <View style={[styles.metaGrid, { marginTop: 10 }]}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Project</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.project?.name || 'Unassigned'}
+                      </Text>
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Date</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]}>
                         {item.challanDate ? new Date(item.challanDate).toLocaleDateString('en-GB') : '-'}
                       </Text>
-                    </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.rowMeta, { marginTop: 8 }]}>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Items: <Text style={{ fontWeight: '700', color: theme.text }}>{item.toolCount || 1}</Text>
+                      Items Count: <Text style={{ fontWeight: '700', color: theme.text }}>{item.toolCount || 1}</Text>
                     </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <View
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: item.status === 'Active' ? '#2563EB' : '#059669',
+                        }}
+                      />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: item.status === 'Active' ? '#2563EB' : '#059669' }}>
+                        {item.status || 'Active'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               )}
@@ -1033,7 +1502,7 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.toolIdStr}
                       </Text>
                       <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>
@@ -1045,10 +1514,25 @@ export default function ReportsHubScreen() {
                     </View>
                   </View>
 
-                  <View style={{ backgroundColor: isDark ? '#1E293B' : '#FEF2F2', padding: 8, borderRadius: 8, marginVertical: 6 }}>
+                  <View style={{ backgroundColor: isDark ? '#1E293B' : '#FEF2F2', padding: 8, borderRadius: 8, marginVertical: 8 }}>
                     <Text style={{ fontSize: 11, color: '#B91C1C' }}>
                       Loss Remarks: {item.remarks || 'Reported lost during Return Challan processing.'}
                     </Text>
+                  </View>
+
+                  <View style={[styles.metaGrid, { marginBottom: 6 }]}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Vendor / Custodian</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.vendorName || item.vendor?.name || '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Missing Date</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]}>
+                        {item.missingDate ? new Date(item.missingDate).toLocaleDateString('en-GB') : '-'}
+                      </Text>
+                    </View>
                   </View>
 
                   <View style={styles.rowMeta}>
@@ -1066,10 +1550,10 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.toolId}
                       </Text>
-                      <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>
                         {item.description}
                       </Text>
                     </View>
@@ -1104,20 +1588,34 @@ export default function ReportsHubScreen() {
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
-                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Expiry:{' '}
-                      <Text style={{ fontWeight: '600', color: theme.text }}>
+                  <View style={[styles.metaGrid, { marginTop: 10 }]}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Expiry Date</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]}>
                         {item.nextInspectionDueDate
                           ? new Date(item.nextInspectionDueDate).toLocaleDateString('en-GB')
                           : '-'}
                       </Text>
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Inspected By</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.inspectedBy?.name || 'Engineer'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.rowMeta, { marginTop: 8 }]}>
+                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                      Last Check:{' '}
+                      <Text style={{ fontWeight: '600', color: theme.text }}>
+                        {item.lastInspectionDate
+                          ? new Date(item.lastInspectionDate).toLocaleDateString('en-GB')
+                          : '-'}
+                      </Text>
                     </Text>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Inspected By:{' '}
-                      <Text style={{ fontWeight: '600', color: theme.text }}>
-                        {item.inspectedBy?.name || 'Inspector'}
-                      </Text>
+                      Life Extension: <Text style={{ fontWeight: '600', color: '#7C3AED' }}>{item.lifeExtensionYears ? `+${item.lifeExtensionYears} yr` : 'None'}</Text>
                     </Text>
                   </View>
                 </View>
@@ -1127,10 +1625,10 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.toolId}
                       </Text>
-                      <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>
                         {item.description}
                       </Text>
                     </View>
@@ -1153,14 +1651,30 @@ export default function ReportsHubScreen() {
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
+                  <View style={[styles.metaGrid, { marginTop: 10 }]}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Scrap Reason</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.scrapReason || '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>Dealer / DC</Text>
+                      <Text style={[styles.metaVal, { color: theme.text }]} numberOfLines={1}>
+                        {item.scrapDealer?.name || item.disposalChallanNumber || '-'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.rowMeta, { marginTop: 8 }]}>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Reason: <Text style={{ fontWeight: '600', color: theme.text }}>{item.scrapReason || '-'}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                      Date: <Text style={{ fontWeight: '600', color: theme.text }}>
+                      Scrapped Date:{' '}
+                      <Text style={{ fontWeight: '600', color: theme.text }}>
                         {item.scrappedAt ? new Date(item.scrappedAt).toLocaleDateString('en-GB') : '-'}
                       </Text>
+                    </Text>
+                    <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                      Status: <Text style={{ fontWeight: '600', color: item.isDisposed ? '#475569' : '#DC2626' }}>{item.isDisposed ? 'Disposed via SDC' : 'In Yard'}</Text>
                     </Text>
                   </View>
                 </View>
@@ -1170,7 +1684,7 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.name}
                       </Text>
                       <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
@@ -1184,7 +1698,7 @@ export default function ReportsHubScreen() {
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
+                  <View style={[styles.rowMeta, { marginTop: 10 }]}>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
                       Dispatched: <Text style={{ fontWeight: '700', color: theme.text }}>{item.totalDispatched || 0}</Text>
                     </Text>
@@ -1205,7 +1719,7 @@ export default function ReportsHubScreen() {
                 <View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.text }}>
                         {item.userName}
                       </Text>
                       <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
@@ -1239,7 +1753,7 @@ export default function ReportsHubScreen() {
                     </View>
                   </View>
 
-                  <View style={[styles.rowMeta, { marginTop: 6 }]}>
+                  <View style={[styles.rowMeta, { marginTop: 8 }]}>
                     <Text style={{ fontSize: 11, color: theme.textSecondary }}>
                       Time:{' '}
                       <Text style={{ fontWeight: '600', color: theme.text }}>
@@ -1306,6 +1820,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  quickPresetChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  quickPresetText: {
+    fontSize: 11,
+  },
   activeFilterTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1341,12 +1864,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statCard: {
-    minWidth: 110,
-    paddingHorizontal: 14,
+    width: 145,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    justifyContent: "center",
+    justifyContent: 'space-between',
   },
   badge: {
     paddingHorizontal: 8,
@@ -1357,13 +1880,31 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  metaGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  metaCol: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  metaVal: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
+  },
   rowMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.2)',
   },
 });
-

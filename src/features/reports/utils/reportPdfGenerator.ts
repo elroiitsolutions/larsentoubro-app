@@ -8,10 +8,19 @@ export interface ColumnDefinition {
   render?: (row: any) => string;
 }
 
+export interface ReportStatItem {
+  label: string;
+  value: string | number;
+  desc?: string;
+  icon?: any;
+  color?: string;
+  bgColor?: string;
+}
+
 export interface GenerateReportPdfOptions {
   title: string;
   subtitle?: string;
-  stats?: Array<{ label: string; value: string | number }>;
+  stats?: ReportStatItem[];
   columns: ColumnDefinition[];
   data: any[];
 }
